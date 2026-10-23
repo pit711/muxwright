@@ -4,7 +4,7 @@
 DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
 on the Pluto's own RX input, expected/actual reports and printable test records.
 
-Website: **https://muxwright.com** · Download: [Muxwright-Setup-0.1-beta.exe](https://github.com/pit711/muxwright/releases) (Windows 10/11, 64-bit) · Status: **Beta 0.1**
+Website: **https://muxwright.com** · Download: [Muxwright-Setup-0.1-beta.exe](https://github.com/pit711/muxwright/releases/download/v0.1.0-beta/Muxwright-Setup-0.1-beta.exe) (Windows 10/11, 64-bit) · Status: **Beta 0.1**
 
 ![Muxwright dashboard, DVB-T modulation page](docs/img/dashboard.webp)
 
