@@ -2,8 +2,9 @@
 # DVB-Abnahme: (1) live auf stdout mit Echtzeit-Leser + ctl (EIT, Name, Playlist next), (2) UDP-Ausgabe an nc -lu,
 # (3) Durchsatz ungebremst. Ergebnisse in tests/results_wsl/dvb_*.txt
 # Aufruf (WSL): bash runner/tests/dvb_live_test.sh
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 OUT=$R/tests/results_wsl
 mkdir -p $OUT
 cd $R

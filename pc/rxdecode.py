@@ -20,7 +20,8 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-MODTESTS = "/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests"
+from setup import win2wsl  # noqa: E402
+MODTESTS = win2wsl(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pluto_fw", "mod", "tests"))
 DVBS_RX = "/opt/dablab/mod/src/dvbs_rx"
 
 

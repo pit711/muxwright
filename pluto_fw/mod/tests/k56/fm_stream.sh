@@ -1,6 +1,7 @@
 #!/bin/bash
 # UKW über den Runner (WSL) → iio_writedev (libiio, Netzwerk-Backend) → Pluto-DAC. start [CONFIG] | stop | status
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner; L=/opt/dablab/mod/stream/fm.log
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"   # Repo-Wurzel (dablab/)
+R=$ROOT/runner; L=/opt/dablab/mod/stream/fm.log
 case "$1" in
 start)
   CFG=${2:-$R/examples/fm_standard.json}

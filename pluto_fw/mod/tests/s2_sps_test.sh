@@ -1,6 +1,7 @@
 #!/bin/bash
 # DATV-Symbolraten: dvbs2_mod --sps 2/4/8 -> dvbs2_hardrx (TS bitgleich zurück?)
-M=/opt/dablab/mod/x86s2; T=/tmp/s2sps; mkdir -p $T; H=/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests/dvbs2_hardrx.py
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"   # Repo-Wurzel (dablab/)
+M=/opt/dablab/mod/x86s2; T=/tmp/s2sps; mkdir -p $T; H=$ROOT/pluto_fw/mod/tests/dvbs2_hardrx.py
 head -c $((188*3000)) /dev/urandom | python3 -c "import sys;d=bytearray(sys.stdin.buffer.read());d[::188]=b'\x47'*(len(d)//188);sys.stdout.buffer.write(d)" > $T/in.ts
 fail=0
 for sps in 2 4 8; do for c in "qpsk 2/3 0 0.35" "qpsk 3/4 1 0.25" "8psk 5/6 0 0.20"; do set -- $c

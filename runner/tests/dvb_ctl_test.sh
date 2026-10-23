@@ -2,8 +2,9 @@
 # ctl live: EIT-Text, Dienstname/Anbieter, LCN, Playlist next. Mitschnitt mit Echtzeit-Leser, danach Auswertung
 # aller Tabellenversionen im Mitschnitt (tstables --all-once fuer jede neue Version).
 # Aufruf (WSL): bash runner/tests/dvb_ctl_test.sh
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 cd $R
 for CFG in examples/dvbt_testbild_sd.json examples/dvbt_playlist.json; do
   KEY=$(python3 -c "import json;print(json.load(open('$CFG'))['services'][0]['key'])")

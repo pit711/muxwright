@@ -7,10 +7,11 @@
 #   bash sat_uhd_nvenc.sh dry [SEK]               Probelauf an 127.0.0.1:12345 (nc -lu), misst die Rate - sendet NICHT zum Pluto
 #   bash sat_uhd_nvenc.sh stop | status | ctl '<json>'
 #
-# Aufruf aus Windows: wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/demo/sat_uhd_nvenc.sh start
+# Aufruf aus Windows: wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/runner/demo/sat_uhd_nvenc.sh start
 # Vor dem Umschalten den bisherigen Strom (stream_sat_3.sh stop) beenden: nur EIN Sender auf 192.168.2.1:1234.
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 STATE=/tmp/dablab_sat_uhd
 mkdir -p $STATE
 cd $R

@@ -3,9 +3,10 @@
 #   bash stream_video.sh start [VIDEO] [ZIEL]  |  stop  |  status
 # MPEG-2 SD 720×576i 25 fps 16:9 (~10 Mbit/s), MP2 192k, CBR = exakte DVB-T-Nutzbitrate (8k/16-QAM/2/3/GI 1/4/8 MHz),
 # Kennungen wie Testbild-TS: ONID/NID 0xFF01, TSID 1, SID 1, „DABLAB Test“; NIT 594 MHz/8 MHz; EIT p/f „Big Buck Bunny“.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"   # Repo-Wurzel (dablab/)
 W=/opt/dablab/mod/stream; mkdir -p $W
 RATE=13270588
-VID=${2:-/mnt/g/DEEPSEEK/plutoTX/dablab/runtime/media/video/aqz-KE-bpKQ.mp4}
+VID=${2:-$ROOT/runtime/media/video/aqz-KE-bpKQ.mp4}
 DST=${3:-192.168.2.1:1234}
 case "$1" in
 start)

@@ -1,9 +1,10 @@
 #!/bin/bash
 # PAL-Abnahme (WSL, ohne Geraet): render (Schleife), check (beide Verfahren), Vergleich mit der Referenzdatei des
 # Modulator-Agenten, live-Mitschnitte (Testbild + Video) demoduliert, Durchsatz je Worker-Zahl.
-# Aufruf: wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/tests/pal_test.sh
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+# Aufruf: wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/runner/tests/pal_test.sh
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 OUT=$R/tests/results_wsl
 C=$DABLAB_RUNTIME/checks
 cd $R

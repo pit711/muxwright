@@ -2,8 +2,9 @@
 # Nahtlose Schleife einer Videodatei (DVB): rendert mehrere Schleifendurchlaeufe und prueft PTS/DTS/PCR-Kontinuitaet,
 # tsp continuity + pcrverify. Vergleich: loop_mode "feeder" (Standard) gegen "stream_loop" (alter Weg, ffmpeg -stream_loop -1).
 # Aufruf (WSL): bash runner/tests/dvb_loop_test.sh [datei] [sekunden]
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 cd $R
 FILE=${1:-media/video/clip1.mp4}
 SECS=${2:-15}

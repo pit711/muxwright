@@ -2,8 +2,9 @@
 # UDP-Ausgabe (tsp -O ip mit regulate) an einen lokalen nc -lu-Empfaenger. Die Rate wird aus dem Wachstum der
 # Empfangsdatei im eingeschwungenen Zustand bestimmt (Dateigroesse bei t=5 s und t=25 s), dazu tsanalyze/continuity.
 # Aufruf (WSL): bash runner/tests/dvb_udp_test.sh [config] [sekunden]
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 cd $R
 CFG=${1:-examples/dvbc_zwei_programme.json}
 SECS=${2:-30}

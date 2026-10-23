@@ -1,4 +1,5 @@
-M=/opt/dablab/mod/x86s2; T=/tmp/s2sps; H=/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests/dvbs2_hardrx.py
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"   # Repo-Wurzel (dablab/)
+M=/opt/dablab/mod/x86s2; T=/tmp/s2sps; H=$ROOT/pluto_fw/mod/tests/dvbs2_hardrx.py
 for ro in 0.35 0.20; do
 $M/dvbs2_mod -i $T/in.ts -o $T/tx.iq --mod 8psk --rate 5/6 --pilots 0 --rolloff $ro --sps 2 --sr 333000 --quiet 2>/dev/null
 python3 $H --iq $T/tx.iq --sps 2 --mod 8psk --rate 5/6 --pilots 0 --rolloff $ro -o $T/rx.ts | python3 -c "import sys,json;r=json.load(sys.stdin);print('$ro',{k:r[k] for k in ('ok','frames','bbheader_ok','up_crc_errors','pls_ok','mer_db')})"

@@ -1,16 +1,17 @@
 #!/bin/bash
 # DAB-Lab Pluto-Firmware – Build-Skript (WSL1 „dablab“, Ubuntu 24.04)
 #
-#   wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/build.sh [all|prepare|kernel|rootfs|image|clean-rootfs]
+#   wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/pluto_fw/build.sh [all|prepare|kernel|rootfs|image|clean-rootfs]
 #
 # Baut unter /opt/dablab/fw (schnelles WSL-Dateisystem) und kopiert Ergebnisse nach pluto_fw/out.
 # Basis: plutosdr-fw v0.31 (Linux 4.14 @387d584, ADI-Buildroot 2019.02.2) – dieselbe Generation wie das Gerät.
 # FPGA-Bitstream wird NICHT gebaut, sondern aus dem Backup (mtd3) bzw. dem offiziellen v0.31-Release übernommen.
 set -eo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # Repo-Wurzel (dablab/)
 FW=/opt/dablab/fw
 SRC=$FW/plutosdr-fw
-G=${DABLAB_PLUTO_FW:-/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw}
+G=${DABLAB_PLUTO_FW:-$ROOT/pluto_fw}
 TCDIR=$FW/toolchain/armv7-eabihf--glibc--stable-2018.11-1
 TCURL=https://toolchains.bootlin.com/downloads/releases/toolchains/armv7-eabihf/tarballs/armv7-eabihf--glibc--stable-2018.11-1.tar.bz2
 CROSS=arm-buildroot-linux-gnueabihf-

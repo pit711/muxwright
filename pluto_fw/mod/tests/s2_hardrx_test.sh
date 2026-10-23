@@ -1,6 +1,7 @@
 #!/bin/bash
 # dvbs2_mod → Datei → dvbs2_hardrx: TS muss bitgleich zurückkommen (sps 2), dazu nachgebildeter Funkweg (sps 1, CFO, Phase, Rauschen)
-M=/opt/dablab/mod/x86s2; T=/tmp/s2hr; mkdir -p $T; H=/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests/dvbs2_hardrx.py
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"   # Repo-Wurzel (dablab/)
+M=/opt/dablab/mod/x86s2; T=/tmp/s2hr; mkdir -p $T; H=$ROOT/pluto_fw/mod/tests/dvbs2_hardrx.py
 python3 - <<'P'
 import numpy as np
 rng=np.random.default_rng(7); n=6000
@@ -20,7 +21,7 @@ i=a.find(b[:188*4]); print('identisch' if i>=0 and a[i:i+len(b)]==b and len(b)>1
   # Funkweg: Matched Filter, 1 Sample/Symbol mit Versatz, CFO 2e-5 Zyklen/Symbol, Phase 1 rad, SNR 25 dB
   python3 - $T/tx.iq $T/rx1.iq $1 <<'P'
 import sys, numpy as np
-sys.path.insert(0, "/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests"); import dvbs2_hardrx as H
+sys.path.insert(0, "$ROOT/pluto_fw/mod/tests"); import dvbs2_hardrx as H
 r=np.fromfile(sys.argv[1],np.int16).astype(float); x=r[0::2]+1j*r[1::2]
 y=np.convolve(x,H.rrc(0.35,2,64),mode="full")[32:]; y=y[1::2]
 n=np.arange(len(y)); y=y*np.exp(1j*(1.0+2*np.pi*2e-5*n)); p=np.mean(np.abs(y)**2)

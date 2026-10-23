@@ -27,8 +27,8 @@ Lauffähig unter macOS (BSD) und Linux/WSL1 (GNU). Der Runner ruft keine Shell-W
 Pfade in der Konfiguration wie `media/x.jpg` sind relativ zu `DABLAB_RUNTIME`.
 
 Aufruf am PC (WSL1, Distribution `dablab`, Werkzeuge in `/opt/dablab/bin`):
-`wsl -d dablab -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/tests/wsl_env.sh python3 dablab_run.py <befehl> ...`
-`tests/wsl_env.sh` setzt `DABLAB_BIN=/opt/dablab/bin`, `DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime` und einen sauberen
+`wsl -d dablab -- bash /mnt/<drive>/.../dablab/runner/tests/wsl_env.sh python3 dablab_run.py <befehl> ...`
+`tests/wsl_env.sh` setzt `DABLAB_BIN=/opt/dablab/bin`, `DABLAB_RUNTIME=/mnt/<drive>/.../dablab/runtime` und einen sauberen
 `PATH`. Unabhängig davon entfernt der Runner selbst alle `/mnt/...`-Einträge aus dem `PATH` (WSL hängt den Windows-PATH an,
 sonst könnte ein Windows-ffmpeg greifen) und stellt `DABLAB_BIN` voran. Aus Git-Bash heraus `MSYS_NO_PATHCONV=1` setzen.
 FIFOs, PAD-Sockets und die IQ-Dateien von `check` liegen in `/tmp`, weil `/mnt/g` langsam ist und keine FIFOs kennt.
@@ -414,12 +414,12 @@ HEVC 2160p25 16 Mbit/s, ONID 0xFF03, TSID 3, NIT FEC 7/8) und `examples/dvbs_sat
 
 ```
 # 1. bisherigen Strom beenden (nur ein Sender auf 192.168.2.1:1234):
-wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests/k56/stream_sat_3.sh stop
+wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/pluto_fw/mod/tests/k56/stream_sat_3.sh stop
 # 2. optional Probelauf ohne Pluto (UDP an 127.0.0.1, misst die Rate):
-wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/demo/sat_uhd_nvenc.sh dry 60
+wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/runner/demo/sat_uhd_nvenc.sh dry 60
 # 3. umschalten (dvbs_mod --rate 7/8 auf dem Pluto laeuft weiter und liest udp://:1234):
-wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/demo/sat_uhd_nvenc.sh start            # nur SID 2
-wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/demo/sat_uhd_nvenc.sh start3           # alle drei Dienste
+wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/runner/demo/sat_uhd_nvenc.sh start            # nur SID 2
+wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/runner/demo/sat_uhd_nvenc.sh start3           # alle drei Dienste
 # Status / EIT aendern / Stopp:
 … sat_uhd_nvenc.sh status
 … sat_uhd_nvenc.sh ctl '{"eit":{"service":"uhd","title":"Big Buck Bunny UHD","text":"live NVENC"}}'

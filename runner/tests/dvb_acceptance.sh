@@ -1,8 +1,9 @@
 #!/bin/bash
 # DVB-Abnahme (WSL): check aller Beispiele, YouTube-Download, UDP an nc -lu, ctl live, Modulatorweg.
-# Aufruf: wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/runner/tests/dvb_acceptance.sh
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+# Aufruf: wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/runner/tests/dvb_acceptance.sh
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 OUT=$R/tests/results_wsl
 mkdir -p $OUT
 cd $R

@@ -3,9 +3,10 @@
 # Pruefempfaengern aus pluto_fw/mod/tests (gr-dtv bzw. numpy) zurueck zu TS und prueft den TS mit tsanalyze/ffprobe.
 # Danach: live mit Echtzeit-Leser auf der Abtastrate (Durchsatzreserve).
 # Aufruf (WSL): bash runner/tests/dvb_mod_test.sh
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
-M=/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod/tests
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
+M=$ROOT/pluto_fw/mod/tests
 cd $R
 W=/tmp/dvbmodtest; mkdir -p $W
 

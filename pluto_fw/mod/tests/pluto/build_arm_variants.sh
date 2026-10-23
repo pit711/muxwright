@@ -1,7 +1,8 @@
 #!/bin/bash
 # baut ARM-Varianten (Fusion an/aus, Prefetch) des Selbsttests/Modulators für den Pluto-Mikrobenchmark
 set -e
-SRC=/mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/mod
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"   # Repo-Wurzel (dablab/)
+SRC=$ROOT/pluto_fw/mod
 OUT=${OUT:-/tmp/dablab}
 rm -f $OUT/st_* $OUT/mod_*
 cd /opt/dablab/mod && rm -rf armv && mkdir armv && cp -r $SRC/. armv/ && cd armv

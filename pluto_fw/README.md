@@ -64,7 +64,7 @@ pluto_fw/
 ## Bauen (WSL1 „dablab“, Ubuntu 24.04)
 
 ```
-wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/pluto_fw/build.sh all
+wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/pluto_fw/build.sh all
 #   Schritte einzeln: prepare | kernel | rootfs | image ; clean-rootfs löscht buildroot/output
 ```
 

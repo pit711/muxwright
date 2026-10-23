@@ -2,8 +2,9 @@
 # Zwei volle Schleifendurchlaeufe Big Buck Bunny (YouTube-Datei media/video/aqz-KE-bpKQ.mp4, 634,6 s):
 # render 1300 s (DVB-T QPSK 1/2 1/4, 4,98 Mbit/s, MPEG-2 SD + MP2), danach tsp continuity/pcrverify, PTS/DTS-Schritte,
 # Standbild-/Ton-Pruefung um die Schleifenstellen.
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 cd $R
 SECS=${1:-1300}
 MODE=${2:-feeder}

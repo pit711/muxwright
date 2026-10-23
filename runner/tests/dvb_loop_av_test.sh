@@ -2,8 +2,9 @@
 # Schleifenstelle mit ungleich langen Spuren: Testvideos mit Zaehler (jedes Bild verschieden), Ton laenger bzw. kuerzer
 # als das Bild. Vergleicht loop_mode feeder (neu) und stream_loop (alt): Standbilder, Schwarzbild, Tonluecken,
 # PTS-Spruenge, tsp continuity/pcrverify ueber mehrere Durchlaeufe.
-export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=/mnt/g/DEEPSEEK/plutoTX/dablab/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
-R=/mnt/g/DEEPSEEK/plutoTX/dablab/runner
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"   # Repo-Wurzel (dablab/)
+export DABLAB_BIN=/opt/dablab/bin DABLAB_RUNTIME=$ROOT/runtime PATH=/opt/dablab/bin:/usr/local/bin:/usr/bin:/bin
+R=$ROOT/runner
 M=$DABLAB_RUNTIME/media/video
 cd $R
 mkdir -p $M
