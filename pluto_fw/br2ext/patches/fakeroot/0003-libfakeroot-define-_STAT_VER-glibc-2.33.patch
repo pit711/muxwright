@@ -1,0 +1,13 @@
+--- a/libfakeroot.c	2026-10-23 02:19:08.901533700 +0200
++++ b/libfakeroot.c	2026-10-23 02:19:08.913049300 +0200
+@@ -58,6 +58,10 @@
+ 
+ #include "config.h"
+ #include "communicate.h"
++/* glibc >= 2.33 hat _STAT_VER entfernt (dablab host build fix) */
++#ifndef _STAT_VER
++#define _STAT_VER 0
++#endif
+ 
+ #ifdef __APPLE__
+ /* The *xattr functions are currently disabled on __APPLE__ since the prototypes

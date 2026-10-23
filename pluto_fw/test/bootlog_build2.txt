@@ -1,0 +1,25 @@
+
+=== Mitschnitt COM33 ab 2026-10-23 11:05:41 ===
+[    0.0s] COM33 geöffnet
+
+Welcome to Pluto
+pluto login: 
+Welcome to Pluto
+pluto login: 
+[    7.4s] COM33 weg (SerialException)
+
+=== Mitschnitt COM33 ab 2026-10-23 11:09:47 ===
+[  250.6s] COM33 geöffnet
+
+
+
+Welcome to Pluto (DAB-Lab)
+pluto login: 
+=== Ende 11:10:41 ===
+[   54.3s] COM33 geöffnet
+
+Welcome to Pluto (DAB-Lab)
+pluto login: 
+Welcome to Pluto (DAB-Lab)
+pluto login: 
+=== Ende 11:13:48 ===

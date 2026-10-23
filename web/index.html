@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#0f172a">
+<title>PlutoSDR-Regie</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232563eb'/%3E%3Cpath d='M9 22a10 10 0 0 1 0-12M23 10a10 10 0 0 1 0 12M13 19a5 5 0 0 1 0-6M19 13a5 5 0 0 1 0 6' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='16' cy='16' r='2' fill='white'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<svg id="sprite" xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <defs>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-antenna" viewBox="0 0 24 24"><path d="M4.9 16.1a10 10 0 0 1 0-14.2M19.1 1.9a10 10 0 0 1 0 14.2M7.8 13.2a6 6 0 0 1 0-8.4M16.2 4.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="9" r="2"/><path d="M12 11v11M8.5 22h7"/></symbol>
+  <symbol id="i-radio" viewBox="0 0 24 24"><rect x="2" y="8" width="20" height="13" rx="2.5"/><path d="M6 8 17 3"/><circle cx="16" cy="14.5" r="3"/><path d="M5.5 12.5h5M5.5 16.5h5"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M2 12h2l2-6 3 12 3-15 3 18 3-12 2 3h2"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-type" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></symbol>
+  <symbol id="i-ramp" viewBox="0 0 24 24"><path d="M3 4v16h18"/><path d="M7 8h3v4h3v4h3v-0"/><path d="m16 16 4 0"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="currentColor"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M18.4 6.6a9 9 0 1 1-12.8 0M12 2v10"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-id" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><circle cx="8" cy="12" r="2.5"/><path d="M13 10h5M13 14h4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-data" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></symbol>
+  <symbol id="i-noise" viewBox="0 0 24 24"><path d="M2 12h1l1-4 1 7 1-9 1 11 1-8 1 5 1-7 1 9 1-6 1 4 1-8 1 10 1-7 1 5 1-3 1 2h1"/></symbol>
+  <symbol id="i-lr" viewBox="0 0 24 24"><path d="M4 6v12h5M15 18V6h3a3 3 0 0 1 0 6h-3l5 6"/></symbol>
+  <symbol id="i-polarity" viewBox="0 0 24 24"><path d="M2 12h4l2-8 2 8h12"/><path d="M14 12l2 6 2-6"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4s1-1 4-1 5 2 8 2 4-1 4-1v11s-1 1-4 1-5-2-8-2-4 1-4 1"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+  <symbol id="i-checklist" viewBox="0 0 24 24"><path d="m3 6 2 2 3-3M3 13l2 2 3-3M3 20l2 2 3-3"/><path d="M12 7h9M12 14h9M12 21h9"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M4 17l5-5-5-5M12 19h8"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></symbol>
+  <symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="8" rx="2"/><rect x="2" y="13" width="20" height="8" rx="2"/><path d="M6 7h.01M6 17h.01"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+  <symbol id="i-buffer" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M11 10v4M15 10v4"/></symbol>
+  <symbol id="i-playlist" viewBox="0 0 24 24"><path d="M3 6h11M3 12h11M3 18h7"/><circle cx="18" cy="17" r="2.5"/><path d="M20.5 17V8l3-1"/></symbol>
+  <symbol id="i-tv" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="2"/><path d="m17 2-5 5-5-5"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M19 20 9 12l10-8z" fill="currentColor"/><path d="M5 4v16"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="m5 4 10 8-10 8z" fill="currentColor"/><path d="M19 4v16"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.4" fill="currentColor"/><circle cx="15" cy="6" r="1.4" fill="currentColor"/><circle cx="9" cy="12" r="1.4" fill="currentColor"/><circle cx="15" cy="12" r="1.4" fill="currentColor"/><circle cx="9" cy="18" r="1.4" fill="currentColor"/><circle cx="15" cy="18" r="1.4" fill="currentColor"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar" id="topbar">
+  <a class="brand" href="#/regie" title="Regie" data-i18n-title="Regie">
+    <span class="logo"><svg class="ico" viewBox="0 0 24 24"><path d="M5.6 17a8 8 0 0 1 0-10M18.4 7a8 8 0 0 1 0 10M8.5 14.5a4 4 0 0 1 0-5M15.5 9.5a4 4 0 0 1 0 5"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg></span>
+    <span class="brand-t"><b>PlutoSDR-Regie</b><small>Studio</small></span>
+  </a>
+
+  <div class="txstatus off" id="txstatus" data-testid="tx-status" aria-live="polite">
+    <span class="tx-led"></span>
+    <div class="tx-main">
+      <div class="tx-row"><b class="tx-state" data-testid="tx-state">AUS</b><span class="tx-sub"></span></div>
+      <div class="tx-details"></div>
+      <div class="tx-np" id="hdr-np" data-testid="hdr-np" hidden></div>
+    </div>
+  </div>
+
+  <div class="txctl">
+    <div class="seg stdswitch" role="radiogroup" aria-label="Standard" data-testid="std-switch"></div>
+    <label class="switch rfswitch" title="Senden: an = Kette starten und Pluto einschalten, aus = Pluto stumm (−89,75 dB) und Kette stoppen" data-i18n-title="Senden: an = Kette starten und Pluto einschalten, aus = Pluto stumm (−89,75 dB) und Kette stoppen">
+      <input type="checkbox" role="switch" data-testid="rf-enable">
+      <span class="track"><i></i></span><span class="rfsw-text sw-label" data-i18n="Senden aus">Senden aus</span>
+    </label>
+  </div>
+
+  <div class="chips" id="chips">
+    <span class="chip-st na" data-testid="st-pluto"><svg class="ico"><use href="#i-chip"/></svg><small>Pluto</small><b>–</b></span>
+    <span class="chip-st na" data-testid="st-runner"><svg class="ico"><use href="#i-server"/></svg><small data-i18n="Signalerzeugung (WSL)">Signalerzeugung (WSL)</small><b>–</b></span>
+    <span class="chip-st na" data-testid="st-underruns"><svg class="ico"><use href="#i-alert"/></svg><small data-i18n="Underruns">Underruns</small><b>–</b></span>
+    <span class="chip-st na" data-testid="st-rate"><svg class="ico"><use href="#i-pulse"/></svg><small data-i18n="Datenrate">Datenrate</small><b>–</b></span>
+    <span class="chip-st na" data-testid="st-buffer"><svg class="ico"><use href="#i-buffer"/></svg><small data-i18n="Puffer">Puffer</small><b>–</b></span>
+    <span class="chip-st na" data-testid="st-uptime" hidden><svg class="ico"><use href="#i-clock"/></svg><small data-i18n="Laufzeit">Laufzeit</small><b>–</b></span>
+  </div>
+
+  <div class="tools">
+    <span class="conn bad" data-testid="conn"><i></i><span>…</span></span>
+    <button type="button" class="icon-btn" data-testid="onb-open" title="Einrichtung & Rechtliches" data-i18n-title="Einrichtung &amp; Rechtliches"><svg class="ico"><use href="#i-shield"/></svg></button>
+    <button type="button" class="icon-btn" data-testid="theme-toggle" title="Darstellung" data-i18n-title="Darstellung"></button>
+  </div>
+
+  <button type="button" class="estop" data-testid="estop" title="Not-Aus: Kette sofort stoppen, Pluto −89,75 dB (Strg+Leertaste)" data-i18n-title="Not-Aus: Kette sofort stoppen, Pluto −89,75 dB (Strg+Leertaste)">
+    <svg class="ico"><use href="#i-power"/></svg><span data-i18n="NOT-AUS">NOT-AUS</span>
+  </button>
+</header>
+
+<div class="layout">
+  <nav class="sidenav" id="nav" aria-label="Bereiche"></nav>
+  <main id="main" tabindex="-1"><div class="boot"><span class="spinner big"></span><p data-i18n="Verbinde mit dem Server …">Verbinde mit dem Server …</p></div></main>
+</div>
+
+<div class="applybar" id="applybar" hidden data-testid="applybar">
+  <div class="ab-info">
+    <svg class="ico"><use href="#i-alert"/></svg>
+    <div><b class="ab-count"></b><small class="ab-kind"></small></div>
+    <button type="button" class="linkbtn ab-errbtn" data-testid="apply-errors" data-i18n="Fehler anzeigen">Fehler anzeigen</button>
+  </div>
+  <ul class="ab-errlist"></ul>
+  <div class="ab-server" hidden><span data-i18n="Serverkonfiguration hat sich geändert.">Serverkonfiguration hat sich geändert.</span> <button type="button" class="linkbtn" data-testid="apply-reload" data-i18n="Neu laden">Neu laden</button></div>
+  <div class="ab-actions">
+    <label class="ab-auto" title="Gültige Änderungen nach kurzer Pause selbst übernehmen, bei Bedarf mit Neustart der Kette" data-i18n-title="Gültige Änderungen nach kurzer Pause selbst übernehmen, bei Bedarf mit Neustart der Kette"><input type="checkbox" data-testid="apply-auto"> <span data-i18n="Automatisch">Automatisch</span></label>
+    <button type="button" class="btn ghost" data-testid="apply-discard" data-i18n="Verwerfen">Verwerfen</button>
+    <button type="button" class="btn primary" data-testid="apply"><svg class="ico"><use href="#i-check"/></svg><span data-i18n="Übernehmen">Übernehmen</span></button>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

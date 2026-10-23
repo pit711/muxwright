@@ -1,0 +1,45 @@
+Muxwright – Fremdkomponenten, Lizenzen und Quellcode
+=====================================================
+
+A) NICHT im Installationspaket enthalten (installiert der Nutzer in der Einrichtung selbst aus den offiziellen Quellen)
+---------------------------------------------------------------------------------------------------------------------
+Linux-Umgebung (WSL2, Ubuntu 24.04)      https://ubuntu.com/desktop/wsl
+FFmpeg mit x264/x265 (Ubuntu-Paket)      LGPL-2.1+/GPL-2.0+        https://packages.ubuntu.com/noble/ffmpeg
+TSDuck                                   BSD-2-Clause              https://github.com/tsduck/tsduck
+ODR-mmbTools (AudioEnc, PadEnc,          GPL-3.0                   https://github.com/Opendigitalradio
+  DabMux, DabMod) mit FDK-AAC            FDK-AAC-Lizenz (Fraunhofer; enthält ausdrücklich KEINE Patentlizenz)
+welle-cli (welle.io)                     GPL-2.0                   https://github.com/AlbrechtL/welle.io
+redsea (RDS-Decoder)                     MIT                       https://github.com/windytan/redsea
+yt-dlp (optional)                        Unlicense                 https://github.com/yt-dlp/yt-dlp
+FFmpeg für Windows (optional, NVENC)     LGPL-2.1+ (BtbN-Build)    https://github.com/BtbN/FFmpeg-Builds
+
+Patentpflichtige Verfahren (H.264/AVC, H.265/HEVC, AAC/HE-AAC, ggf. DVB-S2): Muxwright enthält keine Patentlizenzen.
+Private, nichtgewerbliche Nutzung ist in Deutschland patentfrei (§ 11 Nr. 1 PatG). Für gewerbliche Nutzung sind die
+Lizenzen bei den Patentpools selbst zu erwerben (Via LA: AAC/AVC; Access Advance: HEVC; Sisvel: DVB-S2).
+
+B) Im Installationspaket enthalten
+----------------------------------
+Muxwright.exe (Starter)                  enthält Python 3 (PSF-Lizenz), numpy/scipy (BSD-3-Clause), pylibiio (LGPL-2.1),
+                                         paramiko (LGPL-2.1), cryptography/bcrypt/PyNaCl (Apache-2.0/BSD), gebaut mit
+                                         PyInstaller (GPL-2.0 mit Ausnahme für gebündelte Programme)
+pc\libiio\*  (libiio, libusb, libxml2,   LGPL-2.1 (libiio, libusb), MIT (libxml2), weitere siehe Analog Devices:
+  iio-Werkzeuge)                         https://github.com/analogdevicesinc/libiio
+pluto_fw\tools\dfu-util-win64            dfu-util GPL-2.0 (https://dfu-util.sourceforge.net, Quellcode dort), libusb LGPL-2.1
+pluto_fw\firmware\pluto.frm / pluto.dfu  Firmware-Image für den ADALM-Pluto auf Basis von plutosdr-fw v0.31 (Analog Devices):
+                                         Linux 4.14 (GPL-2.0), U-Boot-Werkzeuge (GPL-2.0), Buildroot-Pakete (GPL/LGPL/BSD/MIT
+                                         u. a.), libiio/iiod 0.25 (LGPL-2.1), NE10 (BSD-3-Clause), iperf3 (BSD-3-Clause),
+                                         FPGA-Bitstream unverändert von Analog Devices; dazu Muxwright-Geräte-Agent,
+                                         iqplay und Modulatoren (MIT)
+pc\device_files\*_mod_iio                Muxwright-Modulatoren für den Pluto-ARM (MIT), statisch gelinkt mit libiio (LGPL-2.1)
+
+C) Quellcode der Firmware (GPL-2.0, Abschnitt 3)
+------------------------------------------------
+Die Bauanleitung und alle Muxwright-Änderungen liegen im Paket bei: pluto_fw\build.sh, pluto_fw\br2ext (Buildroot-
+Erweiterung), pluto_fw\agent, pluto_fw\iqplay, pluto_fw\mod, pluto_fw\firmware\buildroot.config und linux.config.
+Die unveränderten Upstream-Quellen sind öffentlich verfügbar: https://github.com/analogdevicesinc/plutosdr-fw (Tag v0.31)
+mit den dort referenzierten Unterprojekten (linux, buildroot, u-boot-xlnx, hdl).
+
+Schriftliches Angebot: Für mindestens drei Jahre ab Weitergabe dieser Firmware erhält jeder Dritte auf Anfrage eine
+vollständige maschinenlesbare Kopie des zugehörigen Quellcodes (einschließlich der verwendeten Buildroot-Quellarchive)
+gegen Erstattung der Versandkosten bzw. kostenlos als Download. Anfrage an: Peter Holzhauser (Kontakt siehe Impressum
+der Website muxwright.com).

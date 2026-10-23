@@ -1,0 +1,30 @@
+{
+  "name": "UKW RDS-Vollprogramm (RT+, EON, CT, PTYN, LPS, AF Methode B, L/R-Test)",
+  "mode": "fm",
+  "fm": {
+    "freq_mhz": 101.3,
+    "deviation_khz": 75,
+    "pilot_khz": 6.75,
+    "preemphasis_us": 50,
+    "stereo": true,
+    "audio": {"source": {"kind": "lr_test", "left_hz": 1000, "right_hz": 400, "level_dbfs": -0.5}},
+    "rds": {
+      "enable": true,
+      "pi": "0xD3C4", "ps": "LAB RDS", "pty": 10, "tp": true, "ta": false, "ms": true,
+      "rt": "Kraftwerk - Radioaktivität (Album: Radio-Aktivität)",
+      "rtplus": [{"type": "ITEM.ARTIST", "text": "Kraftwerk"}, {"type": "ITEM.TITLE", "text": "Radioaktivität"}],
+      "af": [101.3, 100.0, 98.5], "af_method": "B", "af_regional": [89.0],
+      "ecc": "0xE0", "lic": "0x08", "pin": "23:14:30",
+      "ct": true, "utc_offset_halfhours": "auto", "ct_latency_s": 0.0,
+      "ptyn": "Popmusik", "lps": "DAB-Lab Langer Programmname",
+      "eon": [
+        {"pi": "0xD3C5", "ps": "LAB INFO", "pty": 3, "tp": true, "ta": false, "af": [99.9, 104.1],
+         "mapped_af": {"101.3": [99.9]}, "pin": "23:15:00"},
+        {"pi": "0xD3C6", "ps": "LAB KULT", "pty": 7, "tp": false, "ta": false, "af": [91.4]}
+      ],
+      "level_khz": 2.0, "phase_deg": 0,
+      "rates": {"1a": 60, "3a": 20, "10a": 10, "11a": 30, "14a": 8, "15a": 10}
+    }
+  },
+  "rf": {"sample_rate": 4096000, "backoff_db": 3, "atten_db": 60, "enabled": false}
+}

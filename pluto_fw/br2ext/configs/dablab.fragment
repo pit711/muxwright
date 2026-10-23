@@ -1,0 +1,29 @@
+# DAB-Lab: Ergänzungen zur zynq_pluto_defconfig (plutosdr-fw v0.31, Buildroot 2019.02.x)
+# Toolchain: Bootlin armv7-eabihf glibc stable 2018.11-1 (gcc 7.3.0, glibc 2.27, Header 4.1)
+BR2_TOOLCHAIN_EXTERNAL_PATH="/opt/dablab/fw/toolchain/armv7-eabihf--glibc--stable-2018.11-1"
+BR2_TOOLCHAIN_EXTERNAL_CUSTOM_PREFIX="arm-buildroot-linux-gnueabihf"
+BR2_TOOLCHAIN_EXTERNAL_GCC_7=y
+# BR2_TOOLCHAIN_EXTERNAL_HEADERS_4_9 is not set
+BR2_TOOLCHAIN_EXTERNAL_HEADERS_4_1=y
+BR2_TOOLCHAIN_EXTERNAL_CUSTOM_GLIBC=y
+BR2_TOOLCHAIN_EXTERNAL_CXX=y
+BR2_JLEVEL=8
+BR2_DL_DIR="/opt/dablab/fw/dl/br"
+BR2_GLOBAL_PATCH_DIR="/opt/dablab/fw/br2ext/patches"
+BR2_ROOTFS_OVERLAY="/opt/dablab/fw/br2ext/overlay"
+BR2_ROOTFS_POST_BUILD_SCRIPT="board/pluto/post-build.sh /opt/dablab/fw/br2ext/post-build.sh"
+BR2_PACKAGE_OVERRIDE_FILE="/opt/dablab/fw/br2ext/local.mk"
+BR2_TARGET_GENERIC_ISSUE="Welcome to Pluto (DAB-Lab)"
+# Zusatzpakete
+BR2_PACKAGE_NE10=y
+BR2_PACKAGE_IPERF3=y
+BR2_PACKAGE_LIBIIO_LOCAL_BACKEND=y
+BR2_PACKAGE_LIBIIO_XML_BACKEND=y
+BR2_PACKAGE_LIBIIO_NETWORK_BACKEND=y
+BR2_PACKAGE_LIBIIO_IIOD=y
+BR2_PACKAGE_LIBIIO_IIOD_USBD=y
+BR2_PACKAGE_LIBIIO_TESTS=y
+BR2_PACKAGE_LIBAD9361_IIO=y
+BR2_PACKAGE_DABLAB_AGENT=y
+BR2_PACKAGE_IQPLAY=y
+# BR2_PACKAGE_DABLAB_MOD wird von build.sh gesetzt, wenn pluto_fw/mod existiert

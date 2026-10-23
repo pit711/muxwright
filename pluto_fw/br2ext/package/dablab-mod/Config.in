@@ -1,0 +1,8 @@
+config BR2_PACKAGE_DABLAB_MOD
+	bool "dablab-mod (Modulatoren aus pluto_fw/mod: dvbc_mod, dvbt_mod, fm_mod ...)"
+	select BR2_PACKAGE_LIBIIO
+	select BR2_PACKAGE_LIBAD9361_IIO
+	help
+	  Baut jedes Unterverzeichnis von pluto_fw/mod, das ein Makefile oder
+	  eine CMakeLists.txt enthält, mit dem Cross-Compiler (NEON, hard-float, -O3)
+	  und installiert die erzeugten Programme nach /usr/bin.

@@ -1,0 +1,23 @@
+{
+  "name": "UKW Standard 100,0 MHz Stereo + RDS",
+  "mode": "fm",
+  "fm": {
+    "freq_mhz": 100.0,
+    "deviation_khz": 75,
+    "pilot_khz": 6.75,
+    "preemphasis_us": 50,
+    "stereo": true,
+    "limiter": {"enable": true, "threshold": 1.0, "release_db_s": 3},
+    "mpx_power_dbr": null,
+    "audio": {"source": {"kind": "tone", "freq_hz": 1000, "level_dbfs": -0.5}},
+    "rds": {
+      "enable": true, "pi": "0xD3C4", "ps": "DABLAB", "rt": "DAB-Lab UKW-Testsender 100,0 MHz äöüß",
+      "pty": 10, "tp": true, "ta": false, "ms": true,
+      "di": {"stereo": true, "artificial_head": false, "compressed": false, "dynamic_pty": false},
+      "af": [100.0, 101.3, 98.5], "af_method": "A",
+      "ecc": "0xE0", "ct": true, "level_khz": 2.0, "phase_deg": 0
+    },
+    "second_carrier": {"enable": false}
+  },
+  "rf": {"sample_rate": 4096000, "backoff_db": 3, "atten_db": 60, "enabled": false}
+}

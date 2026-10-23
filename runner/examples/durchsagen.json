@@ -1,0 +1,30 @@
+{
+  "name": "Durchsagen-Test",
+  "mode": 1,
+  "ensemble": {"eid": "0x4FFE", "ecc": "0xE0", "label": "DABLAB Ansagen", "shortlabel": "DABLAB",
+               "charset": "ebu", "international_table": 1, "lto": "auto", "datetime": true,
+               "alarm_flag": true, "reconfig_counter": "hash"},
+  "services": [
+    {"key": "prog", "sid": "0xD011", "label": "Programm 1", "shortlabel": "Prog 1",
+     "pty": 10, "pty_dynamic": false, "language": "0x08", "type": "dabplus",
+     "audio": {"source": {"kind": "tone", "freq_hz": 440, "level_dbfs": -20},
+               "codec": "he-aac", "samplerate": 48000, "channels": 2, "bitrate": 64},
+     "protection": {"profile": "EEP_A", "level": 3},
+     "pad": {"enable": true, "bytes": 32,
+             "dls": {"enable": true, "text": "Programm laeuft", "rotate": [], "rotate_s": 10},
+             "sls": {"enable": false}},
+     "announcements": {"supported": ["Alarm", "Traffic", "News"], "clusters": [1]},
+     "linking": {"fm_pi": "0xD311", "fm_freqs_mhz": [87.6, 105.2], "other_ensembles": ["0x4FFD"]}},
+    {"key": "verkehr", "sid": "0xD012", "label": "Verkehrsfunk", "shortlabel": "Verkehr",
+     "pty": 1, "pty_dynamic": true, "language": "0x08", "type": "dabplus",
+     "audio": {"source": {"kind": "pinknoise", "level_dbfs": -24},
+               "codec": "he-aac", "samplerate": 48000, "channels": 1, "bitrate": 48},
+     "protection": {"profile": "EEP_A", "level": 3},
+     "pad": {"enable": true, "bytes": 16, "dls": {"enable": true, "text": "Verkehrsdurchsage"}},
+     "announcements": {"supported": ["Traffic"], "clusters": [1]}}
+  ],
+  "clusters": [ {"id": 1, "flags": ["Traffic"], "service": "verkehr", "active": false} ],
+  "tii": {"enable": false, "comb": 1, "pattern": 11, "old_variant": false},
+  "rf": {"channel": "6C", "freq_hz": 185360000, "atten_db": 60, "sample_rate": 4096000, "backoff_db": 12,
+         "cfr": false, "enabled": false}
+}

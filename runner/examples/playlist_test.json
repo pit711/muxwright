@@ -1,0 +1,14 @@
+{
+  "name": "Playlist-Test",
+  "mode": 1,
+  "ensemble": {"eid": "0x4FFB", "ecc": "0xE0", "label": "DABLAB Playlist", "shortlabel": "DABLAB"},
+  "services": [
+    {"key": "srv1", "sid": "0xD031", "label": "DABLAB Playlist", "shortlabel": "Playlist", "type": "dabplus", "pty": 10,
+     "audio": {"source": {"kind": "playlist", "playlist": "testliste", "shuffle": false, "loop": true,
+                          "crossfade_s": 0, "normalize": true, "dls_from_tags": true},
+               "codec": "he-aac", "samplerate": 48000, "channels": 2, "bitrate": 72},
+     "protection": {"profile": "EEP_A", "level": 3},
+     "pad": {"enable": true, "bytes": 32, "dls": {"enable": true, "text": "Playlist"}}}
+  ],
+  "rf": {"channel": "6C", "sample_rate": 4096000, "backoff_db": 12, "atten_db": 60, "enabled": false}
+}

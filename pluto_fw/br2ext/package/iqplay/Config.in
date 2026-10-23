@@ -1,0 +1,7 @@
+config BR2_PACKAGE_IQPLAY
+	bool "iqplay (IQ-Datei/UDP/Nullen lokal in den DAC spielen)"
+	select BR2_PACKAGE_LIBIIO
+	select BR2_PACKAGE_LIBAD9361_IIO
+	help
+	  Testwerkzeug: spielt IQ-Daten über den lokalen IIO-Kontext in den DAC,
+	  zyklisch oder fortlaufend, und zählt DAC-Underflows. Quelle: pluto_fw/iqplay.

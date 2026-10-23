@@ -1,0 +1,17 @@
+{"name": "DVB-S 11038 V DABLAB Sat", "mode": "dvbs",
+ "dvbs": {"system": "dvbs", "transponder_mhz": 11038, "polarization": "V", "lof_mhz": 9750, "symbol_rate": 22000000, "fec": "1/2",
+          "rolloff": 0.35, "orbital_position": "19.2", "west_east": "east", "sps": 1},
+ "ts": {"transport_stream_id": "0x0001", "original_network_id": "0xFF03", "network_id": "0xFF03", "network_name": "DABLAB Sat",
+        "lcn": true, "eit": true, "tdt": true},
+ "services": [
+  {"key": "tv1", "service_id": "0x0001", "name": "DABLAB Sat", "provider": "DABLAB", "lcn": 1, "type": "tv",
+   "video": {"codec": "h264", "size": "hd", "bitrate_kbps": 8000},
+   "audio": {"codec": "aac", "bitrate_kbps": 192},
+   "source": {"kind": "testpattern", "pattern": "smptehdbars", "text": "DABLAB Sat", "timestamp": true, "audio": {"kind": "sine", "freq_hz": 1000}},
+   "eit": {"title": "DABLAB Sat Testbild", "text": "E2E-Test DVB-S 11038 V", "duration_min": 60}},
+  {"key": "tv2", "service_id": "0x0002", "name": "DABLAB Sat SD", "provider": "DABLAB", "lcn": 2, "type": "tv",
+   "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": 5000},
+   "audio": {"codec": "mp2", "bitrate_kbps": 192},
+   "source": {"kind": "testpattern", "pattern": "pal75bars", "text": "DABLAB Sat SD", "audio": {"kind": "sine", "freq_hz": 400}},
+   "eit": {"title": "SD-Testbild", "text": "MPEG-2", "duration_min": 60}}],
+ "rf": {"atten_db": 40, "backoff_db": 6, "enabled": false, "path": "auto"}}

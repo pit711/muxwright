@@ -1,0 +1,105 @@
+{
+  "name": "Standard",
+  "mode": 1,
+  "ensemble": {
+    "eid": "0x4FFF",
+    "ecc": "0xE0",
+    "label": "DABLAB",
+    "shortlabel": "DABLAB",
+    "charset": "ebu",
+    "international_table": 1,
+    "lto": "auto",
+    "datetime": true,
+    "alarm_flag": false,
+    "reconfig_counter": "hash"
+  },
+  "services": [
+    {
+      "key": "srv1",
+      "sid": "0xD001",
+      "ecc": null,
+      "label": "Testton 1 kHz",
+      "shortlabel": "Ton1k",
+      "pty": 0,
+      "pty_dynamic": false,
+      "language": "0x08",
+      "type": "dabplus",
+      "audio": {
+        "source": {
+          "kind": "tone",
+          "freq_hz": 1000,
+          "level_dbfs": -18,
+          "loop": true
+        },
+        "codec": "he-aac-v2",
+        "samplerate": 48000,
+        "channels": 2,
+        "bitrate": 88,
+        "mp2_mode": "j",
+        "gain_db": 0,
+        "bandwidth_hz": 0
+      },
+      "protection": {
+        "profile": "EEP_A",
+        "level": 3
+      },
+      "pad": {
+        "enable": true,
+        "bytes": 58,
+        "dls": {
+          "enable": true,
+          "text": "Hallo DAB+",
+          "dlplus": {
+            "enable": false,
+            "artist": "",
+            "title": "",
+            "album": "",
+            "station": "",
+            "program": "",
+            "url": ""
+          },
+          "rotate": [],
+          "rotate_s": 10,
+          "charset": "utf8",
+          "remove_label": false
+        },
+        "sls": {
+          "enable": false,
+          "slides": [],
+          "interval_s": 10,
+          "max_bytes": 50000,
+          "raw": false,
+          "categories": false
+        }
+      },
+      "announcements": {
+        "supported": [],
+        "clusters": []
+      },
+      "linking": {
+        "fm_pi": null,
+        "fm_freqs_mhz": [],
+        "other_ensembles": []
+      }
+    }
+  ],
+  "clusters": [],
+  "tii": {
+    "enable": false,
+    "comb": 1,
+    "pattern": 11,
+    "old_variant": false
+  },
+  "rf": {
+    "channel": "6C",
+    "freq_hz": 185360000,
+    "offset_hz": 0,
+    "lo_offset_hz": 0,
+    "atten_db": 60,
+    "sample_rate": 4096000,
+    "backoff_db": 12,
+    "cfr": false,
+    "enabled": false,
+    "cal_dbm_at_0db": {}
+  }
+}

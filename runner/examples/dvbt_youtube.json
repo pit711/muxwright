@@ -1,0 +1,16 @@
+{
+  "name": "DVB-T YouTube-Video (vorher: dablab_run.py media youtube <url>)",
+  "mode": "dvbt",
+  "dvbt": {"mode": "8k", "constellation": "16-QAM", "code_rate": "3/4", "guard": "1/8", "bandwidth_mhz": 8},
+  "ts": {"transport_stream_id": "0x0103", "original_network_id": "0xFF01", "network_name": "DABLAB"},
+  "services": [
+    {"key": "yt1", "service_id": "0x0020", "name": "LAB YouTube", "provider": "DABLAB", "lcn": 20, "type": "tv",
+     "video": {"codec": "h264", "size": "sd", "bitrate_kbps": "auto"},
+     "audio": {"codec": "aac", "bitrate_kbps": 128},
+     "source": {"kind": "youtube", "url": "https://www.youtube.com/watch?v=VIDEO_ID", "max_height": 1080, "loop": true,
+                "download": true, "audio": "source"},
+     "eit": {"title": "YouTube-Clip", "text": "per yt-dlp geladen, H.264 SD + AAC"}}
+  ],
+  "output": {"kind": "udp", "host": "192.168.2.1", "port": 1234},
+  "rf": {"channel": "K30", "atten_db": 60, "enabled": false}
+}

@@ -1,0 +1,15 @@
+{
+  "name": "DVB-T Video-Playlist (EIT aus der Playlist, ctl playlist next)",
+  "mode": "dvbt",
+  "dvbt": {"mode": "2k", "constellation": "64-QAM", "code_rate": "3/4", "guard": "1/4", "bandwidth_mhz": 8},
+  "ts": {"transport_stream_id": "0x0104", "original_network_id": "0xFF01", "network_name": "DABLAB"},
+  "services": [
+    {"key": "pl1", "service_id": "0x0030", "name": "LAB Playlist", "provider": "DABLAB", "lcn": 30, "type": "tv",
+     "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": 6000},
+     "audio": {"codec": "mp2", "bitrate_kbps": 192},
+     "source": {"kind": "playlist", "playlist": "videoliste", "shuffle": false, "loop": true, "normalize": false},
+     "eit": {"title": "Playlist", "text": "Titel aus der Playlist"}}
+  ],
+  "output": {"kind": "stdout"},
+  "rf": {"channel": "K25", "atten_db": 60, "enabled": false}
+}

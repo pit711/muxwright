@@ -1,0 +1,25 @@
+{
+  "name": "DVB-C 256-QAM 6,9 MBd: zwei TV-Programme + Radio",
+  "mode": "dvbc",
+  "dvbc": {"constellation": "256-QAM", "symbol_rate": 6900000},
+  "ts": {"transport_stream_id": "0x0201", "original_network_id": "0xFF02", "network_name": "DABLAB Kabel"},
+  "services": [
+    {"key": "tv1", "service_id": "0x0101", "name": "LAB TV 1", "provider": "DABLAB", "lcn": 1, "type": "tv",
+     "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": 5000},
+     "audio": {"codec": "mp2", "bitrate_kbps": 192},
+     "source": {"kind": "testpattern", "pattern": "testsrc2", "text": "LAB TV 1", "audio": {"kind": "sine", "freq_hz": 1000}},
+     "eit": {"title": "Programm 1", "text": "MPEG-2 SD, MP2"}},
+    {"key": "tv2", "service_id": "0x0102", "name": "LAB TV 2 HD", "provider": "DABLAB", "lcn": 2, "type": "tv",
+     "video": {"codec": "h264", "size": "720p", "bitrate_kbps": "auto"},
+     "audio": {"codec": "ac3", "bitrate_kbps": 192},
+     "source": {"kind": "slideshow", "images": ["media/slide1.jpg", "media/slide2.jpg"], "interval_s": 4, "text": "LAB TV 2 Diashow",
+                "audio": {"kind": "speech", "text": "This is programme two, a slide show with speech."}},
+     "eit": {"title": "Programm 2", "text": "H.264 720p, AC-3, Diashow"}},
+    {"key": "radio1", "service_id": "0x0201", "name": "LAB Radio", "provider": "DABLAB", "lcn": 101, "type": "radio",
+     "audio": {"codec": "mp2", "bitrate_kbps": 256},
+     "source": {"kind": "testpattern", "audio": {"kind": "sine", "freq_hz": 440, "level_dbfs": -12}},
+     "eit": {"title": "Radio-Testton", "text": "440 Hz, MP2 256 kb/s"}}
+  ],
+  "output": {"kind": "udp", "host": "192.168.2.1", "port": 1234, "burst": 7},
+  "rf": {"channel": "S21", "atten_db": 60, "backoff_db": 12, "enabled": false}
+}

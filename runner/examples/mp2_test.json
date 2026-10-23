@@ -1,0 +1,28 @@
+{
+  "name": "MP2-Test",
+  "mode": 1,
+  "ensemble": {"eid": "0x4FFC", "ecc": "0xE0", "label": "DABLAB MP2", "shortlabel": "MP2"},
+  "services": [
+    {"key": "mp2s", "sid": "0xD021", "label": "MP2 192k Stereo", "shortlabel": "MP2 192", "type": "dab", "pty": 14,
+     "audio": {"source": {"kind": "lr_test", "left_hz": 1000, "right_hz": 3000, "level_dbfs": -18},
+               "codec": "mp2", "samplerate": 48000, "channels": 2, "bitrate": 192, "mp2_mode": "s"},
+     "protection": {"profile": "UEP", "level": 2},
+     "pad": {"enable": true, "bytes": 16, "dls": {"enable": true, "text": "MP2 192k stereo UEP 2"}}},
+    {"key": "mp2j", "sid": "0xD022", "label": "MP2 128k Joint", "shortlabel": "MP2 128", "type": "dab",
+     "audio": {"source": {"kind": "polarity", "freq_hz": 50, "level_dbfs": -12},
+               "codec": "mp2", "samplerate": 48000, "channels": 2, "bitrate": 128, "mp2_mode": "j"},
+     "protection": {"profile": "EEP_B", "level": 3},
+     "pad": {"enable": false}},
+    {"key": "mp2d", "sid": "0xD023", "label": "MP2 dual 96k", "shortlabel": "MP2 dual", "type": "dab",
+     "audio": {"source": {"kind": "lr_test", "left_hz": 500, "right_hz": 2000, "level_dbfs": -18},
+               "codec": "mp2", "samplerate": 48000, "channels": 2, "bitrate": 96, "mp2_mode": "d"},
+     "protection": {"profile": "UEP", "level": 3},
+     "pad": {"enable": false}},
+    {"key": "mp2m", "sid": "0xD024", "label": "MP2 Mono 24kHz", "shortlabel": "MP2 Mono", "type": "dab",
+     "audio": {"source": {"kind": "noise", "level_dbfs": -24},
+               "codec": "mp2", "samplerate": 24000, "channels": 1, "bitrate": 64, "mp2_mode": "m"},
+     "protection": {"profile": "EEP_A", "level": 2},
+     "pad": {"enable": false}}
+  ],
+  "rf": {"channel": "6C", "sample_rate": 4096000, "backoff_db": 12, "atten_db": 60, "enabled": false}
+}

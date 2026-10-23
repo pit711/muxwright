@@ -1,0 +1,33 @@
+#!/bin/sh
+# DAB-Lab: Echtzeit-/Netz-/DMA-Einstellungen für On-Device-Modulatoren
+#  - SCHED_FIFO ohne Drossel (sched_rt_runtime_us=-1)
+#  - TX-DMA-Interrupt (7c420000.dma) auf Kern 1, RX-DMA auf Kern 1, USB bleibt auf Kern 0
+#  - UDP-Socketpuffer bis 32 MiB (TS-Zuführung per UDP über RNDIS/NCM)
+#  - IIO-DMA max_block_size >= 64 MiB (zusätzlich zu S21misc / Kernelvorgabe)
+
+irq_to_cpu() {	# $1 = Name in /proc/interrupts, $2 = CPU-Maske (hex)
+	for n in `grep "$1" /proc/interrupts | cut -d: -f1`; do
+		echo $2 > /proc/irq/$n/smp_affinity 2>/dev/null
+	done
+}
+
+case "$1" in
+	start)
+		echo -n "Starting DAB-Lab tuning: "
+		echo -1 > /proc/sys/kernel/sched_rt_runtime_us
+		irq_to_cpu 7c420000.dma 2
+		irq_to_cpu 7c400000.dma 2
+		irq_to_cpu e0002000.usb 1
+		echo 33554432 > /proc/sys/net/core/rmem_max
+		echo 33554432 > /proc/sys/net/core/wmem_max
+		echo 4194304 > /proc/sys/net/core/rmem_default
+		echo 2000 > /proc/sys/net/core/netdev_max_backlog
+		MAX_BS=`fw_printenv -n iio_max_block_size 2> /dev/null || echo 67108864`
+		[ "$MAX_BS" -lt 67108864 ] 2>/dev/null && MAX_BS=67108864
+		echo $MAX_BS > /sys/module/industrialio_buffer_dma/parameters/max_block_size
+		echo "OK"
+		;;
+	stop) ;;
+	*) echo "Usage: $0 {start|stop}"; exit 1 ;;
+esac
+exit 0

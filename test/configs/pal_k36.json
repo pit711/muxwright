@@ -1,0 +1,5 @@
+{"name": "PAL B/G K36", "mode": "pal",
+ "pal": {"system": "BG", "fs": 8000000, "level": 0.9,
+         "image": {"kind": "testpattern", "pattern": "pal75bars", "text": "DABLAB Test", "text2": "PAL B/G K36", "timestamp": false},
+         "sound": {"kind": "tone", "freq_hz": 1000, "deviation_hz": 50000, "level_db": -13, "preemphasis_us": 50}},
+ "rf": {"channel": "K36", "atten_db": 40, "enabled": false, "path": "auto"}}

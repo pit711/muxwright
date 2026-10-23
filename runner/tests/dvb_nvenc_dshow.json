@@ -1,0 +1,67 @@
+{
+ "name": "Test: NVENC-Quelle dshow",
+ "mode": "dvbs",
+ "dvbs": {
+  "symbol_rate": 22000000,
+  "code_rate": "7/8",
+  "frequency_hz": 11038000000,
+  "orbital_position": "19.2",
+  "west_east": "east",
+  "polarization": "vertical",
+  "roll_off": "0.35"
+ },
+ "ts": {
+  "transport_stream_id": "0x0003",
+  "original_network_id": "0xFF03",
+  "network_id": "0xFF03",
+  "network_name": "DABLAB Sat",
+  "lcn": true,
+  "eit": true,
+  "tdt": true
+ },
+ "services": [
+  {
+   "key": "uhd",
+   "service_id": 2,
+   "name": "DABLAB Sat UHD",
+   "provider": "DABLAB",
+   "lcn": 2,
+   "type": "tv",
+   "video": {
+    "codec": "h264",
+    "encoder": "nvenc",
+    "size": "hd",
+    "fps": 25,
+    "bitrate_kbps": 6000,
+    "nv_preset": "p4"
+   },
+   "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 192,
+    "channels": 2,
+    "samplerate": 48000
+   },
+   "source": {
+    "kind": "dshow",
+    "audio": {
+     "kind": "sine",
+     "freq_hz": 1000
+    },
+    "device": "OBS Virtual Camera"
+   },
+   "eit": {
+    "title": "Big Buck Bunny UHD",
+    "text": "Blender Foundation 2008, CC BY 3.0 - 4K 2160p25 HEVC (NVENC live), endlos - DABLAB DVB-S-Testsender",
+    "duration_min": 600
+   }
+  }
+ ],
+ "output": {
+  "kind": "stdout"
+ },
+ "rf": {
+  "freq_hz": 1288000000,
+  "atten_db": 60,
+  "enabled": false
+ }
+}

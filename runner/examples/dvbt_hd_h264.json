@@ -1,0 +1,17 @@
+{
+  "name": "DVB-T HD H.264 + AAC (6 MHz, PC-Streaming-Weg)",
+  "mode": "dvbt",
+  "dvbt": {"mode": "8k", "constellation": "64-QAM", "code_rate": "2/3", "guard": "1/32", "bandwidth_mhz": 6},
+  "ts": {"transport_stream_id": "0x0102", "original_network_id": "0xFF01", "network_name": "DABLAB HD"},
+  "services": [
+    {"key": "hd1", "service_id": "0x0010", "name": "LAB HD 1", "provider": "DABLAB", "lcn": 10, "type": "tv",
+     "video": {"codec": "h264", "size": "hd", "fps": 25, "bitrate_kbps": "auto", "preset": "veryfast"},
+     "audio": {"codec": "aac", "bitrate_kbps": 128, "channels": 2, "samplerate": 48000},
+     "source": {"kind": "testpattern", "pattern": "smptehdbars", "text": "LAB HD 1  1080p25", "timestamp": true,
+                "audio": {"kind": "sine+speech", "freq_hz": 440, "level_dbfs": -18,
+                          "text": "This is the DAB Lab test transmitter, programme LAB HD one."}},
+     "eit": {"title": "HD-Testbild", "text": "SMPTE-HD-Balken, H.264 High 1080p25, AAC-LC Stereo", "duration_min": 120}}
+  ],
+  "output": {"kind": "modulator", "modulator_cmd": null},
+  "rf": {"channel": "custom", "freq_hz": 474000000, "sample_rate": 6857143, "atten_db": 60, "backoff_db": 12, "enabled": false}
+}

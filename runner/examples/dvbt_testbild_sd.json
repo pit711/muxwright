@@ -1,0 +1,16 @@
+{
+  "name": "DVB-T Testbild SD (MPEG-2 + MP2)",
+  "mode": "dvbt",
+  "dvbt": {"mode": "8k", "constellation": "64-QAM", "code_rate": "2/3", "guard": "1/32", "bandwidth_mhz": 8},
+  "ts": {"transport_stream_id": "0x0101", "original_network_id": "0xFF01", "network_name": "DABLAB", "lcn": true, "eit": true, "tdt": true},
+  "services": [
+    {"key": "tv1", "service_id": "0x0001", "name": "LAB TV 1", "provider": "DABLAB", "lcn": 1, "type": "tv",
+     "video": {"codec": "mpeg2", "size": "sd", "fps": 25, "bitrate_kbps": "auto", "aspect": "16:9"},
+     "audio": {"codec": "mp2", "bitrate_kbps": 192, "channels": 2, "samplerate": 48000, "language": "deu"},
+     "source": {"kind": "testpattern", "pattern": "testsrc2", "text": "LAB TV 1", "timestamp": true,
+                "audio": {"kind": "sine", "freq_hz": 1000, "level_dbfs": -18}},
+     "eit": {"title": "DAB-Lab Testbild", "text": "Testbild testsrc2 mit Zeitstempel und 1-kHz-Ton", "duration_min": 60}}
+  ],
+  "output": {"kind": "stdout"},
+  "rf": {"channel": "K21", "atten_db": 60, "backoff_db": 12, "enabled": false}
+}

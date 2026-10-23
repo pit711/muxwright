@@ -1,0 +1,35 @@
+# Muxwright – nicht ins öffentliche Repo
+.env
+*.log
+__pycache__/
+*.pyc
+# Laufzeitdaten, Geräte-Dumps, private Notizen
+runtime/
+backup/
+research/
+pluto_fw/backup/
+wsl/fs/
+*.vhdx
+tools/ffmpeg/
+# Testausgaben, Screenshots, Kopplungsschlüssel
+test/shots/
+test/clickthrough/
+test/lgtv_key.json
+runner/tests/results_*/
+pluto_fw/test/results/
+pluto_fw/mod/tests/results/
+# Build-Artefakte (Firmware-Images werden als Release-Asset mit Quellangebot verteilt)
+pluto_fw/out/
+launcher/build/build/
+launcher/build/DABLab/
+DABLab.exe
+*.iq
+*.cf32
+*.s16
+*.ts
+*.itb
+*.frm
+*.dfu
+test/e2e_6c/
+wsl/dl/
+wsl/*.out

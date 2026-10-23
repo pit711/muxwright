@@ -1,0 +1,7 @@
+config BR2_PACKAGE_DABLAB_AGENT
+	bool "dablab-agent (HTTP/JSON-Steuerdienst, Port 8080)"
+	select BR2_PACKAGE_LIBIIO
+	select BR2_PACKAGE_LIBAD9361_IIO
+	help
+	  Steuerdienst des DAB-Lab auf dem Pluto: Modulator starten/stoppen,
+	  Status, DAC-Rate/FIR, RF. Quelle: pluto_fw/agent.

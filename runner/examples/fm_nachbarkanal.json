@@ -1,0 +1,22 @@
+{
+  "name": "UKW Nachbarkanal-Test: Nutz 100,0 MHz, Stoerer +200 kHz (-10 dB), beide mit RDS",
+  "mode": "fm",
+  "fm": {
+    "freq_mhz": 100.0,
+    "deviation_khz": 75,
+    "pilot_khz": 6.75,
+    "preemphasis_us": 50,
+    "stereo": true,
+    "audio": {"source": {"kind": "tone", "freq_hz": 1000, "level_dbfs": -0.5}},
+    "rds": {"enable": true, "pi": "0xD3C4", "ps": "NUTZ", "rt": "Nutzsender 100,0 MHz", "pty": 10, "tp": true,
+            "af": [100.0, 100.2], "ecc": "0xE0", "ct": true},
+    "second_carrier": {
+      "enable": true, "offset_khz": 200, "level_db": -10,
+      "deviation_khz": 75, "stereo": true, "preemphasis_us": 50,
+      "audio": {"source": {"kind": "pinknoise", "level_dbfs": -12}},
+      "rds": {"enable": true, "pi": "0xD3C5", "ps": "STOERER", "rt": "Nachbarkanal +200 kHz", "pty": 3, "tp": true,
+              "af": [100.2, 100.0], "ecc": "0xE0"}
+    }
+  },
+  "rf": {"sample_rate": 4096000, "backoff_db": 3, "atten_db": 60, "enabled": false}
+}

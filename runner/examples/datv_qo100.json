@@ -1,0 +1,17 @@
+{
+  "name": "DATV QO-100 (DVB-S2 QPSK 2/3, 333 kS/s)",
+  "mode": "dvbs",
+  "dvbs": {"use": "ham", "ham_band": "qo100", "callsign": "DL0ABC", "system": "dvbs2", "modulation": "QPSK", "code_rate": "2/3",
+           "symbol_rate": 333000, "roll_off": "0.35", "pilots": false, "orbital_position": "25.9", "west_east": "east", "polarization": "horizontal"},
+  "ts": {"transport_stream_id": "0x0001", "original_network_id": "0x0001", "network_name": "DL0ABC", "lcn": false, "eit": true, "tdt": true},
+  "services": [
+    {"key": "tv1", "service_id": "0x0001", "name": "DL0ABC", "provider": "DL0ABC", "type": "tv",
+     "video": {"codec": "h264", "size": "640x360", "fps": 25, "bitrate_kbps": "auto"},
+     "audio": {"codec": "aac", "bitrate_kbps": 32, "channels": 1, "samplerate": 48000, "language": "deu"},
+     "source": {"kind": "testpattern", "pattern": "smptehdbars", "text": "DL0ABC DATV", "timestamp": true,
+                "audio": {"kind": "sine", "freq_hz": 1000, "level_dbfs": -18}},
+     "eit": {"title": "DL0ABC DATV-Test", "text": "QO-100 WB, DVB-S2 QPSK 2/3, 333 kS/s", "duration_min": 60}}
+  ],
+  "output": {"kind": "modulator"},
+  "rf": {"channel": "ham", "freq_hz": 2406000000, "atten_db": 60, "backoff_db": 6, "enabled": false}
+}

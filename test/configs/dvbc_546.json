@@ -1,0 +1,16 @@
+{"name": "DVB-C 546 MHz DABLAB Kabel", "mode": "dvbc",
+ "dvbc": {"constellation": "64-QAM", "symbol_rate": 6900000, "sps": 1},
+ "ts": {"transport_stream_id": "0x0002", "original_network_id": "0xFF02", "network_id": "0xFF02", "network_name": "DABLAB Kabel",
+        "lcn": true, "eit": true, "tdt": true},
+ "services": [
+  {"key": "tv1", "service_id": "0x0001", "name": "DABLAB Kabel", "provider": "DABLAB", "lcn": 1, "type": "tv",
+   "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": 8000},
+   "audio": {"codec": "mp2", "bitrate_kbps": 192},
+   "source": {"kind": "testpattern", "pattern": "pal75bars", "text": "DABLAB Kabel", "timestamp": true, "audio": {"kind": "sine", "freq_hz": 1000}},
+   "eit": {"title": "DABLAB Kabel Testbild", "text": "E2E-Test DVB-C 546 MHz", "duration_min": 60}},
+  {"key": "tv2", "service_id": "0x0002", "name": "DABLAB Kabel HD", "provider": "DABLAB", "lcn": 2, "type": "tv",
+   "video": {"codec": "h264", "size": "720p", "bitrate_kbps": 6000},
+   "audio": {"codec": "aac", "bitrate_kbps": 128},
+   "source": {"kind": "testpattern", "pattern": "smptehdbars", "text": "DABLAB Kabel HD", "audio": {"kind": "sine", "freq_hz": 440}},
+   "eit": {"title": "HD-Testbild", "text": "H.264 720p", "duration_min": 60}}],
+ "rf": {"channel": "custom", "freq_hz": 546000000, "atten_db": 40, "backoff_db": 10, "enabled": false, "path": "auto"}}

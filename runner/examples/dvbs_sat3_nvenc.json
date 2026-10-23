@@ -1,0 +1,132 @@
+{
+ "name": "DVB-S Transponder live (3 Dienste, alle NVENC): SID 1 HD H.264, SID 2 UHD HEVC, SID 3 UHD HDR10 HEVC Main10",
+ "mode": "dvbs",
+ "dvbs": {
+  "symbol_rate": 22000000,
+  "code_rate": "7/8",
+  "frequency_hz": 11038000000,
+  "orbital_position": "19.2",
+  "west_east": "east",
+  "polarization": "vertical",
+  "roll_off": "0.35"
+ },
+ "ts": {
+  "transport_stream_id": "0x0003",
+  "original_network_id": "0xFF03",
+  "network_id": "0xFF03",
+  "network_name": "DABLAB Sat",
+  "lcn": true,
+  "eit": true,
+  "tdt": true
+ },
+ "services": [
+  {
+   "key": "hd",
+   "service_id": 1,
+   "name": "DABLAB Sat",
+   "provider": "DABLAB",
+   "lcn": 1,
+   "type": "tv",
+   "video": {
+    "codec": "h264",
+    "encoder": "nvenc",
+    "size": "hd",
+    "fps": 25,
+    "bitrate_kbps": 7000
+   },
+   "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 160
+   },
+   "source": {
+    "kind": "file",
+    "file": "/opt/dablab/mod/stream/bbb_sat.ts",
+    "loop": true,
+    "audio": "source"
+   },
+   "eit": {
+    "title": "Big Buck Bunny",
+    "text": "Blender Foundation 2008, CC BY 3.0 - HD 1080p25 H.264 (NVENC live)",
+    "duration_min": 600
+   }
+  },
+  {
+   "key": "uhd",
+   "service_id": 2,
+   "name": "DABLAB Sat UHD",
+   "provider": "DABLAB",
+   "lcn": 2,
+   "type": "tv",
+   "video": {
+    "codec": "hevc",
+    "encoder": "nvenc",
+    "size": "uhd",
+    "fps": 25,
+    "bitrate_kbps": 14000,
+    "nv_preset": "p4"
+   },
+   "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 192,
+    "channels": 2,
+    "samplerate": 48000
+   },
+   "source": {
+    "kind": "file",
+    "file": "media/video/bbb_2160p30.mp4",
+    "loop": true,
+    "audio": "source"
+   },
+   "eit": {
+    "title": "Big Buck Bunny UHD",
+    "text": "Blender Foundation 2008, CC BY 3.0 - 4K 2160p25 HEVC (NVENC live), endlos - DABLAB DVB-S-Testsender",
+    "duration_min": 600
+   }
+  },
+  {
+   "key": "hdr",
+   "service_id": 3,
+   "name": "DABLAB Sat HDR",
+   "provider": "DABLAB",
+   "lcn": 3,
+   "type": "tv",
+   "video": {
+    "codec": "hevc",
+    "encoder": "nvenc",
+    "size": "uhd",
+    "fps": 25,
+    "bitrate_kbps": 9500,
+    "hdr": {
+     "mode": "hdr10",
+     "inject_sei": "auto"
+    }
+   },
+   "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 160
+   },
+   "source": {
+    "kind": "file",
+    "file": "/opt/dablab/mod/stream/hdr_hevc.ts",
+    "loop": true,
+    "audio": "source"
+   },
+   "eit": {
+    "title": "Sol Levante (HDR10)",
+    "text": "Netflix / Production I.G, CC BY 4.0 - 4K HDR10 HEVC Main10 (NVENC live)",
+    "duration_min": 600
+   }
+  }
+ ],
+ "output": {
+  "kind": "udp",
+  "host": "192.168.2.1",
+  "port": 1234,
+  "burst": 7
+ },
+ "rf": {
+  "freq_hz": 1288000000,
+  "atten_db": 60,
+  "enabled": false
+ }
+}

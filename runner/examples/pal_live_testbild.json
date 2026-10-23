@@ -1,0 +1,8 @@
+{
+  "name": "PAL B/G live: bewegtes Testbild mit Uhr (7 MS/s)",
+  "mode": "pal",
+  "pal": {"system": "BG", "live_fs": 7000000, "level": 0.9,
+          "image": {"kind": "testpattern", "pattern": "testsrc2", "text": "DABLAB live", "timestamp": true},
+          "sound": {"kind": "tone", "freq_hz": 1000, "deviation_hz": 50000, "level_db": -13}},
+  "rf": {"channel": "K36", "atten_db": 60, "enabled": false}
+}

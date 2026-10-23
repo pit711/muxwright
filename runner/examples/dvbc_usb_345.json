@@ -1,0 +1,20 @@
+{
+  "name": "DVB-C 256-QAM 3,45 MBd (PC-Streaming per USB, 6,9 MS/s)",
+  "mode": "dvbc",
+  "dvbc": {"constellation": "256-QAM", "symbol_rate": 3450000, "sps": 2},
+  "ts": {"transport_stream_id": "0x0202", "original_network_id": "0xFF02", "network_name": "DABLAB Kabel"},
+  "services": [
+    {"key": "tv1", "service_id": "0x0111", "name": "LAB Kabel SD", "provider": "DABLAB", "lcn": 11, "type": "tv",
+     "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": "auto"},
+     "audio": {"codec": "mp2", "bitrate_kbps": 192},
+     "source": {"kind": "testpattern", "pattern": "smptebars", "text": "LAB Kabel SD", "audio": {"kind": "sine", "freq_hz": 1000}},
+     "eit": {"title": "Kabel-Testbild", "text": "MPEG-2 SD + MP2, 3,45 MBd 256-QAM"}},
+    {"key": "tv2", "service_id": "0x0112", "name": "LAB Kabel HD", "provider": "DABLAB", "lcn": 12, "type": "tv",
+     "video": {"codec": "h264", "size": "hd", "bitrate_kbps": "auto"},
+     "audio": {"codec": "aac", "bitrate_kbps": 128},
+     "source": {"kind": "testpattern", "pattern": "smptehdbars", "text": "LAB Kabel HD", "audio": {"kind": "sine", "freq_hz": 440}},
+     "eit": {"title": "Kabel-HD-Testbild", "text": "H.264 1080p25 + AAC"}}
+  ],
+  "output": {"kind": "modulator"},
+  "rf": {"channel": "S21", "atten_db": 60, "backoff_db": 10, "enabled": false}
+}

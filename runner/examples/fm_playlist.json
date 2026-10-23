@@ -1,0 +1,17 @@
+{
+  "name": "UKW Playlist mit RT/RT+ aus den Tags",
+  "mode": "fm",
+  "fm": {
+    "freq_mhz": 100.0,
+    "deviation_khz": 75,
+    "pilot_khz": 6.75,
+    "preemphasis_us": 50,
+    "stereo": true,
+    "limiter": {"enable": true, "threshold": 1.0, "release_db_s": 3},
+    "mpx_power_dbr": 0,
+    "audio": {"source": {"kind": "playlist", "playlist": "testliste", "shuffle": false, "loop": true, "normalize": true}},
+    "rds": {"enable": true, "pi": "0xD3C7", "ps": "PLAYLIST", "rt": "Playlist", "pty": 10, "tp": true, "ms": true,
+            "af": [100.0], "ecc": "0xE0", "ct": true, "rt_from_tags": true}
+  },
+  "rf": {"sample_rate": 4096000, "backoff_db": 3, "atten_db": 60, "enabled": false}
+}

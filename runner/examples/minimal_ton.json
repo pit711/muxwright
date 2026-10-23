@@ -1,0 +1,13 @@
+{
+  "name": "Minimal-Ton",
+  "mode": 1,
+  "ensemble": {"eid": "0x4FFF", "ecc": "0xE0", "label": "DABLAB", "shortlabel": "DABLAB"},
+  "services": [
+    {"key": "ton", "sid": "0xD001", "label": "Testton 1 kHz", "shortlabel": "Ton1k", "type": "dabplus",
+     "audio": {"source": {"kind": "tone", "freq_hz": 1000, "level_dbfs": -18},
+               "codec": "aac-lc", "samplerate": 48000, "channels": 2, "bitrate": 96},
+     "protection": {"profile": "EEP_A", "level": 3},
+     "pad": {"enable": false}}
+  ],
+  "rf": {"channel": "6C", "sample_rate": 4096000, "backoff_db": 12, "atten_db": 60, "enabled": false}
+}

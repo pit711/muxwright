@@ -1,0 +1,16 @@
+{
+  "name": "UKW Pegelrampe (Empfindlichkeit IEC 60315-4): Mono, 1 kHz, 40 % Hub = +-30 kHz",
+  "mode": "fm",
+  "fm": {
+    "freq_mhz": 100.0,
+    "deviation_khz": 75,
+    "preemphasis_us": 50,
+    "stereo": false,
+    "limiter": {"enable": false, "clip": true},
+    "audio": {"source": {"kind": "tone", "freq_hz": 1000, "level_dbfs": -8.3}},
+    "rds": {"enable": false}
+  },
+  "rf": {"sample_rate": 4096000, "backoff_db": 3, "atten_db": 40, "enabled": false},
+  "sweep": {"from_db": 40, "to_db": 89, "step_db": 1, "dwell_s": 5,
+            "note": "Pegelrampe laeuft im PC-Server (POST /api/sweep); -8.3 dBFS + 0.4 dB Preemphasis bei 1 kHz = -7.9 dBFS = 40 % von 75 kHz"}
+}

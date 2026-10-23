@@ -1,0 +1,245 @@
+# Muxwright
+
+**Multi-standard test transmitter for the ADALM-Pluto (PlutoSDR).** One Pluto, one dashboard: DAB+, FM with RDS,
+DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
+on the Pluto's own RX input, expected/actual reports and printable test records.
+
+Website: **https://muxwright.com** · Download: [Muxwright-Setup-0.1-beta.exe](https://github.com/pit711/muxwright/releases) (Windows 10/11, 64-bit) · Status: **Beta 0.1**
+
+![Muxwright dashboard, DVB-T modulation page](docs/img/dashboard.webp)
+
+> ⚠️ **Transmit only into a shielded setup** – by cable with an attenuator, in an RF shielding box or in a test chamber.
+> Radiating broadcast standards into free space is illegal without a frequency assignment. Muxwright starts muted
+> (−89.75 dB), has an emergency stop and an enforceable minimum attenuation. DATV on the amateur bands requires an
+> amateur radio licence. See [Transmitting & law](https://muxwright.com/recht.html).
+
+---
+
+## Contents
+
+1. [What it does](#what-it-does)
+2. [How it works](#how-it-works)
+3. [Standards in detail](#standards-in-detail)
+4. [Hardware](#hardware)
+5. [Installation](#installation)
+6. [Repository layout](#repository-layout)
+7. [Running from source](#running-from-source)
+8. [API](#api)
+9. [Tests](#tests)
+10. [Licences and codecs](#licences-and-codecs)
+11. [Credits](#credits)
+
+---
+
+## What it does
+
+| | |
+|---|---|
+| **Six standards, one UI** | DAB/DAB+ (EN 300 401), FM stereo + RDS (ITU-R BS.450 / IEC 62106), DVB-T (EN 300 744), DVB-C (EN 300 429), DVB-S/S2 (EN 300 421 / EN 302 307-1), PAL B/G, D/K, I (ITU-R BT.470) |
+| **Amateur radio DATV** | DVB-S2 on QO-100 (2401.5–2409.5 MHz uplink) and the 13 cm, 23 cm, 70 cm and 6 cm bands, 25–3500 kS/s, callsign enforced in SI tables |
+| **Monitoring receiver** | The Pluto's RX input decodes the transmitted signal: sync, SNR, services, RDS groups, PAL picture, DVB-S2 BBFRAME CRCs |
+| **Expected/actual reports** | Every configuration is rendered offline, decoded and compared line by line with the settings |
+| **Test records** | Print-ready record with timestamps, parameters and results; test plans for level ramps, channel changes, announcements |
+| **Guided setup** | Device and firmware check, PC performance rating (CPU/NVENC), operating mode (lab / amateur radio), legal confirmations, component installation |
+| **Firmware flasher** | Verifies the bundled Pluto firmware, tests it in RAM first, backs up the running firmware, flashes only after confirmation |
+| **20 languages** | Dashboard, setup and website: de en fr es pt it nl pl cs sv ru uk tr ar hi zh ja ko id vi |
+| **No codecs shipped** | FFmpeg, x264/x265, ODR-mmbTools with FDK-AAC, TSDuck and welle-cli are installed by the user from the official sources (see [Licences and codecs](#licences-and-codecs)) |
+
+## How it works
+
+```
+┌──────────────── Windows PC ────────────────┐       USB        ┌──────── ADALM-Pluto ────────┐
+│ Dashboard (browser)  ──► pc/server.py      │ ───────────────► │ iiod (IQ streaming, ≤ 7 MS/s)│  DAB+, FM, PAL,
+│   HTTP API + SSE          │ pylibiio       │                  │                              │  DVB-S ≤ 6 MBd, DATV
+│                           ▼                │  USB network     │ muxwright-agent :8080        │
+│ WSL2 "dablab" (Ubuntu 24.04)               │ ───────────────► │   dvbt_mod / dvbc_mod /      │  DVB-T 8 MHz,
+│   runner/dablab_run.py                     │  UDP TS :1234    │   dvbs_mod / dvbs2_mod       │  DVB-C, DVB-S/S2
+│   ffmpeg · ODR-mmbTools · TSDuck · modulators│                │   (ARM, NEON, 2 cores)       │  ≤ 22 MBd
+│   welle-cli · redsea · own RX decoders     │ ◄─────────────── │ RX (AD9364)                  │  monitoring
+└────────────────────────────────────────────┘                  └──────────────────────────────┘
+```
+
+* **Two output paths.** Everything that fits through USB (DAB+ at 2.048 MS/s, FM at 4.096 MS/s, PAL, DVB-S ≤ 6 MBd,
+  DATV) is modulated on the PC in WSL and streamed as IQ via libiio. The Pluto sustains only about 7 MS/s over USB,
+  but 8 MHz DVB-T needs 9.143 MS/s – so DVB-T/C/S/S2 are modulated **on the Pluto's ARM** by the Muxwright firmware;
+  the PC only sends the transport stream over the USB network (UDP, up to 32 Mbit/s).
+* **On-device modulators** (`pluto_fw/mod`, C, MIT): fixed-point coder/interleaver/mapper, Stockham radix-4 IFFT with
+  NEON, bit-identical to the C reference and to gr-dtv. 8k/64-QAM/7/8 runs at real-time factor 1.00 with 55–67 % load
+  per Cortex-A9 core; DVB-S2 QPSK reaches 27 MBd on one core (limit set to 22 MBd for headroom, 8PSK 15 MBd).
+* **Firmware** (`pluto_fw`): plutosdr-fw v0.31 base (Buildroot 2019.02, Linux 4.14, stock FPGA bitstream),
+  libiio/iiod 0.25, real-time and DMA tuning, the modulators, `iqplay` and a small HTTP device agent. U-Boot, the
+  U-Boot environment and the AD9364 unlock are never touched. The image can be booted from RAM via DFU before flashing.
+* **Safety.** The server starts with −89.75 dB, `--min-atten` enforces a floor, the dashboard has one emergency stop,
+  the attenuation read-back is verified every 2 s, and transmitting is refused until the setup (legal confirmations,
+  operating mode) is complete. DATV is only enabled in amateur-radio mode with a callsign.
+
+## Standards in detail
+
+| Standard | Output path | Key parameters | Monitoring |
+|---|---|---|---|
+| **DAB / DAB+** | USB, 2.048 MS/s | Modes I–IV, EEP/UEP, 864 CU capacity view, DLS/DL+, MOT slideshow, announcements (clusters, alarm), TII, ECC/LTO | welle-cli: sync, SNR, FIC CRC, service labels, DLS, MOT |
+| **FM + RDS** | USB, 4.096 MS/s | ±75 kHz deviation, 19 kHz pilot, 38 kHz stereo, MPX power per BS.412, RDS groups 0A/1A/2A/3A/4A/10A/11A (RT+)/14A (EON)/15A, AF methods A/B, second carrier for adjacent-channel tests | own demodulator + redsea: SINAD, channel separation, RDS error rate |
+| **DVB-T** | Pluto ARM (7/8 MHz) or USB (5/6 MHz) | 2k/8k, QPSK/16/64-QAM, code rates 1/2–7/8, GI 1/4–1/32, TPS, cell ID; MPEG-2 SD and H.264 HD live, several programmes, PAT/PMT/SDT/NIT/EIT/TDT with LCN | gr-dtv receiver (bit-exact), tsanalyze |
+| **DVB-C** | Pluto ARM | 16–256-QAM, symbol rate free (6.9 MBd typical), S/K cable channels, cable delivery descriptor | numpy demodulator, tsanalyze |
+| **DVB-S** | Pluto ARM ≤ 22 MBd, USB ≤ 6 MBd | QPSK, FEC 1/2–7/8, RRC α = 0.35 in the AD9361 FIR or in software, satellite IF 950–2150 MHz, satellite delivery descriptor | own hard-decision receiver |
+| **DVB-S2** | Pluto ARM ≤ 22 MBd (QPSK) / 15 MBd (8PSK) | QPSK 1/4–9/10, 8PSK 3/5–9/10, pilots, roll-off 0.35/0.25/0.20, CCM; HD H.264, UHD HEVC and HDR10 (HEVC Main10) in one transponder | BBFRAME CRC per packet, bit-exact against gr-dtv |
+| **DATV (ham)** | USB, 2/4/8 samples per symbol | DVB-S2 at 25–3500 kS/s on QO-100 or 13/23/70/6 cm, callsign in provider name and NIT network name, band-edge check | DVB-S2 receiver |
+| **PAL B/G, D/K, I** | USB | negative AM with vestigial sideband, PAL colour with burst, FM sound (+5.5/6.5/6.0 MHz), test pattern, image, video or YouTube source with clock overlay, channels E2–E12, K21–K69, S02–S41 | own demodulator: line frequency, levels, sound/vision ratio, decoded picture |
+
+### Dashboard pages
+
+| DAB+ | FM / RDS | DVB-T |
+|---|---|---|
+| ![DAB+ ensemble](docs/img/dab.webp) | ![FM with RDS](docs/img/fm.webp) | ![DVB-T programmes](docs/img/dvbt.webp) |
+
+| DVB-S / S2 | PAL | DATV on QO-100 |
+|---|---|---|
+| ![DVB-S RF page](docs/img/dvbs.webp) | ![PAL page](docs/img/pal.webp) | ![DATV page](docs/img/datv.webp) |
+
+PAL test pattern as decoded by the Pluto's own RX input:
+
+<img src="docs/img/pal-rx.webp" width="480" alt="PAL test pattern decoded via the Pluto RX">
+
+## Hardware
+
+| | Minimum | Recommended |
+|---|---|---|
+| **SDR** | ADALM-Pluto **Rev. B** with the AD9364 unlock (70 MHz–6 GHz). Rev. C and AD9363 clones ("PlutoSDR development board", Pluto+) are untested; DAB+/FM over USB usually work, the modulator firmware has not been verified on them | original ADALM-Pluto Rev. B |
+| **PC** | Windows 10 (2004+) / 11, 64-bit, WSL2 (virtualisation enabled in the BIOS), 8 GB RAM. Any 2-core CPU for DAB+/FM/SD | 6 cores / 12 threads for HD H.264 (x264), 16 cores or an NVIDIA GPU with NVENC (Turing or newer) for UHD/HDR10 |
+| **Cabling** | SMA → F (satellite IF, plus a **DC block** – receivers feed 13/18 V) or SMA → IEC (DVB-T/C, FM, PAL), 20–50 dB of attenuators | RF shielding box for antenna tests |
+
+Where to get the Pluto: [Amazon.de](https://www.amazon.de/s?k=ADALM+Pluto&i=electronics&tag=wobranding-21) · [AliExpress](https://s.click.aliexpress.com/e/_c3LvvRh5) *(affiliate links – they help fund the project, the price is the same for you)*. The full list of adapters, attenuators and QO-100 gear is on the [hardware page](https://muxwright.com/#hardware).
+
+## Installation
+
+1. Run `Muxwright-Setup-0.1-beta.exe` (no administrator rights needed; ~81 MB). Verify the SHA-256 from the
+   release page if you like.
+2. Start Muxwright – a console window (the server) opens and the dashboard appears in your browser at
+   `http://127.0.0.1:8792/`. Closing the console mutes the Pluto and stops the server.
+3. The **guided setup** walks you through: device and firmware check → PC performance → operating mode (lab or
+   amateur radio with callsign) → legal confirmations → **components**. Each component (Linux environment, FFmpeg,
+   TSDuck, ODR-mmbTools, welle-cli + redsea, modulators, optional yt-dlp and a Windows FFmpeg for NVENC) shows its
+   licence and source; one click per component builds it from the official sources in the WSL distribution
+   `dablab`. A fresh machine takes about five minutes.
+4. For DVB-T/C/S/S2 and PAL the Pluto needs the Muxwright firmware: open **Firmware**, run the **RAM test** (flash
+   untouched, unplugging restores the old firmware), then **Flash** – the running firmware is backed up first and
+   can be flashed back the same way.
+
+If WSL is missing entirely, run `wsl --install --no-distribution` once as administrator and reboot; the setup
+handles the rest. Useful start options: `Muxwright.exe --min-atten 40` (never louder than 40 dB attenuation),
+`--lan` (dashboard reachable in your network), `--port 8792`, `--uri usb:` / `--uri ip:192.168.2.1`,
+`--wsl-distro <name>`.
+
+## Repository layout
+
+```
+pc/            Windows server: HTTP API + SSE, Pluto control (pylibiio), monitoring receivers, setup, flasher, logs
+  server.py      API, configuration, TX state machine, safety logic
+  pluto.py       libiio: LO, sample rate, attenuation, IQ streaming, read-back
+  device.py      on-device modulators via the firmware agent and SSH
+  rxdecode.py    monitoring: welle-cli, redsea, gr-dtv, PAL/DVB-S2 decoders (run in WSL)
+  setup.py       component installation with per-component licence consent (runtime/components.json)
+  flasher.py     firmware: image check (FIT/md5/DFU suffix), RAM boot, backup of mtd3, flash via dfu-util
+  hwcheck.py     CPU/GPU/NVENC rating and benchmark
+  libiio/        libiio 0.25 Windows binaries (LGPL)
+  device_files/  statically linked ARM modulators deployed to the Pluto
+web/           Dashboard – vanilla JS ES modules, no build step, works offline
+  js/i18n/       translations (a/b/c.js for 7 languages, lang/<code>.js for 13 more; test/i18n_check.mjs)
+runner/        Signal generation in WSL: dablab_run.py (live/render/check/selftest), DAB, FM, DVB, PAL
+  fm/            FM/RDS DSP (GPL-3.0, see NOTICE.md)
+  dvb/           TS muxing, SI tables, encoders (ffmpeg/NVENC), sources (files, playlists, YouTube)
+  pal/           PAL B/G/D/K/I modulator and test patterns
+  patches/       patches for ODR-mmbTools and welle.io applied during component installation
+pluto_fw/      Firmware: build.sh (Buildroot external), br2ext/, agent/ (HTTP :8080), iqplay/, mod/ (modulators)
+  mod/           dvbt_mod, dvbc_mod, dvbs_mod, dvbs2_mod, rrc_fir_gen, libdvbmod; tests/ with gr-dtv comparisons
+wsl/           setup_components.sh – idempotent component installer used by the setup
+launcher/      PyInstaller launcher (Muxwright.exe); Python, numpy, scipy and pylibiio are bundled, pc/ is loaded at run time
+test/          Playwright UI tests against the mock server, installer end-to-end test, i18n checks
+```
+
+The Windows installer itself (Inno Setup script, licence texts) lives in the separate `installer/` folder next to this
+repository; the website in `website/`.
+
+## Running from source
+
+```bat
+:: Windows, Python 3.11+ with numpy, scipy, pylibiio, paramiko
+cd pc
+python server.py --min-atten 40
+:: dashboard: http://127.0.0.1:8792/
+```
+
+The server expects the WSL distribution `dablab` (Ubuntu 24.04). Create it with the dashboard's setup, or by hand:
+
+```bat
+wsl --install Ubuntu-24.04 --name dablab --no-launch
+wsl -d dablab -u root -- bash /mnt/<drive>/.../wsl/setup_components.sh /mnt/<drive>/.../dablab base
+wsl -d dablab -u root -- bash .../setup_components.sh ... ffmpeg tsduck odr welle modulators
+```
+
+Firmware: `pluto_fw/README.md` describes the Buildroot build (about 25 minutes with 8 cores), RAM boot via DFU
+(`boot_ram.cmd`) and recovery. Modulators alone: `cd pluto_fw/mod && make` (x86 self-test) or
+`tests/pluto/build_s2.sh` for the ARM binaries.
+
+## API
+
+The dashboard talks to `pc/server.py` over plain JSON; everything it does you can script.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/state` | complete state: configuration, Pluto, TX, runner, onboarding |
+| `PUT /api/config` | validated configuration (standard, services/programmes, SI tables, RF) |
+| `POST /api/rf` | channel, frequency, attenuation, `enabled` (refused without completed setup) |
+| `POST /api/tx/start` · `/api/tx/stop` | chain control; the emergency stop calls `/api/tx/stop` (mute first, then stop the chain) |
+| `GET /api/events` | server-sent events: state, log, TX statistics |
+| `POST /api/check` | offline render + decode, expected/actual report |
+| `GET/POST /api/onboarding` | setup state, confirmations, operating mode |
+| `GET /api/setup` · `POST /api/setup/install` | components, licence-confirmed installation |
+| `GET/POST /api/firmware` | images, RAM test, backup, flash |
+| `GET /api/hwcheck[?bench=1]` · `GET /api/logs` · `GET /api/shop` | PC rating, daily log files, hardware links |
+
+`SPEC.md` is the binding description of the configuration schema and the interfaces between server, runner and
+firmware agent.
+
+## Tests
+
+```bat
+python test/test_ui_mock.py            :: Playwright run of the whole dashboard against test/mock_server.py (German UI)
+node test/i18n_check.mjs               :: every T('…') text present in all 20 languages, placeholders intact
+python pc/test_flasher_offline.py      :: flasher with fake dfu-util and fake SSH
+python test/installer_e2e.py --setup Muxwright-Setup-0.1-beta.exe
+                                       :: silent install, fresh WSL distro, full setup via Playwright,
+                                       :: self-test, DAB/DVB-T/FM renders, DAB monitoring – no real Pluto needed
+```
+
+Modulator verification (`pluto_fw/mod/tests/`): DVB-T and DVB-S2 are compared bit-exactly against GNU Radio's gr-dtv,
+DVB-C against a numpy demodulator, PAL and FM against the project's own decoders.
+
+## Licences and codecs
+
+* **Muxwright code** – MIT (`LICENSE`): server, dashboard, runner, modulators, firmware additions, flasher.
+* **`runner/fm`** (FM/RDS) – **GPL-3.0**, because it was written after PiFmRds, PiFmAdv, MiniRDS and gr-rds
+  (`runner/fm/NOTICE.md`).
+* **Pluto firmware image** – built from plutosdr-fw v0.31 (GPL-2.0 and others). The build recipe and all changes are in
+  `pluto_fw/`; `THIRD_PARTY.txt` contains the written source offer required by the GPL.
+* **Bundled binaries** – libiio/libusb (LGPL-2.1), dfu-util (GPL-2.0), Python/numpy/scipy/paramiko in the launcher.
+* **Not bundled, installed by the user:** FFmpeg with x264/x265 (LGPL/GPL), ODR-mmbTools (GPL-3.0) with FDK-AAC
+  (Fraunhofer licence, no patent licence), TSDuck (BSD-2), welle-cli (GPL-2.0), redsea (MIT), yt-dlp (Unlicense).
+  H.264, HEVC and AAC are patent-encumbered. Private, non-commercial use is patent-free in Germany (§ 11 No. 1 PatG);
+  commercial users obtain licences from the pools (Via LA, Access Advance, Sisvel) themselves. Muxwright therefore
+  ships no codecs and asks for a per-component confirmation before building them.
+
+## Credits
+
+Muxwright stands on the shoulders of many projects – the full list with links is in the setup wizard and at
+[muxwright.com/danke.html](https://muxwright.com/danke.html). In particular: **Evariste Courjaud, F5OEO** (PlutoDVB2,
+libdvbmod, dvbsdr – the proof that DATV on the Pluto works), **Charles Brain, G4GUO**, the **BATC**, **AMSAT-DL**,
+**Ron Economos, W6RZ** (dtv-utils, gr-dtv), **Christophe Jacquet** (PiFmRds), **Anthony96922** (MiniRDS),
+**Bastian Bloessl** (gr-rds), **Opendigitalradio** (ODR-mmbTools), **Thierry Lelégard** (TSDuck),
+**Albrecht Lohöfener** (welle.io), **Oona Räisänen, OH2EIQ** (redsea), **Analog Devices** (plutosdr-fw, libiio),
+Buildroot, Bootlin, FFmpeg, BtbN and the GNU Radio project.
+
+---
+
+*ADALM-PLUTO, PlutoSDR and Analog Devices are trademarks of Analog Devices, Inc. Muxwright is an independent project
+and is not affiliated with Analog Devices.*

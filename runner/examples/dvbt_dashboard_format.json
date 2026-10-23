@@ -1,0 +1,25 @@
+{
+  "name": "DVB-T im Dashboard-Format (dvb.programs/dvb.si, dvbt.fft)",
+  "mode": "dvbt",
+  "dvbt": {"bandwidth_mhz": 8, "fft": "8k", "constellation": "64-QAM", "code_rate": "2/3", "guard": "1/32", "cell_id": 0, "hierarchy": "none"},
+  "dvb": {
+    "si": {"network_id": "0xFF16", "network_name": "DAB-Lab Netz", "onid": "0xFF16", "tsid": "0x0016", "lcn": true, "eit": true, "tdt": true, "private_data": "eacem"},
+    "programs": [
+      {"key": "prg1", "name": "DAB-Lab TV 1", "provider": "DAB-Lab", "sid": "0x1001", "lcn": 1, "type": "tv",
+       "video": {"source": {"kind": "testpattern", "pattern": "smptebars", "file": "", "url": "", "playlist": "", "loop": true},
+                 "codec": "mpeg2", "resolution": "sd", "bitrate_kbps": 3500},
+       "audio": {"codec": "mp2", "bitrate_kbps": 192, "source": {"kind": "tone", "freq_hz": 1000, "level_dbfs": -18}},
+       "eit": {"title": "Testsendung 1", "description": "DAB-Lab Laborsender – Prüfprogramm", "duration_min": 60}},
+      {"key": "prg2", "name": "DAB-Lab HD 2", "provider": "DAB-Lab", "sid": "0x1002", "lcn": 2, "type": "tv",
+       "video": {"source": {"kind": "youtube", "file": "media/video/aqz-KE-bpKQ.mp4", "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ", "loop": true},
+                 "codec": "h264", "resolution": "hd720", "bitrate_kbps": 6000},
+       "audio": {"codec": "aac", "bitrate_kbps": 128, "source": {"kind": "tone"}},
+       "eit": {"title": "Big Buck Bunny", "description": "(c) Blender Foundation, CC BY 3.0", "duration_min": 10}},
+      {"key": "prg3", "name": "DAB-Lab Radio", "provider": "DAB-Lab", "sid": "0x1003", "lcn": 3, "type": "radio",
+       "video": {"source": {"kind": "testpattern"}, "codec": "mpeg2", "resolution": "sd", "bitrate_kbps": 0},
+       "audio": {"codec": "mp2", "bitrate_kbps": 192, "source": {"kind": "tone", "freq_hz": 440}},
+       "eit": {"title": "Radio-Testton", "description": "440 Hz"}}
+    ]
+  },
+  "rf": {"channel": "K21", "freq_hz": 474000000, "path": "pluto", "atten_db": 60, "enabled": false}
+}

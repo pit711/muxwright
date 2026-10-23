@@ -1,0 +1,101 @@
+{
+  "name": "UKW Standard",
+  "mode": "fm",
+  "fm": {
+    "freq_mhz": 100.0,
+    "deviation_khz": 75,
+    "pilot_khz": 6.75,
+    "preemphasis_us": 50,
+    "stereo": true,
+    "limiter": {
+      "enable": true,
+      "threshold": 1.0,
+      "release_db_s": 3,
+      "clip": true
+    },
+    "mpx_power_dbr": null,
+    "audio_gain_db": 0,
+    "audio": {
+      "source": {
+        "kind": "tone",
+        "freq_hz": 1000,
+        "level_dbfs": -8.3,
+        "loop": true
+      }
+    },
+    "rds": {
+      "enable": true,
+      "pi": "0xD3C4",
+      "ps": "DABLAB",
+      "rt": "DAB-Lab UKW-Testsender",
+      "rtplus": [],
+      "pty": 10,
+      "tp": true,
+      "ta": false,
+      "ms": true,
+      "di": {
+        "stereo": true,
+        "artificial_head": false,
+        "compressed": false,
+        "dynamic_pty": false
+      },
+      "af": [],
+      "af_method": "A",
+      "af_regional": [],
+      "ecc": "0xE0",
+      "lic": null,
+      "pin": null,
+      "ct": true,
+      "utc_offset_halfhours": "auto",
+      "ct_latency_s": 0,
+      "ptyn": "",
+      "lps": "",
+      "eon": [],
+      "level_khz": 2.0,
+      "phase_deg": 0,
+      "group_version": "A",
+      "rt_version": "A",
+      "rates": {
+        "1a": 60,
+        "3a": 20,
+        "10a": 10,
+        "11a": 30,
+        "14a": 8,
+        "15a": 20
+      },
+      "rt_from_tags": true
+    },
+    "second_carrier": {
+      "enable": false,
+      "offset_khz": 200,
+      "level_db": -10,
+      "deviation_khz": 75,
+      "stereo": true,
+      "preemphasis_us": 50,
+      "pilot_khz": 6.75,
+      "audio": {
+        "source": {
+          "kind": "tone",
+          "freq_hz": 400,
+          "level_dbfs": -8.3
+        }
+      },
+      "rds": {
+        "pi": "0xD3C5",
+        "ps": "ZWEITER"
+      }
+    }
+  },
+  "rf": {
+    "channel": "fm",
+    "freq_hz": 100000000,
+    "offset_hz": 0,
+    "lo_offset_hz": 0,
+    "atten_db": 60,
+    "sample_rate": 4096000,
+    "backoff_db": 3,
+    "cfr": false,
+    "enabled": false,
+    "cal_dbm_at_0db": {}
+  }
+}

@@ -1,0 +1,35 @@
+libdvbmod_lab, dvbt_mod, dvbc_mod, rrc_fir_gen – DAB-Lab Labor-Modulatoren
+Copyright (c) 2026 DAB-Lab (Peter Holzhauser)
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---------------------------------------------------------------------------------------------------
+Hinweise zu Fremdcode / Lizenzen (siehe auch README.md, Abschnitt „Lizenzen“):
+
+* Die C-Quellen (lib/, dvbt_mod.c, dvbc_mod.c, rrc_fir_gen.c, tools/) sind eigene Implementierungen
+  nach ETSI EN 300 744 V1.6.1 und ETSI EN 300 429 V1.2.1. Es wurde kein Code aus gr-dtv (GNU Radio,
+  GPL-3.0-or-later), libdvbmod (F5OEO/G4GUO) oder anderen GPL-Projekten übernommen. Die
+  Bit-Permutationstabellen, Pilot-/TPS-Trägerlisten und PRBS-Definitionen stammen aus den Normen und
+  wurden gegen gr-dtv nur gegengeprüft (identische Zwischenergebnisse).
+* tests/dvbt_rx_grdtv.py und tests/dvbt_tx_grdtv.py benutzen zur Laufzeit GNU Radio / gr-dtv
+  (GPL-3.0-or-later) als Prüfwerkzeug. Sie enthalten keinen gr-dtv-Quellcode, verlinken aber gegen
+  gr-dtv; wer diese Skripte weitergibt, unterliegt für sie den Bedingungen der GPL-3.0.
+* tests/dvbc_demod.py benutzt reedsolo (MIT) und numpy (BSD).
+* Das AD9361-FIR-Dateiformat folgt der Dokumentation/Implementierung von Analog Devices
+  (libad9361-iio, LGPL-2.1; Linux-Treiber ad9361.c, GPL-2.0); es wurden nur das Textformat und die
+  Skalierungskonvention übernommen, kein Code.

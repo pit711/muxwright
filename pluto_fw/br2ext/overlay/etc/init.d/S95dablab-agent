@@ -1,0 +1,19 @@
+#!/bin/sh
+# DAB-Lab Agent (HTTP/JSON, Port 8080)
+PORT=`fw_printenv -n dablab_port 2> /dev/null || echo 8080`
+
+case "$1" in
+	start)
+		echo -n "Starting dablab-agent: "
+		start-stop-daemon -S -b -q -m -p /var/run/dablab-agent.pid -x /usr/bin/dablab-agent -- -p $PORT
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	stop)
+		echo -n "Stopping dablab-agent: "
+		start-stop-daemon -K -q -p /var/run/dablab-agent.pid
+		[ $? = 0 ] && echo "OK" || echo "FAIL"
+		;;
+	restart) $0 stop; sleep 1; $0 start ;;
+	*) echo "Usage: $0 {start|stop|restart}"; exit 1 ;;
+esac
+exit 0

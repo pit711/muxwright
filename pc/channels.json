@@ -1,0 +1,1205 @@
+{
+ "_comment": "Zentrale Kanaltabellen für Server und Dashboard. MHz = Trägermitte. Pluto-Hack: 70 MHz … 6 GHz.",
+ "dab": {
+  "bandwidth_mhz": 1.536,
+  "band3": {
+   "5A": 174.928,
+   "5B": 176.64,
+   "5C": 178.352,
+   "5D": 180.064,
+   "6A": 181.936,
+   "6B": 183.648,
+   "6C": 185.36,
+   "6D": 187.072,
+   "7A": 188.928,
+   "7B": 190.64,
+   "7C": 192.352,
+   "7D": 194.064,
+   "8A": 195.936,
+   "8B": 197.648,
+   "8C": 199.36,
+   "8D": 201.072,
+   "9A": 202.928,
+   "9B": 204.64,
+   "9C": 206.352,
+   "9D": 208.064,
+   "10A": 209.936,
+   "10N": 210.096,
+   "10B": 211.648,
+   "10C": 213.36,
+   "10D": 215.072,
+   "11A": 216.928,
+   "11N": 217.088,
+   "11B": 218.64,
+   "11C": 220.352,
+   "11D": 222.064,
+   "12A": 223.936,
+   "12N": 224.096,
+   "12B": 225.648,
+   "12C": 227.36,
+   "12D": 229.072,
+   "13A": 230.784,
+   "13B": 232.496,
+   "13C": 234.208,
+   "13D": 235.776,
+   "13E": 237.488,
+   "13F": 239.2
+  },
+  "lband": {
+   "LA": 1452.96,
+   "LB": 1454.672,
+   "LC": 1456.384,
+   "LD": 1458.096,
+   "LE": 1459.808,
+   "LF": 1461.52,
+   "LG": 1463.232,
+   "LH": 1464.944,
+   "LI": 1466.656,
+   "LJ": 1468.368,
+   "LK": 1470.08,
+   "LL": 1471.792,
+   "LM": 1473.504,
+   "LN": 1475.216,
+   "LO": 1476.928,
+   "LP": 1478.64,
+   "LQ": 1480.352,
+   "LR": 1482.064,
+   "LS": 1483.776,
+   "LT": 1485.488,
+   "LU": 1487.2,
+   "LV": 1488.912,
+   "LW": 1490.624
+  }
+ },
+ "fm": {
+  "min_mhz": 87.5,
+  "max_mhz": 108.0,
+  "raster_khz": 100,
+  "note": "Warnung außerhalb des 100-kHz-Rasters, Fehler außerhalb 87,5–108 MHz"
+ },
+ "dvbt": {
+  "channels": {
+   "E5": {
+    "center_mhz": 177.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E6": {
+    "center_mhz": 184.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E7": {
+    "center_mhz": 191.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E8": {
+    "center_mhz": 198.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E9": {
+    "center_mhz": 205.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E10": {
+    "center_mhz": 212.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E11": {
+    "center_mhz": 219.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "E12": {
+    "center_mhz": 226.5,
+    "bandwidth_mhz": 7,
+    "band": "VHF III"
+   },
+   "K21": {
+    "center_mhz": 474.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K22": {
+    "center_mhz": 482.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K23": {
+    "center_mhz": 490.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K24": {
+    "center_mhz": 498.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K25": {
+    "center_mhz": 506.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K26": {
+    "center_mhz": 514.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K27": {
+    "center_mhz": 522.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K28": {
+    "center_mhz": 530.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K29": {
+    "center_mhz": 538.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K30": {
+    "center_mhz": 546.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K31": {
+    "center_mhz": 554.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K32": {
+    "center_mhz": 562.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K33": {
+    "center_mhz": 570.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K34": {
+    "center_mhz": 578.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K35": {
+    "center_mhz": 586.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K36": {
+    "center_mhz": 594.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K37": {
+    "center_mhz": 602.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K38": {
+    "center_mhz": 610.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K39": {
+    "center_mhz": 618.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K40": {
+    "center_mhz": 626.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K41": {
+    "center_mhz": 634.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K42": {
+    "center_mhz": 642.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K43": {
+    "center_mhz": 650.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K44": {
+    "center_mhz": 658.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K45": {
+    "center_mhz": 666.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K46": {
+    "center_mhz": 674.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K47": {
+    "center_mhz": 682.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K48": {
+    "center_mhz": 690.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K49": {
+    "center_mhz": 698.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K50": {
+    "center_mhz": 706.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K51": {
+    "center_mhz": 714.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K52": {
+    "center_mhz": 722.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K53": {
+    "center_mhz": 730.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K54": {
+    "center_mhz": 738.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K55": {
+    "center_mhz": 746.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K56": {
+    "center_mhz": 754.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K57": {
+    "center_mhz": 762.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K58": {
+    "center_mhz": 770.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K59": {
+    "center_mhz": 778.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K60": {
+    "center_mhz": 786.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K61": {
+    "center_mhz": 794.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K62": {
+    "center_mhz": 802.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K63": {
+    "center_mhz": 810.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K64": {
+    "center_mhz": 818.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K65": {
+    "center_mhz": 826.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K66": {
+    "center_mhz": 834.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K67": {
+    "center_mhz": 842.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K68": {
+    "center_mhz": 850.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K69": {
+    "center_mhz": 858.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   }
+  },
+  "note": "EN 300 744; Band III E5–E12 (7 MHz), Band IV/V K21–K69 (8 MHz). Quelle: runner/dvb/tables.py",
+  "rates_note": "Nutzbitraten: GET /api/dvb/rates?standard=dvbt|dvbc"
+ },
+ "dvbc": {
+  "channels": {
+   "K02": {
+    "center_mhz": 50.5,
+    "bandwidth_mhz": 7,
+    "band": "Band I (7 MHz)"
+   },
+   "K03": {
+    "center_mhz": 57.5,
+    "bandwidth_mhz": 7,
+    "band": "Band I (7 MHz)"
+   },
+   "K04": {
+    "center_mhz": 64.5,
+    "bandwidth_mhz": 7,
+    "band": "Band I (7 MHz)"
+   },
+   "S02": {
+    "center_mhz": 113.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S03": {
+    "center_mhz": 121.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S04": {
+    "center_mhz": 129.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S05": {
+    "center_mhz": 137.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S06": {
+    "center_mhz": 145.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S07": {
+    "center_mhz": 153.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S08": {
+    "center_mhz": 161.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "S09": {
+    "center_mhz": 169.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal unten"
+   },
+   "K05": {
+    "center_mhz": 177.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "K06": {
+    "center_mhz": 185.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "K07": {
+    "center_mhz": 193.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "K08": {
+    "center_mhz": 201.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "K09": {
+    "center_mhz": 209.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "K10": {
+    "center_mhz": 217.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "K11": {
+    "center_mhz": 225.0,
+    "bandwidth_mhz": 8,
+    "band": "VHF III"
+   },
+   "S11": {
+    "center_mhz": 233.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S12": {
+    "center_mhz": 241.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S13": {
+    "center_mhz": 249.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S14": {
+    "center_mhz": 257.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S15": {
+    "center_mhz": 265.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S16": {
+    "center_mhz": 273.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S17": {
+    "center_mhz": 281.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S18": {
+    "center_mhz": 289.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S19": {
+    "center_mhz": 297.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S20": {
+    "center_mhz": 305.0,
+    "bandwidth_mhz": 8,
+    "band": "Sonderkanal oben"
+   },
+   "S21": {
+    "center_mhz": 306.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S22": {
+    "center_mhz": 314.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S23": {
+    "center_mhz": 322.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S24": {
+    "center_mhz": 330.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S25": {
+    "center_mhz": 338.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S26": {
+    "center_mhz": 346.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S27": {
+    "center_mhz": 354.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S28": {
+    "center_mhz": 362.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S29": {
+    "center_mhz": 370.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S30": {
+    "center_mhz": 378.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S31": {
+    "center_mhz": 386.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S32": {
+    "center_mhz": 394.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S33": {
+    "center_mhz": 402.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S34": {
+    "center_mhz": 410.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S35": {
+    "center_mhz": 418.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S36": {
+    "center_mhz": 426.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S37": {
+    "center_mhz": 434.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S38": {
+    "center_mhz": 442.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S39": {
+    "center_mhz": 450.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S40": {
+    "center_mhz": 458.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "S41": {
+    "center_mhz": 466.0,
+    "bandwidth_mhz": 8,
+    "band": "Hyperband"
+   },
+   "K21": {
+    "center_mhz": 474.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K22": {
+    "center_mhz": 482.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K23": {
+    "center_mhz": 490.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K24": {
+    "center_mhz": 498.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K25": {
+    "center_mhz": 506.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K26": {
+    "center_mhz": 514.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K27": {
+    "center_mhz": 522.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K28": {
+    "center_mhz": 530.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K29": {
+    "center_mhz": 538.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K30": {
+    "center_mhz": 546.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K31": {
+    "center_mhz": 554.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K32": {
+    "center_mhz": 562.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K33": {
+    "center_mhz": 570.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K34": {
+    "center_mhz": 578.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K35": {
+    "center_mhz": 586.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K36": {
+    "center_mhz": 594.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K37": {
+    "center_mhz": 602.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K38": {
+    "center_mhz": 610.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K39": {
+    "center_mhz": 618.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K40": {
+    "center_mhz": 626.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K41": {
+    "center_mhz": 634.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K42": {
+    "center_mhz": 642.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K43": {
+    "center_mhz": 650.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K44": {
+    "center_mhz": 658.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K45": {
+    "center_mhz": 666.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K46": {
+    "center_mhz": 674.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K47": {
+    "center_mhz": 682.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K48": {
+    "center_mhz": 690.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K49": {
+    "center_mhz": 698.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K50": {
+    "center_mhz": 706.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K51": {
+    "center_mhz": 714.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K52": {
+    "center_mhz": 722.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K53": {
+    "center_mhz": 730.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K54": {
+    "center_mhz": 738.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K55": {
+    "center_mhz": 746.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K56": {
+    "center_mhz": 754.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K57": {
+    "center_mhz": 762.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K58": {
+    "center_mhz": 770.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K59": {
+    "center_mhz": 778.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K60": {
+    "center_mhz": 786.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K61": {
+    "center_mhz": 794.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K62": {
+    "center_mhz": 802.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K63": {
+    "center_mhz": 810.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K64": {
+    "center_mhz": 818.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K65": {
+    "center_mhz": 826.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K66": {
+    "center_mhz": 834.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K67": {
+    "center_mhz": 842.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K68": {
+    "center_mhz": 850.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   },
+   "K69": {
+    "center_mhz": 858.0,
+    "bandwidth_mhz": 8,
+    "band": "UHF"
+   }
+  },
+  "min_mhz": 47,
+  "max_mhz": 862,
+  "note": "Deutsches 8-MHz-Kabelraster (S02–S09, K05–K11, S11–S20, S21–S41, K21–K69, Band I K02–K04). VHF-Teil gegen Netzbetreiberliste prüfen (manche liegen 1 MHz höher) → rf.channel custom. Quelle: runner/dvb/tables.py",
+  "rates_note": "Nutzbitraten: GET /api/dvb/rates?standard=dvbt|dvbc"
+ },
+ "pal": {
+  "channels": {
+   "E2": {
+    "vision_mhz": 48.25
+   },
+   "E3": {
+    "vision_mhz": 55.25
+   },
+   "E4": {
+    "vision_mhz": 62.25
+   },
+   "E5": {
+    "vision_mhz": 175.25
+   },
+   "K05": {
+    "vision_mhz": 175.25
+   },
+   "E6": {
+    "vision_mhz": 182.25
+   },
+   "K06": {
+    "vision_mhz": 182.25
+   },
+   "E7": {
+    "vision_mhz": 189.25
+   },
+   "K07": {
+    "vision_mhz": 189.25
+   },
+   "E8": {
+    "vision_mhz": 196.25
+   },
+   "K08": {
+    "vision_mhz": 196.25
+   },
+   "E9": {
+    "vision_mhz": 203.25
+   },
+   "K09": {
+    "vision_mhz": 203.25
+   },
+   "E10": {
+    "vision_mhz": 210.25
+   },
+   "K10": {
+    "vision_mhz": 210.25
+   },
+   "E11": {
+    "vision_mhz": 217.25
+   },
+   "K11": {
+    "vision_mhz": 217.25
+   },
+   "E12": {
+    "vision_mhz": 224.25
+   },
+   "K12": {
+    "vision_mhz": 224.25
+   },
+   "K21": {
+    "vision_mhz": 471.25
+   },
+   "K22": {
+    "vision_mhz": 479.25
+   },
+   "K23": {
+    "vision_mhz": 487.25
+   },
+   "K24": {
+    "vision_mhz": 495.25
+   },
+   "K25": {
+    "vision_mhz": 503.25
+   },
+   "K26": {
+    "vision_mhz": 511.25
+   },
+   "K27": {
+    "vision_mhz": 519.25
+   },
+   "K28": {
+    "vision_mhz": 527.25
+   },
+   "K29": {
+    "vision_mhz": 535.25
+   },
+   "K30": {
+    "vision_mhz": 543.25
+   },
+   "K31": {
+    "vision_mhz": 551.25
+   },
+   "K32": {
+    "vision_mhz": 559.25
+   },
+   "K33": {
+    "vision_mhz": 567.25
+   },
+   "K34": {
+    "vision_mhz": 575.25
+   },
+   "K35": {
+    "vision_mhz": 583.25
+   },
+   "K36": {
+    "vision_mhz": 591.25
+   },
+   "K37": {
+    "vision_mhz": 599.25
+   },
+   "K38": {
+    "vision_mhz": 607.25
+   },
+   "K39": {
+    "vision_mhz": 615.25
+   },
+   "K40": {
+    "vision_mhz": 623.25
+   },
+   "K41": {
+    "vision_mhz": 631.25
+   },
+   "K42": {
+    "vision_mhz": 639.25
+   },
+   "K43": {
+    "vision_mhz": 647.25
+   },
+   "K44": {
+    "vision_mhz": 655.25
+   },
+   "K45": {
+    "vision_mhz": 663.25
+   },
+   "K46": {
+    "vision_mhz": 671.25
+   },
+   "K47": {
+    "vision_mhz": 679.25
+   },
+   "K48": {
+    "vision_mhz": 687.25
+   },
+   "K49": {
+    "vision_mhz": 695.25
+   },
+   "K50": {
+    "vision_mhz": 703.25
+   },
+   "K51": {
+    "vision_mhz": 711.25
+   },
+   "K52": {
+    "vision_mhz": 719.25
+   },
+   "K53": {
+    "vision_mhz": 727.25
+   },
+   "K54": {
+    "vision_mhz": 735.25
+   },
+   "K55": {
+    "vision_mhz": 743.25
+   },
+   "K56": {
+    "vision_mhz": 751.25
+   },
+   "K57": {
+    "vision_mhz": 759.25
+   },
+   "K58": {
+    "vision_mhz": 767.25
+   },
+   "K59": {
+    "vision_mhz": 775.25
+   },
+   "K60": {
+    "vision_mhz": 783.25
+   },
+   "K61": {
+    "vision_mhz": 791.25
+   },
+   "K62": {
+    "vision_mhz": 799.25
+   },
+   "K63": {
+    "vision_mhz": 807.25
+   },
+   "K64": {
+    "vision_mhz": 815.25
+   },
+   "K65": {
+    "vision_mhz": 823.25
+   },
+   "K66": {
+    "vision_mhz": 831.25
+   },
+   "K67": {
+    "vision_mhz": 839.25
+   },
+   "K68": {
+    "vision_mhz": 847.25
+   },
+   "K69": {
+    "vision_mhz": 855.25
+   },
+   "S02": {
+    "vision_mhz": 112.25
+   },
+   "S03": {
+    "vision_mhz": 119.25
+   },
+   "S04": {
+    "vision_mhz": 126.25
+   },
+   "S05": {
+    "vision_mhz": 133.25
+   },
+   "S06": {
+    "vision_mhz": 140.25
+   },
+   "S07": {
+    "vision_mhz": 147.25
+   },
+   "S08": {
+    "vision_mhz": 154.25
+   },
+   "S09": {
+    "vision_mhz": 161.25
+   },
+   "S10": {
+    "vision_mhz": 168.25
+   },
+   "S11": {
+    "vision_mhz": 231.25
+   },
+   "S12": {
+    "vision_mhz": 238.25
+   },
+   "S13": {
+    "vision_mhz": 245.25
+   },
+   "S14": {
+    "vision_mhz": 252.25
+   },
+   "S15": {
+    "vision_mhz": 259.25
+   },
+   "S16": {
+    "vision_mhz": 266.25
+   },
+   "S17": {
+    "vision_mhz": 273.25
+   },
+   "S18": {
+    "vision_mhz": 280.25
+   },
+   "S19": {
+    "vision_mhz": 287.25
+   },
+   "S20": {
+    "vision_mhz": 294.25
+   },
+   "S21": {
+    "vision_mhz": 303.25
+   },
+   "S22": {
+    "vision_mhz": 311.25
+   },
+   "S23": {
+    "vision_mhz": 319.25
+   },
+   "S24": {
+    "vision_mhz": 327.25
+   },
+   "S25": {
+    "vision_mhz": 335.25
+   },
+   "S26": {
+    "vision_mhz": 343.25
+   },
+   "S27": {
+    "vision_mhz": 351.25
+   },
+   "S28": {
+    "vision_mhz": 359.25
+   },
+   "S29": {
+    "vision_mhz": 367.25
+   },
+   "S30": {
+    "vision_mhz": 375.25
+   },
+   "S31": {
+    "vision_mhz": 383.25
+   },
+   "S32": {
+    "vision_mhz": 391.25
+   },
+   "S33": {
+    "vision_mhz": 399.25
+   },
+   "S34": {
+    "vision_mhz": 407.25
+   },
+   "S35": {
+    "vision_mhz": 415.25
+   },
+   "S36": {
+    "vision_mhz": 423.25
+   },
+   "S37": {
+    "vision_mhz": 431.25
+   },
+   "S38": {
+    "vision_mhz": 439.25
+   },
+   "S39": {
+    "vision_mhz": 447.25
+   },
+   "S40": {
+    "vision_mhz": 455.25
+   },
+   "S41": {
+    "vision_mhz": 463.25
+   }
+  },
+  "note": "Bildträger (MHz). Quelle: runner/pal (channel_table). LO = Bildträger + Versatz (B/G 8 MS/s: +2,25 MHz)"
+ },
+ "dvbs": {
+  "if_min_mhz": 950,
+  "if_max_mhz": 2150,
+  "lof_low_mhz": 9750,
+  "lof_high_mhz": 10600,
+  "note": "Sat-ZF = Transponder − LOF; Beispiel 11038 MHz V − 9750 = 1288 MHz"
+ }
+}

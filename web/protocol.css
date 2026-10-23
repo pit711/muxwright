@@ -1,0 +1,44 @@
+/* Druckansicht Messprotokoll (wird in die exportierte HTML-Datei eingebettet) */
+body.protocol { font: 13px/1.45 "Segoe UI", system-ui, Arial, sans-serif; color: #111; background: #fff; max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+.protocol header { border-bottom: 3px solid #1d4ed8; padding-bottom: 10px; margin-bottom: 18px; position: relative; }
+.protocol h1 { font-size: 24px; margin: 0 0 4px; }
+.protocol h2 { font-size: 16px; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
+.protocol h4 { font-size: 14px; margin: 8px 0; display: flex; align-items: center; gap: 6px; }
+.protocol section { break-inside: avoid-page; }
+.protocol .noprint { position: absolute; right: 0; top: 0; padding: 8px 14px; border-radius: 8px; border: 1px solid #1d4ed8; background: #1d4ed8; color: #fff; font-weight: 600; cursor: pointer; }
+.protocol table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.protocol th, .protocol td { border: 1px solid #d4d4d8; padding: 4px 8px; text-align: left; vertical-align: top; }
+.protocol th { background: #f1f5f9; font-weight: 600; }
+.protocol table.kv th { width: 180px; }
+.protocol tr.bad td { background: #fee2e2; color: #b91c1c; font-weight: 600; }
+.protocol tr.good td.st { color: #047857; }
+.protocol .ico { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.protocol .ico.big { display: none; }
+.protocol .mono { font-family: Consolas, monospace; }
+.protocol .muted { color: #666; }
+.protocol .report-head { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.protocol .verdict { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-radius: 6px; border: 1px solid; }
+.protocol .verdict.ok { color: #047857; background: #ecfdf5; } .protocol .verdict.bad { color: #b91c1c; background: #fef2f2; }
+.protocol .verdict strong { display: block; font-size: 15px; } .protocol .verdict small { color: #555; }
+.protocol .kpis { display: flex; gap: 8px; flex-wrap: wrap; }
+.protocol .kpi { border: 1px solid #ddd; border-radius: 6px; padding: 6px 10px; display: flex; flex-direction: column; }
+.protocol .kpi small { font-size: 10px; text-transform: uppercase; color: #666; } .protocol .kpi b { font-family: Consolas, monospace; }
+.protocol .kpi.bad b { color: #b91c1c; } .protocol .kpi.ok b { color: #047857; }
+.protocol .rep-block { border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; margin: 8px 0; break-inside: avoid; }
+.protocol .rep-block.missing { border-color: #b91c1c; }
+.protocol .rep-extra { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.protocol .meter { display: inline-block; width: 90px; height: 14px; background: #eee; position: relative; border-radius: 3px; overflow: hidden; vertical-align: middle; }
+.protocol .meter i { position: absolute; left: 0; top: 0; bottom: 0; background: #10b981; }
+.protocol .meter span { position: relative; font-size: 10px; padding-left: 4px; }
+.protocol .err { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: #ecfdf5; margin-right: 4px; }
+.protocol .err.bad { background: #b91c1c; color: #fff; }
+.protocol .badge.bad { background: #b91c1c; color: #fff; font-size: 11px; padding: 1px 6px; border-radius: 9px; }
+.protocol .slides { display: flex; gap: 8px; flex-wrap: wrap; }
+.protocol .slides figure { margin: 0; width: 160px; } .protocol .slides img { width: 160px; height: 120px; object-fit: cover; border: 1px solid #ccc; }
+.protocol .slides figcaption { font-size: 10px; color: #666; }
+.protocol pre { font: 11px/1.4 Consolas, monospace; white-space: pre-wrap; background: #f8fafc; border: 1px solid #ddd; padding: 8px; }
+@media print { .noprint { display: none; } body.protocol { margin: 0; } details { display: none; } }
+.protocol .sp-band { fill: #dbeafe; } .protocol .sp-grid { stroke: #ddd; } .protocol .sp-lbl { fill: #666; font-size: 10px; font-family: Consolas, monospace; }
+.protocol .sp-line { fill: none; stroke: #1d4ed8; stroke-width: 1.2; } .protocol .spectrum { width: 100%; height: auto; display: block; }
+.protocol .rx-grid { display: flex; flex-wrap: wrap; gap: 6px; } .protocol .rx-kv { border: 1px solid #ddd; border-radius: 6px; padding: 4px 8px; display: flex; flex-direction: column; }
+.protocol .rx-kv small { font-size: 9px; text-transform: uppercase; color: #666; } .protocol .rx-kv b { font-family: Consolas, monospace; } .protocol .rx-kv.bad b { color: #b91c1c; }
