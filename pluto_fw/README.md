@@ -52,7 +52,8 @@ pluto_fw/
   iqplay/             iqplay.c (IQ-Datei/UDP/Nullen/Sinus lokal in den DAC, Underflow-Zähler)
   mod/                dvbmod_lab (Modulator-Agent): Makefile im Ordner; Paket dablab-mod baut mit HAVE_LIBIIO=1, NEON, -O3
                       und installiert dvbt_mod, dvbc_mod, rrc_fir_gen, dvbmod_selftest nach /usr/bin
-  fpga/               system_top_mtd3.bit (aus Gerät), system_top_v0.31_official.bit (Release)
+  fpga/               system_top_v0.31_official.bit (offizielles Release; ein aus dem eigenen Gerät gesicherter Bitstream
+                      kann als fpga/system_top_mtd3.bit daneben gelegt werden und wird dann bevorzugt)
   backup/             mtd0..3 Sicherung vom 23.10.2026, pluto_info.txt, mtd3_fit_backup.dfu (= alte Firmware als RAM-Boot-Image)
   tools/dfu-util-win64/  dfu-util 0.11 für Windows
   test/device_tests.sh   Gerätetests (WSL): basic|agent|rate|iqplay|dma|udp

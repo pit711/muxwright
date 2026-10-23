@@ -33,3 +33,11 @@ DABLab.exe
 test/e2e_6c/
 wsl/dl/
 wsl/*.out
+# Testläufe am eigenen Gerät (Bootlogs, Messreihen) und Geräte-Bitstream bleiben lokal
+pluto_fw/test/
+pluto_fw/fpga/system_top_mtd3.bit
+test/e2e_6c.py
+test/tx_6c_max.py
+test/monitor_6c*.json
+test/configs/
+test/lgtv.py

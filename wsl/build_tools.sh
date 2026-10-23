@@ -1,6 +1,6 @@
 #!/bin/bash
 # Baut die ODR-mmbTools + welle-cli in der WSL1-Distribution „dablab“ nach /opt/dablab/bin.
-# Aufruf (als root): wsl -d dablab -u root -- bash /mnt/g/DEEPSEEK/plutoTX/dablab/wsl/build_tools.sh
+# Aufruf (als root): wsl -d dablab -u root -- bash /mnt/<drive>/.../dablab/wsl/build_tools.sh
 set -u
 export DEBIAN_FRONTEND=noninteractive
 printf "nameserver 1.1.1.1
@@ -9,7 +9,7 @@ nameserver 8.8.8.8
 echo "Acquire::ForceIPv4 \"true\";" > /etc/apt/apt.conf.d/99ipv4
 echo "=== apt update"; apt-get update -qq || echo "=== apt update FEHLER"
 P=/opt/dablab; S=/opt/dablab/src; mkdir -p $P/bin $S
-LOG=/mnt/g/DEEPSEEK/plutoTX/dablab/wsl/build.log
+LOG="$(cd "$(dirname "$0")" && pwd)/build.log"
 exec > >(tee -a $LOG) 2>&1
 echo "=== $(date) Pakete"
 apt-get install -y -qq git build-essential automake autoconf libtool pkg-config cmake \
