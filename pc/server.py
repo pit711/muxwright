@@ -17,6 +17,7 @@ import re
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -2283,6 +2284,30 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---------------------------------------------------------------- helpers
     LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+    _lan_hosts = None
+
+    @classmethod
+    def allowed_hosts(cls):
+        """localhost, im LAN-Modus zusätzlich Rechnername und alle eigenen IP-Adressen dieses PCs (einmal ermittelt)."""
+        if not APP.args.lan:
+            return cls.LOCAL_HOSTS
+        if cls._lan_hosts is None:
+            hs = set(cls.LOCAL_HOSTS)
+            try:
+                name = socket.gethostname()
+                hs |= {name.lower(), socket.getfqdn().lower()}
+                for fam, _, _, _, sa in socket.getaddrinfo(name, None):
+                    hs.add(sa[0] if fam == socket.AF_INET else f"[{sa[0]}]")
+            except OSError:
+                pass
+            try:                                      # Adresse der Standardroute (falls der Name nicht alle IPs liefert)
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
+                    u.connect(("10.255.255.255", 1))
+                    hs.add(u.getsockname()[0])
+            except OSError:
+                pass
+            cls._lan_hosts = hs
+        return cls._lan_hosts
 
     def _foreign_request(self, write):
         """True (und 403 gesendet), wenn die Anfrage nicht vom eigenen Dashboard stammt:
@@ -2292,7 +2317,7 @@ class Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").strip().lower()
         hostname = host.rsplit(":", 1)[0] if not host.startswith("[") else host.split("]")[0] + "]"
         bad = None
-        if not APP.args.lan and hostname not in self.LOCAL_HOSTS:
+        if hostname not in self.allowed_hosts():   # auch mit --lan nur eigene Namen/IPs (DNS-Rebinding)
             bad = f"Host {host!r}"
         elif write:
             origin = (self.headers.get("Origin") or "").strip().lower()
