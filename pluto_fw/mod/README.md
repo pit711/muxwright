@@ -8,7 +8,10 @@ sind Festkomma; `double` nur bei der Initialisierung von Tabellen).
 | Programm | Norm | Zweck |
 |---|---|---|
 | `dvbt_mod` | ETSI EN 300 744 V1.6.1 (nicht-hierarchisch) | 2k/8k, QPSK/16/64-QAM, CR 1/2…7/8, GI 1/4…1/32, BW 5/6/7/8 MHz |
-| `dvbc_mod` | ETSI EN 300 429 V1.2.1 (Annex A, ITU-T J.83 A) | 16/32/64/128/256-QAM, Symbolrate frei, 2 oder 1 Sample/Symbol |
+| `dvbc_mod` | ETSI EN 300 429 V1.2.1 (ITU-T J.83 A); `--annex b` J.83 B / SCTE 07; `--annex c` J.83 C | A/C: 16…256-QAM, Symbolrate frei; B: 64/256-QAM Trellis, 5,057/5,361 MBd; 2 oder 1 Sample/Symbol |
+| `isdbt_mod` | ARIB STD-B31 / ABNT NBR 15601-1 (ISDB-Tb) | 6 MHz, Modus 1/2/3, 1 Schicht (13 Seg.) oder 1seg + 12 Seg., QPSK/16/64-QAM, GI 1/4…1/32 |
+| `atsc_mod` | ATSC A/53 Part 2 (8-VSB) | 6-MHz-Kanal, 19,39 Mbit/s, 1 Sample/Symbol = 10,762 MS/s komplex |
+| `dtmb_mod` | GB 20600-2006 (DTMB, China) | 8 MHz, C = 3780 (TDS-OFDM) oder C = 1, 4QAM-NR…64QAM, LDPC 0,4/0,6/0,8, PN420/595/945, 4,8…32,5 Mbit/s, 7,56 MS/s + SRRC im AD9361-FIR |
 | `rrc_fir_gen` | AD9361 `filter_fir_config` | RRC-α-0,15-Koeffizienten, 2×-Interpolation im TX-FIR (für `dvbc_mod --sps 1`) |
 | `dvbmod_selftest` | – | Bausteintest + Mikrobenchmark (`dvbmod_selftest micro`) |
 
@@ -103,6 +106,60 @@ dvbc_mod [-i SPEC] [-o PFAD] --qam 16|32|64|128|256 --sr BAUD [--sps 2|1] [--tap
 * Konstellation nach Figur 7/8 der Norm (Quadrant 1 abgelesen, Quadranten 2/3/4 durch Drehung +π/2, +π,
   +3π/2 mit MSB 10/11/01, Tabelle 1), Differenzcodierung der 2 MSB nach Kap. 8, Byte→m-Tupel MSB zuerst.
 * Pegel: RMS = −`backoff` dBFS (Standard 10 dB, 256-QAM-PAPR ≈ 8 dB nach RRC).
+
+### dvbc_mod --annex b|c – ITU-T J.83 Annex B (US-Kabel, SCTE 07) und Annex C (Japan)
+
+```
+dvbc_mod --annex b --qam 64|256 [--sr BAUD] [--interleave CW] [--threads 2|1] [--sps 1|2] [--fir DATEI] [--backoff dB]
+         [--print-rates] [--dump-sym DATEI]  … sonst wie oben (Eingang, IIO, Dauer)
+dvbc_mod --annex c --qam 64|256 [--sr 5274000] …                                    (--annex a = bisher, Standard)
+```
+* **Annex C**: Codierung exakt wie Annex A, nur RRC α = 0,13 (`--sps 2`; bei `--sps 1` kommt das FIR vom Server) und Standard-SR
+  5,274 MBd (64-QAM 29,162 Mbit/s, 256-QAM 38,883 Mbit/s). `--rolloff A` überschreibt α (alle Annexe).
+* **Annex B** (`lib/j83b.c`, eigene Implementierung nach J.83 (12/2007) B.4–B.5): MPEG-Framing (Prüfsumme über die 187 Nutzbytes,
+  Paritätsmatrix aus Vektor C/Figur B.4, Syndrom 47h; steht an der Stelle des nächsten Sync-Bytes) → 7-Bit-Symbole →
+  RS(128,122) über GF(128) (x^7+x^3+1, Wurzeln α^1..α^5, erweitertes Symbol c(α^6)) → Faltungsinterleaver Level 2
+  (`--interleave` = Steuerwort aus Tabelle B.2: 0..10, 12, 14; **Standard 6 = I 128/J 4**, 1 = I 128/J 1 = Level 1) →
+  Randomizer x^3+x+α^3 (je Rahmen „alles Eins“) → FEC-Rahmen (64-QAM: 60 RS-Blöcke + 42-Bit-Trailer 75 2C 0D 6C + CW;
+  256-QAM: 88 Blöcke + 40 Bit 71 E8 4D D4 + CW in den 5 Sync-Trellisgruppen) → Trellis (Präcoder, 2 BCC 25/37 oktal,
+  Punktierung 4/5; 64-QAM 14/15, 256-QAM 19/20) → Konstellation Figur B.18/B.19.
+  Symbolrate normgemäß 5 056 941 / 5 360 537 Bd (Standard, wenn `--sr` fehlt; andere Werte → Warnung), RRC 0,18 / 0,12.
+  Nutzrate 26 970 352 / 38 810 701 b/s. Ausgaberate = SR·sps (sps 1: 5,057/5,361 MS/s).
+* `--print-rates`: eine JSON-Zeile auf stdout (`ts_bps`, `symbol_rate`, `sample_rate`, `sps`, `annex`, `qam`, `rolloff`).
+* UDP-Eingang: Nullpakete bei Unterlauf (gleicher Ring wie bei allen Modulatoren, `--udp-buffer`).
+* `--threads 2` (Standard bei Annex B): Hauptthread Eingang/Prüfsumme/RS/Interleaver/Randomizer, zweiter Thread Trellis/Mapper/
+  RRC/Ausgabe; Ausgabe bitgleich zu `--threads 1`.
+
+Prüfung (24.10., WSL2, `tests/j83b_test.sh`, Ergebnisse `tests/results/j83b_*.json`):
+* Annex A bitgleich zu vorher (md5 von 7 Fällen, `j83b_annex_a_regression.json`).
+* **Unabhängige Referenz gr-dtv** (GNU Radio 3.10, `catv_*`-Sender von R. Economos, `tests/j83b_grdtv.py`): QAM-Labels
+  identisch – ffmpeg-TS 10 s je 64/256-QAM mit CW 6 und 1 (50,5 Mio. bzw. 53,5 Mio. Symbole), Zufalls-TS mit allen 13 Steuerwörtern,
+  **0 Abweichungen**. Zusätzlich eigene numpy-Referenz der Senderstufen (`tests/j83b_ref.py stages`) stufengleich mit gr-dtv
+  (Framing, RS, Interleaver, Randomizer, Rahmen, Trellis). Konstellationstabellen aus der Norm-PDF ausgelesen = gr-dtv
+  (`dvbs2_modulator` MOD_64QAM/MOD_256QAM); 90°-Drehung ändert nur die codierten Bits (Rotationsinvarianz nachgerechnet).
+* Ein freier J.83B-*Empfänger* ist nicht verfügbar (gr-dtv hat nur den Sender) → eigener Empfänger `tests/j83b_rx.py` (Viterbi mit
+  Soft-Metrik, Präcoder-Rückrechnung, Rahmensync, Deinterleaver nach Steuerwort aus dem Trailer, RS-Decoder t = 3, MPEG-Sync über
+  die Prüfsumme): sps 1 und 2 ohne Rauschen und mit Es/N0 30 dB (64-QAM auch 28 dB), Drehungen 90/180/270°, CW 1/3/6/9/14:
+  **0 Paketfehler** (bis 11 668 Pakete je Fall). Rahmenperiode 9 607,5 (64) / 10 380 (256) QAM-Symbole → Nutzrate aus der
+  Rahmenstruktur 26 970 352 / 38 810 701 b/s. Grenzbereich: 64-QAM 21 dB fehlerfrei (424 RS-Korrekturen), 256-QAM 27 dB
+  nicht mehr (30 % Paketfehler; einfacher Bit-Metrik-Decoder).
+* Annex C: `tests/dvbc_demod.py --rolloff 0.13` (neue Option, Standard 0,15) → 0 Bitfehler (64/256-QAM).
+* Spektrum sps 2 (`j83b_spectrum.json`): 99-%-Bandbreite 5,37 MHz (B64) / 5,51 MHz (B256) / 5,46 MHz (C); RMS −10,0 dBFS,
+  PAPR 7,4–8,1 dB.
+* ARM (NEON) und x86 bitgleich (md5, `tests/pluto/j83b_bench.sh`).
+
+Bauen ARM: `tests/pluto/build_j83b.sh` (statisch mit libiio, Bibliothek nur aus den dvbc-Quellen) → `pc/device_files/j83b_mod_iio`
+(der Server lädt es für Annex B/C als `/tmp/dablab_bin/dvbc_mod`).
+
+Pluto (A9 2×667 MHz, `-i prbs -o /dev/null --seconds 10`, nur CPU, kein DAC; `tests/results/j83b_pluto_bench.txt`):
+
+| Fall | Echtzeitfaktor |
+|---|---|
+| B 64-QAM sps 1, 2 Threads | **2,36** (Pipe `-o - \| cat`: 1,89) |
+| B 256-QAM sps 1, 2 Threads | **1,65** (Pipe: 1,61) |
+| B 64 / 256-QAM sps 1, `--threads 1` | 1,37 / 0,91 |
+| B 64 / 256-QAM sps 2 (RRC im Programm) | 0,14 / 0,13 – auf dem Gerät nur sps 1 + AD9361-FIR |
+| C 256-QAM sps 1 (5,274 MBd) | 1,73 |
 
 ## rrc_fir_gen
 
@@ -341,6 +398,294 @@ Roll-off 0,35/0,25/0,20. Kontrollempfänger `tests/dvbs2_hardrx.py` (harte Entsc
 Loopback/hohes SNR), eingebunden in `pc/rxdecode.py` (`decode_dvbs2`); `tests/s2_hardrx_test.sh` mit nachgebildetem Funkweg (CFO,
 Phase, Rauschen 25/28 dB).
 
+## atsc_mod – ATSC 1.0 (A/53 Part 2, 8-VSB)
+
+```
+atsc_mod [-i SPEC] [-o PFAD] [--backoff dB] [--taps 81] [--kaiser 4] [--threads 2|1] [--packets N | --seconds S]
+         [--loop] [--realtime] [--udp-buffer N] [--quiet] [--print-rates] [--dump-sym DATEI]
+         IIO: -o iio: --lo KANALMITTE [--atten DB] [--rfbw 6e6] [--iio-buf SAMPLES] [--iio-kbufs N] [--enable]
+```
+* Kette (`lib/atsc.c`): Randomizer (x^16+x^13+x^12+x^11+x^7+x^6+x^3+x+1, F180h je Feld, Sync-Byte entfällt) → RS(207,187), t = 10 →
+  Faltungs-Byte-Interleaver B = 52, M = 4 (Byte t um 208·(t mod 52) verzögert) → 2/3-Trellis, 12 verschachtelte Encoder mit Precoder
+  (Byte-/Encoder-Zuordnung über 12-Segment-Gruppen, Versatz 4 je Segmentsync) → Segmentsync (+5 −5 −5 +5), Feldsync (PN511, 3×PN63
+  mit invertiertem Mittelteil in Feld 2, VSB-Modus, 92 reservierte Symbole wie gr-dtv, letzte 12 Symbole = Ende des Vorsegments) →
+  8 Pegel ±1…±7 + Pilot 1,25.
+* VSB-Formung, Ausgaberate = **Symbolrate 10 762 237,76 S/s komplex (1 Sample/Symbol)**: Die reellen Pegel werden um −fs/4 gedreht
+  (Faktor (−j)^n, also abwechselnd rein reell/rein imaginär) und mit einem reellen RRC-Tiefpass gefiltert (α = 0,1152 bezogen auf
+  fs/2, d. h. 0,31-MHz-Flanken; Kaiser β = 4; Standard 81 Taps, Q15, NEON). Ergebnis: Kanal ±3 MHz um den LO, Pilot bei
+  −2,690559 MHz = **309,44 kHz über der Kanalunterkante** (LO = Kanalmitte, z. B. K14 US: `--lo 473e6`). Warum 1 Sample/Symbol: Das
+  6-MHz-Signal passt komplex in 10,76 MHz, der Symboltakt ist direkt der DAC-Takt (keine Ratenwandlung), die −fs/4-Drehung kostet
+  nichts und jedes Ausgabesample braucht nur `taps` Multiplikationen; die Spiegel bei fs ± 3 MHz unterdrücken die AD9364-Halbband-
+  Interpolatoren (TX-FIR bleibt aus, `filter_fir_en=0`). 2 Samples/Symbol (21,5 MS/s) hätten die doppelte Rechen- und DMA-Last.
+* Nutzrate 19 392 658,46 b/s (`--print-rates` → `{"ts_bps":…,"sample_rate":…,"symbol_rate":…}` auf stdout). Felder à 312 Pakete
+  (24,2 ms); Dauer und Dateiende werden auf ganze Felder gerundet (Auffüllen mit Nullpaketen). UDP-Eingang: Nullpakete bei Unterlauf,
+  Verwerfen von Nullpaketen über 75 % Füllstand (wie bei den DVB-Modulatoren). Datei/stdin blockieren dagegen (kein Stopfen).
+* Pegel: RMS = −`backoff` dBFS (Standard 10 dB; PAPR gemessen 7,8 dB, 99,99 % 7,0 dB → kein Clipping). Amplitude je Pegeleinheit
+  wird so begrenzt, dass ±8,25 int16 nicht übersteigt.
+* `--threads 2` (Standard): Hauptthread codiert Block k+1 und filtert den hinteren Teil von Block k, ein Worker gleichzeitig den
+  vorderen; die Aufteilung wird laufend nachgeführt (`split` in den Statuszeilen). Ausgabe bitgleich zu `--threads 1` und x86.
+
+Prüfung (24.10., WSL2, GNU Radio 3.10 gr-dtv; `tests/atsc_test.sh`, Ergebnisse `tests/results/atsc_*.json`, `atsc_spectrum.png`):
+* Symbolstrom bis zum Feldsync-Mux gegen den gr-dtv-Sender (`atsc_pad … atsc_field_sync_mux`, `tests/atsc_grdtv.py tx`):
+  215 204 288 Symbole (826 Felder, ffmpeg-TS 20 s) **0 Abweichungen**.
+* IQ gegen gr-dtv-Referenzkette (Symbole + Pilot → ·(−j)^n → `fir_filter_ccf` mit denselben Q15-Taps): SNR 87,5 dB (nur Rundung).
+* Loopback `atsc_mod` → IQ → `dtv.atsc_rx` (10,762238 MS/s, sps 1,1) → TS (`tests/atsc_ts_compare.py`): ffmpeg-TS (MPEG-2 720p +
+  AC-3, Muxrate 19 392 658) 255 776 Pakete verglichen, **0 Paketfehler**, 0 TEI; Zufalls-TS 29 255 Pakete, nach dem Einrasten
+  fehlerfrei (13 TEI-Pakete in den ersten 70 Paketen nach der ersten Übereinstimmung = Einschwingen des Entzerrers). Einrasten nach
+  ≈ 1 600 Paketen (≈ 5 Felder, 0,12 s; Empfängereingang auf RMS ≈ 4 skaliert, sonst braucht die AGC von `atsc_rx` ≈ 0,65 s).
+* Spektrum (`tests/results/atsc_spectrum.png`): Pilot −2,690559 MHz (309,44 kHz über Kanalunterkante, +19,4 dB über dem Plateau),
+  −3 dB 5,39 MHz, −20 dB 5,97 MHz, −40 dB 6,19 MHz, ±3,25 MHz −69,5 dBc, außerhalb ±3,5 MHz ≤ −73 dBc; RMS −10,0 dBFS, PAPR 7,8 dB.
+* ARM (NEON) und x86 bitgleich (md5 über 10 Felder, `tests/pluto/atsc_bench.sh`).
+
+Bauen ARM: `tests/pluto/build_atsc.sh` (statisch mit libiio aus `/opt/dablab/mod/armsys`, wie `dvbs2_mod`) → `pc/device_files/atsc_mod_iio`.
+
+Pluto (A9 2×667 MHz, `-i prbs -o /dev/null --seconds 10`, `tests/pluto/atsc_bench.sh`; nur CPU, kein DAC):
+
+| Taps | Threads | erreichte Symbolrate | Echtzeitfaktor |
+|---|---|---|---|
+| 81 | 2 | 14,79 MS/s | 1,375 |
+| 97 | 2 | 13,38 MS/s | 1,243 |
+| 81 | 1 | 7,34 MS/s | 0,68 |
+| 81 | 2, Ausgabe über Pipe (`-o - \| cat >/dev/null`) | 11,68 MS/s | 1,085 |
+
+Bedarf 10,762 MS/s: Echtzeit nur mit beiden Kernen. Die IIO-Ausgabe (Kopie in den DMA-Puffer, 43 MB/s) liegt zwischen den beiden
+gemessenen Fällen; ein DAC-Lauf (stumm) mit Unterlaufzähler steht aus. Reserve schaffen ggf. `--taps 65` (−68 dBc ab 3,25 MHz).
+
+## isdbt_mod – ISDB-Tb (ARIB STD-B31 / ABNT NBR 15601-1, 6 MHz)
+
+Brasilien/Südamerika-Variante von ISDB-T, nur synchrone Modulation. Abtastrate 512/63 MHz = 8,126984 MS/s
+(über der Pluto-USB-Grenze → läuft auf dem Pluto selbst, wie `dvbt_mod`). Dateien: `isdbt_mod.c`,
+`lib/isdbt.c`, `lib/isdbt.h`, `lib/isdbt_tables.h`; ARM: `tests/pluto/build_isdbt.sh` → `pc/device_files/isdbt_mod_iio`.
+
+```sh
+isdbt_mod --print-rates [Parameter]          # eine JSON-Zeile auf stdout: layer_a_bps, layer_b_bps, total_bps, sample_rate, …
+isdbt_mod -i udp://:1234 --layer-a-pids 0x201,0x202 -o iio: --lo 539142857 --enable --atten 20
+isdbt_mod -i prbs -o test.iq --seconds 10    # Standard: Modus 3, GI 1/8, A = 1seg QPSK 2/3 I=4, B = 12seg 64QAM 3/4 I=2
+```
+Optionen: `--mode 1|2|3`, `--guard 1/4|1/8|1/16|1/32`, `--layers 1|2` (1: Schicht A über 13 Segmente; 2: A = 1 Segment
+mit Teilempfangs-Flag + B = 12 Segmente), je Schicht `--a-mod/--b-mod qpsk|16qam|64qam`, `--a-rate/--b-rate 1/2…7/8`,
+`--a-ti/--b-ti I` (Modus 3: 0/1/2/4, Modus 2: 0/2/4/8, Modus 1: 0/4/8/16), sonst wie `dvbt_mod` (`--backoff`, `--window`,
+`--packets`, `--seconds`, `--loop`, `--realtime`, `--udp-buffer`, `--quiet`, IIO-Optionen). Ausgabe IQ int16 LE.
+
+**Eingang/Schichtzuordnung:** ein 188-Byte-TS. `--layer-a-pids` legt die PIDs der Schicht A fest, alles andere geht nach B;
+PSI/SI (PAT 0x0000, CAT, NIT 0x0010, SDT 0x0011, EIT 0x0012, RST, TDT/TOT 0x0014, 1seg-PMT 0x1FC8…0x1FCF) werden in **beide**
+Schichten kopiert, damit ein 1seg-Empfänger PAT/NIT/PMT findet. Ohne Liste bei 2 Schichten: alles nach B (A trägt dann
+PSI + Nullpakete), bei 1 Schicht alles nach A. Eingangs-Nullpakete werden verworfen; je Schicht puffert eine FIFO (2 Rahmen),
+läuft eine Schicht leer, wird **im Modulator** mit Nullpaketen gestopft (Zähler `stuffed_a/b`), ist die andere FIFO voll, wird
+nicht weitergelesen (kein Verlust bei Dateieingang; Überlauf zählt `dropped_a/b`). Eingang `prbs`: je Schicht eine eigene
+PRBS-Quelle. Die Paketreihenfolge je Schicht bleibt erhalten; ein BTS (204-Byte-TS mit ISDB-T-Informationspaket) wird nicht
+erzeugt oder benötigt – der Modulator remultiplext intern direkt in die Schichten (IIP-PID 0x1FF0 wird wie jede andere PID
+behandelt).
+
+**Signalkette je Schicht:** RS(204,188) → Energieverwürfelung (1+x¹⁴+x¹⁵, Rücksetzen je OFDM-Rahmen, Sync-Byte
+unverwürfelt) → Byte-Interleaver (I = 12, M = 17) → Faltungscode K = 7 mit Punktierung → seriell/parallel (b0 zuerst) →
+Bitverschachtelung (120·b/(m−1) Zellen, Ausgleich auf 2 Symbole) → Zeitverschachtelung (I·m_i mit m_i = 5i mod 96,
+Laufzeitausgleich 204 − 95·I mod 204 Symbole) → Schichtkombination → Frequenzverschachtelung (Intersegment ohne
+Teilempfangssegment, Rotation, Zufallspermutation) → Rahmen mit SP (k mod 12 = 3·(n mod 4), ±4/3), CP am oberen Rand,
+TMCC (DBPSK, 204 Bit, Differenzmengen-Code (273,191) verkürzt, alle Parameter A/B/C, „nächste“ = „aktuelle“) und AC1
+(DBPSK, Füllbits 1) → IFFT int16 (Modus 1/3: NEON-Festkomma wie DVB-T; Modus 2 = 4k: float-Radix-2, nur Datei) → Guard,
+RC-Fenster (Standard N/256 = 32 Samples in Modus 3).
+Ausrichtung TS ↔ OFDM-Rahmen so, wie Empfänger sie erwarten (gegen gr-isdbt ermittelt): 204-Byte-Einheit = [b1…b203,
+Sync], am Rahmenbeginn (nach Rückrechnung aller Laufzeiten) Einheitsbeginn, Byte-Interleaver-Zweig 0, Verwürfler-Reset.
+TMCC-Segmenttyp B17–B19 = 000 (synchron, `--seg-type 7` für 111 wie der gr-isdbt-Sender).
+
+**Raten (Modus 3, GI 1/8):** A 1seg QPSK 2/3 = 0,416 Mbit/s, B 12seg 64QAM 3/4 = 16,852 Mbit/s (gesamt 17,268);
+GI 1/16: 0,441 + 17,843 Mbit/s; eine Schicht 64QAM 7/8 GI 1/32: 23,234 Mbit/s.
+
+**Prüfung (unabhängiger Empfänger gr-isdbt, git-artes, GNU Radio 3.10.9 in WSL):** `tests/isdbt_tests.py BIN WORKDIR`
+(Matrix, Ergebnisse `tests/results/isdbt_*.json`): TS → isdbt_mod → IQ-Datei → gr-isdbt (Sync, TMCC, Frequenz-/Zeit-
+Entschachtelung, Demapper, Bit-Entschachtelung, Viterbi, Byte-Entschachtelung, Entwürfelung, RS) → TS → paketgenauer Vergleich.
+Wichtig: **je Schicht ein eigener gr-isdbt-Graph** (`isdbt_rx_grisdbt.py --only a|b`) – der gr-isdbt-Viterbi hält Metriken
+und Pfade in *statischen* Klassenmitgliedern; zwei Instanzen in einem Prozess verfälschen sich gegenseitig (das sah zunächst
+wie periodische RS-Fehler in Schicht B und Totalausfall in A aus).
+
+| Fall | Modus/GI | Schichten | A: identisch / Lücken | B: identisch / Lücken | TMCC OK / NOT OK |
+|---|---|---|---|---|---|
+| m3_l2_g8_std (PRBS-Pakete) | 3, 1/8 | A 1seg QPSK 2/3 I=4, B 64QAM 3/4 I=2 | 1280 / 0 | 49274 / 0 | 25 / 0 |
+| m3_l2_g16_av (ffmpeg H.264/AAC, 2 Programme) | 3, 1/16 | wie oben | 3026 / 0 | 58308 / 0 | 49 / 0 |
+| m3_l1_g4_16qam12_ti0 | 3, 1/4 | A 13seg 16QAM 1/2 I=0 | 13700 / 1 (Einrasten) | – | 15 / 0 |
+| m3_l1_g8_64qam78_ti1 | 3, 1/8 | A 13seg 64QAM 7/8 I=1 | 36069 / 0 | – | 16 / 0 |
+| m3_l2_g32_mix | 3, 1/32 | A 16QAM 5/6 I=1, B QPSK 7/8 I=0 | 1762 / 0 | 10090 / 0 | 16 / 0 |
+| m1_l2_g8 | 1, 1/8 | A QPSK 1/2 I=4, B 16QAM 2/3 I=8 | 480 / 0 | 15360 / 0 | 47 / 0 |
+| m2_l2_g8 (float-IFFT) | 2, 1/8 | A QPSK 2/3 I=2, B 64QAM 3/4 I=4 | 929 / 0 | 38880 / 0 | 35 / 0 |
+
+Verfälschte Pakete: 0 in allen Fällen. gr-isdbt druckt die TMCC-Auswertung (Modulation, Coderate, I, Segmente je Schicht,
+C = UNUSED) passend zu den Sendeparametern. AV-Fall: zurückgewonnene Schicht A = 1seg-Dienst (H.264 Constrained Baseline
+320×240, 164 Bilder, AAC), Schicht B = HD-Dienst (H.264 High 1280×720, 298 Bilder, AAC), mit ffprobe vollständig dekodiert.
+
+Lücken nur beim Einrasten (erste 1–2 Rahmen nach dem ersten TMCC-Rahmen; bei I = 0 gibt es keinen Interleaver-Vorlauf, der sie
+verdeckt), danach fehlerfrei. Entzerrte Konstellation (gr-isdbt): MER ≈ 50 dB (Modus 3), 46 dB (Modus 1).
+Spektrum (`tests/isdbt_spectrum.py`, `tests/results/isdbt_spectrum.png`, Modus 3, Backoff 12 dB): belegte Bandbreite
+5,572 MHz; Pegel bei 3,0…3,1 MHz (0,21 MHz außerhalb) −51 dBc mit Standardfenster 32 (−37 dBc ohne, −63 dBc mit `--window 64`),
+3,2…4 MHz ≤ −64 dBc. Achtung Anlauf: Interleaver-Historie wird pseudozufällig vorbelegt – mit Nullen trugen die ersten
+~0,5 s fast alle Zellen denselben Punkt (Impulse, Clipping, Spektrum bei −15 dBc).
+
+**Unabhängigkeit der Prüfung:** Empfänger-Code ist fremd (gr-isdbt), aber die Normtabellen (TMCC-/AC-Positionen,
+Frequenz-Zufallspermutation) und die TS↔Rahmen-Ausrichtung sind gegen genau diesen Empfänger abgeglichen; ein gemeinsamer
+Tabellenfehler fiele nicht auf (gr-isdbt empfängt reale Sendungen in Modus 3; die Modus-1/2-Tabellen sind dort nicht
+praxisgeprüft). TMCC-Parität wird von gr-isdbt mit eigener Prüfmatrix geprüft (`TMCC OK`, keine `NOT OK`).
+
+**Pluto (`-i prbs -o /dev/null --seconds 10`, statisch, /tmp, kein Senden):**
+
+| Konfiguration | Signal / Wanduhr | Echtzeitfaktor | erreichbar vs. nötig | Coder / IFFT je Symbol (Symboldauer) |
+|---|---|---|---|---|
+| Standard (GI 1/8, 1seg QPSK 2/3 + 12seg 64QAM 3/4) | 10,18 s / 5,47 s | ×1,86 | ≈ 15,1 MS/s vs. 8,127 MS/s | 595 / 603 µs (1134 µs) |
+| GI 1/16, sonst Standard | 10,05 s / 5,77 s | ×1,74 | ≈ 14,2 MS/s | 607 / 606 µs (1071 µs) |
+| 1 Schicht 64QAM 7/8 GI 1/32 (23,2 Mbit/s) | 10,18 s / 6,35 s | ×1,60 | ≈ 13,0 MS/s | 645 / 593 µs (1039,5 µs) |
+
+Beide Kerne damit ≈ 55–62 % ausgelastet. Profil Coder (GI 1/16): FEC (RS/Verwürfelung/Byte-Interleaver/Faltungscode)
+300 µs, Bitverschachtelung 119 µs (vektorisiert; skalar waren es 496 µs und nur ×1,16), Zeitverschachtelung 55 µs,
+Rahmenaufbau 120 µs. Senden mit `-o iio:` wurde nicht ausgeführt. UDP-Eingang (x86, `--realtime`, TS mit total_bps):
+×1,00, keine Verluste, FIFO-Füllstand stabil, Stopfung je Schicht im Modulator.
+
+**Offen:** kein Test mit Handelsempfänger (TV/1seg-Handy); Modus 2 nur Datei (float-IFFT, auf dem Pluto nicht echtzeitfähig);
+keine differenzielle Modulation (DQPSK), keine Schicht C, keine Parameterumschaltung per TMCC-Countdown, kein BTS-/IIP-Eingang;
+AC1 ohne Inhalt (Füllbits); TMCC-Segmenttyp 000 nach Norm, von gr-isdbt nicht ausgewertet.
+
+## dtmb_mod – DTMB (GB 20600-2006, China, 8 MHz)
+
+Labor-Prüfsender für DTMB (auch DMB-T/H), läuft auf dem Pluto selbst (TS per UDP). Dateien: `dtmb_mod.c`, `lib/dtmb.c`,
+`lib/dtmb.h`, `lib/dtmb_ldpc_tables.h` (erzeugt von `tools/gen_dtmb_ldpc.py`); ARM: `tests/pluto/build_dtmb.sh` →
+`pc/device_files/dtmb_mod_iio`; x86 ohne restlichen Baum: `tests/dtmb_build.sh` (oder `make dtmb_mod`).
+
+```
+dtmb_mod [-i SPEC] [-o PFAD] --carriers 3780|1 --const 4qamnr|4qam|16qam|32qam|64qam --rate 0.4|0.6|0.8
+         --pn 420|595|945 --ti 240|720 [--pn-const] [--sps 1|2] [--taps 128] [--kaiser 3] [--backoff dB]
+         [--frames N | --seconds S] [--loop] [--realtime] [--udp-buffer N] [--threads 1|2] [--affinity] [--rt]
+         [--quiet] [--profile] [--print-rates] [--fir-out DATEI] [--selftest]
+         IIO: -o iio: --lo HZ (= Kanalmitte) --atten DB --rfbw HZ (Standard 8e6) [--iio-buf N] [--iio-kbufs N] [--enable]
+              [--fir DATEI | --no-fir]
+```
+Server-Aufruf (`pc/agent.py`): `dtmb_mod -i udp://0.0.0.0:<port> --udp-buffer N -o iio: --lo HZ --rfbw 8000000 --carriers …
+--const … --rate … --pn … --ti … [--backoff dB] --atten dB` – passt so (die Konstellationsnamen aus dem Dashboard,
+z. B. „4-QAM-NR“ → `4qamnr`, werden direkt verstanden). Standard: C = 3780, 64QAM, 0,6, PN945, M = 720 (SI-Index 22).
+4QAM-NR und 32QAM sind nach Norm nur mit 0,8 erlaubt (sonst Abbruch mit Meldung).
+`--print-rates` → eine JSON-Zeile auf stdout: `ts_bps`, `sample_rate`, `symbol_rate`, `sps`, `frame_len`,
+`frames_per_superframe`, `si_index`, `carriers`, `fir`. UDP-Eingang über `lib/ts_input.c` (Vorfüllung auf 50 %,
+Nullpakete bei Unterlauf, Verwerfen von Nullpaketen über 75 %); Datei/stdin blockieren, bei Dateiende wird mit
+Nullpaketen nachgelaufen, bis der Zeitverschachteler geleert ist (170/510 Rahmen + 4).
+
+**Abtastrate und LO:** Ausgabe mit 1 Sample/Symbol = **7,56 MS/s**, die SRRC-Formung (α = 0,05) übernimmt der
+**AD9361-TX-FIR mit INT 2** (128 Taps, FIR-Takt 15,12 MHz). Bei `-o iio:` erzeugt `dtmb_mod` die FIR-Datei selbst
+(temporär unter /tmp, Format wie `rrc_fir_gen`, TX und RX identisch) und lädt/aktiviert sie über `lib/output.c`;
+`--fir-out DATEI` schreibt sie zur Kontrolle. Begründung: (1) das 7,94-MHz-Signal braucht sonst mindestens ~10 MS/s und
+ein steiles Filter in Software – 128 Taps bei 15,12 MS/s wären auf dem A9 ≈ 1,9 GMAC/s und nicht echtzeitfähig, im FIR
+kosten sie keine CPU; (2) DMA-Last nur 30 MB/s; (3) dasselbe Verfahren läuft mit `dvbs_mod --sps 1` im Funkbetrieb.
+`--sps 2` liefert 15,12 MS/s mit derselben Filterung in Software (Standard für Datei-/stdout-Ausgabe, Prüfungen).
+Die LO-Frequenz ist die Kanalmitte (Signal symmetrisch, ±3,97 MHz). Taps: SRRC über 127 Abtastwerte (Kaiser β = 3)
+plus führender Null-Tap → ganzzahlige Laufzeit (32 Symbole). Mit gerader Länge lag der Symbolzeitpunkt bei 31,75
+Symbolen; der Prüfempfänger (rechnet intern auf 7,56 MS/s mit ganzzahligem Timing) wählte dann beim Nachsynchronisieren
+gelegentlich das Nachbarsample und verlor bis zum nächsten Trajektorienschritt (400 Rahmen) alle Daten.
+
+**Kette (`lib/dtmb.c`):**
+* Verwürfelung 1+x^14+x^15, Startzustand 100101010000000, Ausgang = Stufe 14 ⊕ 15, über den ganzen TS (inkl. Sync-Byte),
+  Rücksetzen je Signalrahmen-Nutzlast (bei 4QAM-NR/32QAM also mitten in der 2-Rahmen-Gruppe).
+* BCH(762,752) aus BCH(1023,1013), g(x) = x^10+x^3+1, systematisch (752 Bit Nachricht, dann 10 Prüfbits), MSB zuerst.
+* LDPC (7493,k) quasizyklisch, Kreisgröße 127, k = 3048/4572/6096 (24/36/48 Blöcke); gesendet werden 7488 Bit =
+  [Parität ohne die ersten 5 Bits | Information]. Die Generatormatrix wird **nicht erfunden**, sondern von
+  `tools/gen_dtmb_ldpc.py` aus den Prüfmatrizen H (GB 20600-2006 Anhang B, als alist im MIT-lizenzierten Empfänger
+  dtmb-sdr, `python/dtmb/data/dtmb_ldpc_rate{1,2,3}.alist`) per Gauß-Jordan abgeleitet: H_p ist invertierbar, alle
+  127×127-Blöcke von P^T = H_p^{-1}·H_u sind zirkulant (geprüft), Codewörter erfüllen H (geprüft). Codierung über
+  GF(2^7): R = GF(2)[x]/(x^127+1) ≅ GF(2) × GF(128)^18 (18 Kreisteilungsklassen), damit wird jedes Blockprodukt
+  u_i·g_ij zu 18 Körpermultiplikationen; auf NEON mit `vmull.p8` (ungekürzte Produkte per XOR summiert, einmal reduziert),
+  Hin-/Rücktransformation über Nibble-Tabellen. Selbsttest: schneller Pfad = direkte Rotation für alle Raten.
+* Mapping (b0 = erstes Bit): 4QAM ±4,5, 16QAM ±2/±6, 64QAM ±1…±7 (je Achse reflektierter Gray-Code, I = untere Hälfte
+  der Bits), 32QAM-Kreuz nach Bild 4, 4QAM-NR: Bitverschachtelung vor dem NR-Code, NR(16,8) nach Gl. 4-1…4-8
+  (x0…x7 y0…y7, je zwei Bits ein 4QAM-Symbol). Codewörter je Rahmen: 4QAM 1, 16QAM 2, 64QAM 3, 32QAM 5 je 2 Rahmen,
+  4QAM-NR 1 je 2 Rahmen.
+* Faltungs-Zeitverschachtelung auf Symbolebene (bei 4QAM-NR auf Bitebene), B = 52, Zweig b um b·M Zweigbesuche
+  verzögert (M = 240: 170 Rahmen, M = 720: 510 Rahmen), jeder Rahmen beginnt mit Zweig 0, Vorbelegung pseudozufällig.
+* Rahmenkörper 3780 = 36 SI + 3744 Daten. SI: 4 Bit Trägerkennung (C = 3780: 1111, C = 1: 0000) + 32-Bit-Vektor aus
+  Anhang G (gerader Index = Komplement), Amplitude ±4,5(1+j). C = 3780: SI an 36 festen logischen Stellen, Frequenz-
+  verschachtelung nach Anhang F (Ziffernumkehr über 3·3·3·2·2·5·7), IDFT 3780 Punkte (int16-Festkomma, Stockham
+  4·3·3·3·5·7, NEON; SNR 51 dB gegen double). C = 1: SI zuerst, dann Daten im Zeitbereich (ohne Doppelpilot).
+* Rahmenkopf: PN420 (m-Folge 255, Startwert 10110000, Vor-/Nachlauf 82/83), PN595 (10-Bit-Folge, 595 Chips, fest),
+  PN945 (m-Folge 511, Vor-/Nachlauf 217/217); I = Q = ±A; Leistung Kopf/Körper 2 (PN420/945) bzw. 1 (PN595).
+  Phase je Rahmen nach der Superrahmen-Folge (225/216/200 Rahmen = 125 ms; `--pn-const`: konstante Phase).
+* Pegel: RMS des Rahmenkörpers nach der Formung = −`backoff` dBFS (Standard 12 dB); mit dem lauteren Kopf liegt der
+  Gesamt-RMS bei PN945 0,8 dB, bei PN420 0,4 dB darüber. Gemessen: PAPR 9,6 dB (99,99 %), 11,3 dB Maximum, keine
+  gesättigten Samples. Intern rechnet die IDFT mit mindestens 6000 LSB RMS und skaliert danach herunter.
+
+**Nutzraten (Mbit/s, TS inkl. Sync-Byte; Pakete je Rahmen · 1504 bit · 7,56 MS/s / Rahmenlänge):**
+
+| Konstellation | Rate | PN420 | PN595 | PN945 |
+|---|---|---|---|---|
+| 4QAM-NR | 0,8 | 5,414 | 5,198 | 4,813 |
+| 4QAM | 0,4 / 0,6 / 0,8 | 5,414 / 8,122 / 10,829 | 5,198 / 7,797 / 10,396 | 4,813 / 7,219 / 9,626 |
+| 16QAM | 0,4 / 0,6 / 0,8 | 10,829 / 16,243 / 21,658 | 10,396 / 15,593 / 20,791 | 9,626 / 14,438 / 19,251 |
+| 32QAM | 0,8 | 27,072 | 25,989 | 24,064 |
+| 64QAM | 0,4 / 0,6 / 0,8 | 16,243 / 24,365 / **32,486** | 15,593 / 23,390 / 31,187 | 14,438 / 21,658 / 28,877 |
+
+**Prüfung (24.10., WSL2):** Empfänger **dtmb-sdr** (github.com/ningzichun/dtmb-sdr, MIT, Commit 2cc94c0 vom 11.10.2026,
+C++20, mit CMake gebaut; gr-dtv hat kein DTMB, ein gr-dtmb-Modul war nicht zu finden). `tests/dtmb_tests.py`: Prüf-TS
+(Laufnummer je Paket) → `dtmb_mod --sps 2` → IQ ci16 15,12 MS/s → `python -m dtmb.decode` (Resampler, PN-Sync und
+Entzerrung, Frequenz-/Zeitentschachtelung, Soft-Demapper/NR, LDPC-Min-Sum, BCH, Entwürfelung) → TS → paketgenauer
+Vergleich. Zusätzlich je Fall: SI-Erkennung durch das Empfänger-Frontend mit `--system-info-index auto` und Nutzrate
+aus Empfängersicht (Pakete je sauber dekodiertem Rahmen). Ergebnisse `tests/results/dtmb_*.json`.
+
+| Fall | Pakete bitgleich / Soll | Fehler | BCH-Fehlblöcke | SI auto | Rate Empfänger (Mbit/s) |
+|---|---|---|---|---|---|
+| C3780 64QAM 0,6 PN945 M720 (Standard) | 36 000 / 36 000 | 0 | 0 | 22 ✓ | 21,6576 |
+| C3780 64QAM 0,8 PN420 M240 | 54 000 / 54 000 | 0 | 0 | 23 ✓ | 32,4864 |
+| C3780 16QAM 0,6 PN945 M240 | 24 000 / 24 000 | 0 | 0 | 13 ✓ | 14,4384 |
+| C3780 16QAM 0,8 PN420 M720 | 36 000 / 36 000 | 0 | 0 | 16 ✓ | 21,6576 |
+| C3780 32QAM 0,8 PN420 M720 | 45 000 / 45 000 | 0 | 0 | 18 ✓ | 27,0720 |
+| C3780 4QAM-NR 0,8 PN595 M720 | 8 640 / 8 640 | 0 | 0 | 4 ✓ | 5,1978 |
+| C3780 4QAM 0,4 PN945 M240 | 8 000 / 8 000 | 0 | 0 | 5 ✓ | 4,8128 |
+| C3780 16QAM 0,4 PN595 M240 | 17 280 / 17 280 | 0 | 0 | 11 ✓ | 10,3956 |
+| C3780 64QAM 0,4 PN420 M720 | 27 000 / 27 000 | 0 | 0 | 20 ✓ | 16,2432 |
+| C3780 4QAM 0,6 PN420 M240 `--pn-const` | 13 500 / 13 500 | 0 | 0 | 7 ✓ | 8,1216 |
+| C1 4QAM 0,8 PN595 M240 | 17 280 / 17 280 | 0 | 0 | 9 ✓ | 10,3956 |
+| C1 4QAM 0,4 PN595 M720 | 8 640 / 8 640 | 0 | 0 | 6 ✓ | 5,1978 |
+
+* PN-Phasenfolge: mit `--pn-schedule-tracking` rastet der Empfänger auf seine Superrahmen-Folge ein (PN945 und PN420:
+  `locked`, Fehler 0, Superrahmen-Index 0, Abstand zum Zweitbesten 0,99).
+* AV (`tests/dtmb_av.sh`): ffmpeg-TS H.264 1280×720 + AAC, CBR = 21 657 600 b/s → 114 757 Pakete **Byte für Byte
+  identisch** (gesamter TS inkl. Nullpakete), ffprobe/ffmpeg dekodieren fehlerfrei.
+* Spektrum (`tests/dtmb_spectrum.py`, `tests/results/dtmb_spectrum.png`, Standardfall, Backoff 12): −3 dB 7,58 MHz,
+  −40 dB 8,09 MHz; ±3,969 MHz −19,4 dBc, Kanalkante ±4,0 MHz −26,3 dBc, ab ±4,1 MHz ≤ −54 dBc, ab ±4,2 MHz ≤ −56 dBc,
+  ab ±4,5 MHz ≤ −62 dBc, ab ±5 MHz ≤ −68 dBc (C = 1 16QAM PN420: −25/−55/−57/−64/−70 dBc). Nur digital; im Analogteil
+  begrenzen DAC und AD9361 (typisch −50…−60 dBc).
+* FIR-Gegenprobe: `--sps 1`-Ausgabe ×2 mit den Taps der FIR-Datei gefaltet = `--sps 2`-Ausgabe bis auf Rundung
+  (max. 0,71 LSB, SNR 87 dB) – der AD9361-Pfad formt also genau wie die geprüfte Softwarefassung.
+* ARM (NEON) und x86 bitgleich (`tests/dtmb_md5.sh`, 5 Konfigurationen, `tests/pluto/dtmb_bench.sh`).
+
+**Unabhängigkeit:** Der Empfängercode ist fremd (kein gemeinsamer Code), aber die Normkonstanten wurden an genau diesem
+Empfänger abgeglichen, weil der Normtext nicht vorlag: PN-Startwerte/-Rekursionen und Phasenfolge, SI-Vektoren
+(Anhang G), Frequenzverschachtelung (Anhang F), SI-Positionen, NR-Gleichungen, Verwürfler-Startzustand, Bit-/Codewort-
+reihenfolge, 32QAM-Belegung, Leistungsverhältnis Kopf/Körper; die LDPC-Generatormatrix stammt aus seinen Prüfmatrizen.
+Ein gemeinsamer Tabellenfehler fiele also nicht auf. Für die Tabellen spricht, dass dtmb-sdr nach Projektangaben echte
+Mitschnitte chinesischer Sender dekodiert (selbst nicht nachgeprüft). C = 1 ist nur mit PN595/4QAM empfängergeprüft (mehr
+kann dtmb-sdr für C = 1 nicht); C = 1 mit 16/32/64QAM, PN420/945 nutzt dieselben Bausteine, ist aber ungeprüft.
+
+**Pluto (A9 2×667 MHz, statisch, `-i prbs -o /dev/null --sps 1 --seconds 5`, kein Senden):**
+
+| Konfiguration | Echtzeitfaktor | Codierung / Ausgabe je Rahmen (Rahmendauer) |
+|---|---|---|
+| C3780 64QAM 0,6 PN945 M720 (Standard) | **1,33** | 466 / 440 µs (625 µs) |
+| C1 16QAM 0,8 PN420 M720 | **1,75** | 317 / 69 µs (556 µs) |
+| C3780 64QAM 0,8 PN420 M720 (Höchstrate 32,49 Mbit/s) | 1,16 | 477 / 436 µs (556 µs) |
+| C3780 32QAM 0,8 PN420 M720 | 1,15 | 483 / 427 µs |
+| C3780 16QAM 0,8 PN420 M240 | 1,27 | 361 / 436 µs |
+| C3780 4QAM-NR 0,8 PN595 M720 | 1,33 | 248 / 433 µs (579 µs) |
+| C3780 4QAM 0,4 PN945 M240 | 1,40 | 241 / 446 µs |
+| C1 64QAM 0,8 PN420 M720 | 1,28 | 434 / 69 µs |
+
+Zwei Threads: Codierung (Verwürfelung, BCH, LDPC ≈ 80–88 µs je Codewort, Zeitverschachtelung, halbe Abbildung/
+Frequenzverschachtelung) und Ausgabe (andere Hälfte, IDFT ≈ 370 µs, Rahmenkopf per memcpy aus vorberechneter Tabelle,
+Ausgabe). UDP-Lasttest auf dem Pluto (TS per UDP vom PC – Windows-Sender, über WSL2-NAT gehen UDP-Pakete verloren –,
+`--realtime --rt -o /dev/null`, 20 s): 21,66 Mbit/s Standardfall Kernlast 74 % / 81 %, Höchstrate 32,49 Mbit/s 82 % / 90 %,
+jeweils Echtzeitfaktor 1,00, Ringfüllstand stabil 50 %, 0 verworfen, Stopfen nur in der Vorfüllphase.
+Optimierungsweg (A9): float-IDFT 1,8 ms → NEON-float 0,74 ms (L1-Fehlzugriffe) → int16-NEON 0,37 ms; LDPC 180 µs
+(vtbl-Log/Exp, gcc legte die Tabellen auf den Stack) → 80 µs (`vmull.p8`); Byte-/Wortverarbeitung bei Verwürfelung/BCH/
+Labels/Zeitverschachtelung.
+
+**Offen:** Senden mit `-o iio:` nicht ausgeführt (Vorgabe) – beim ersten Lauf prüfen: FIR-Laden bei 7,56 MS/s mit INT 2
+(`tx_path_rates`, Regel Taps ≤ 16·DAC/TX-Rate, `filter_fir_en`), Unterlauf-Flag, Eigenempfang (TX → RX) mit dtmb-sdr;
+kein Test mit Handelsempfänger; C = 1 ohne Doppelpilot (optional nach Norm) und für 16/32/64QAM/PN420/945 ohne
+Empfängerprüfung; kein SIP-Paket (GB/T 28434) und keine Gleichwellen-Funktionen; 32QAM-Labelextraktion noch generisch
+(≈ 87 µs je Rahmen).
+
 ## Weitere Standards / Bewertung Pfad „N=6912-IFFT + AD9361-FIR“
 
 Idee: OFDM mit N = 6912 Punkten bei 7,714 MS/s erzeugen (gleicher Trägerabstand 1116,07 Hz, alle 6817
@@ -367,6 +712,9 @@ Eigener Code: MIT (`LICENSE`). Es wurde **kein** Code aus gr-dtv (GPL-3.0) oder 
 Normtabellen wurden gegen gr-dtv gegengeprüft. Die Prüfskripte `tests/dvbt_rx_grdtv.py` und
 `tests/dvbt_tx_grdtv.py` nutzen gr-dtv zur Laufzeit (GPL-3.0-or-later) – wer sie weitergibt, tut das unter
 GPL-3.0. reedsolo (MIT), numpy/scipy (BSD), TSDuck (BSD-2-Clause) werden nur als Werkzeuge genutzt.
+DTMB: `lib/dtmb_ldpc_tables.h` ist aus den LDPC-Prüfmatrizen von dtmb-sdr (MIT, © 2026 Ning; dort aus GB 20600-2006
+Anhang B erzeugt) abgeleitet; die übrigen DTMB-Normkonstanten wurden gegen dtmb-sdr abgeglichen, Code wurde nicht
+übernommen. dtmb-sdr dient zur Laufzeit als Prüfempfänger (`tests/dtmb_tests.py`, `tests/dtmb_av.sh`).
 Das AD9361-FIR-Dateiformat folgt der ADI-Dokumentation (libad9361-iio LGPL-2.1, Treiber GPL-2.0), ohne Codeübernahme.
 
 ## Offene Punkte

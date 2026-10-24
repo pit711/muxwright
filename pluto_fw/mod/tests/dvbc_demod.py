@@ -71,6 +71,7 @@ def main():
     ap.add_argument("--iq", required=True); ap.add_argument("--qam", type=int, default=256)
     ap.add_argument("--sps", type=int, default=2); ap.add_argument("--ts"); ap.add_argument("--json")
     ap.add_argument("--sr", type=float, default=6.9e6); ap.add_argument("--taps", type=int, default=128)
+    ap.add_argument("--rolloff", type=float, default=0.15, help="RRC-Roll-off (Annex A 0,15, Annex C 0,13)")
     ap.add_argument("--max-symbols", type=int, default=400000)
     ap.add_argument("--rx", action="store_true", help="Funk-Mitschnitt: DC-Abzug, Träger-Frequenz/Phase per 4. Potenz nachführen")
     ap.add_argument("--dump-ts", help="dekodierten TS schreiben")
@@ -92,7 +93,7 @@ def main():
     if a.up:
         # Matched Filter (RRC) im Frequenzbereich + Überabtastung durch Nullauffüllung
         nfft = len(x) - len(x) % 2; Xf = np.fft.fft(x[:nfft]); fr = np.fft.fftfreq(nfft, 1.0 / a.sps)   # in Symbolraten
-        al = 0.15; af = np.abs(fr)
+        al = a.rolloff; af = np.abs(fr)
         Hm = np.where(af <= (1 - al) / 2, 1.0, np.where(af >= (1 + al) / 2, 0.0, np.sqrt(np.clip(0.5 * (1 + np.cos(np.pi / al * (af - (1 - al) / 2))), 0, 1))))
         if not a.no_mf: Xf = Xf * Hm
         n_up = nfft * a.up // a.sps; Xu = np.zeros(n_up, complex)
@@ -102,7 +103,7 @@ def main():
     if a.taps == 0:
         y = x
     elif a.sps >= 2:
-        h = rrc(0.15, a.sps, a.taps)
+        h = rrc(a.rolloff, a.sps, a.taps)
         y = np.convolve(x, h / a.sps, mode="full")[len(h) // 2: len(h) // 2 + len(x)]
     else:
         y = x

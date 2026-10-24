@@ -350,7 +350,7 @@ def normalize(raw):
             rf["sample_rate"] = 2 * d["symbol_rate"]  # lokaler Modulator am PC: --sps 2 (RRC im Programm)
     elif std == "dtmb":
         rate = T.dtmb_useful_bitrate(d["constellation"], d["code_rate"], d["header"])
-        rf["sample_rate"] = int(d.get("sample_rate") or 2 * T.DTMB_SR)
+        rf["sample_rate"] = int(d.get("sample_rate") or T.DTMB_SR)     # dtmb_mod: 1 Sample/Symbol, SRRC im AD9361-FIR (INT 2)
     elif std == "atsc":
         rate = T.atsc_useful_bitrate()
         rf["sample_rate"] = int(d.get("sample_rate") or ATSC_SAMPLE_RATE)

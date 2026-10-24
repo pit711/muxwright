@@ -29,6 +29,7 @@ export const CREDITS = [
   ['check', 'redsea', 'Oona Räisänen, OH2EIQ', 'RDS decoder for verification', 'https://github.com/windytan/redsea'],
   ['check', 'GNU Radio gr-dtv', 'Ron Economos, W6RZ, and the GNU Radio project', 'DVB-T/S2 and ATSC reference for bit-exact tests', 'https://github.com/gnuradio/gnuradio'],
   ['check', 'gr-isdbt', 'ARTES group (Universidad de la República, Uruguay)', 'independent ISDB-T receiver for loopback tests', 'https://github.com/git-artes/gr-isdbt'],
+  ['check', 'dtmb-sdr', 'ningzichun', 'independent DTMB receiver for loopback tests; source of the LDPC parity-check matrices (MIT)', 'https://github.com/ningzichun/dtmb-sdr'],
   ['base', 'flag-icons', 'Panayiotis Lipiridis', 'country flags per standard (MIT)', 'https://github.com/lipis/flag-icons'],
 ];
 

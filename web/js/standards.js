@@ -208,7 +208,7 @@ export function requiredSampleRate(cfg) {
   if (s === 'dvbs') { const sr = Number(cfg.dvbs.symbol_rate); return cfg.dvbs.use === 'ham' ? hamSps(sr) * sr : 2 * sr; }
   if (s === 'atsc') return Math.round(ATSC.SR);          // atsc_mod: 1 Sample/Symbol
   if (s === 'isdbt') return Math.round(ISDBT.SAMPLE_RATE);
-  if (s === 'dtmb') return 2 * DTMB.SR;
+  if (s === 'dtmb') return DTMB.SR;                     // dtmb_mod: 1 Sample/Symbol, SRRC im AD9361-FIR
   if (s === 'pal') return PAL_SYSTEMS[cfg.pal?.system]?.lines === 525 ? FS_525 : cfg.pal?.live ? (Number(cfg.pal?.live_fs) || 7000000) : (Number(cfg.pal?.fs) || 8000000);
   return Number(cfg.rf.sample_rate) || 4096000;
 }
