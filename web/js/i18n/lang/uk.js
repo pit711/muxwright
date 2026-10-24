@@ -1567,7 +1567,8 @@ export default {"Ensemble":"Ансамбль",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"На Pluto працює передавач, який Muxwright не запускав (наприклад, з попереднього сеансу або вручну):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"Зупинити його й передати Pluto під керування Muxwright?",
 "Abgebrochen – der andere Sender läuft weiter.":"Скасовано – інший передавач продовжує працювати.",
-"Videobitrate an die Kapazität von {std} angepasst":"Бітрейт відео підлаштовано під ємність {std}"
+"Videobitrate an die Kapazität von {std} angepasst":"Бітрейт відео підлаштовано під ємність {std}",
+"{name}: HDR10/HLG nur mit GPU (NVENC)":"{name}: HDR10/HLG лише з GPU (NVENC)"
 };
 export const TXT = {
   "title": "Початкове налаштування",

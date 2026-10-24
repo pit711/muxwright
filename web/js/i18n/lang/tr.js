@@ -1567,7 +1567,8 @@ export default {"Ensemble":"Ensemble",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"Pluto’da Muxwright’ın kendisinin başlatmadığı bir verici çalışıyor (ör. önceki bir oturumdan veya elle):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"Muxwright bunu durdurup Pluto’yu devralsın mı?",
 "Abgebrochen – der andere Sender läuft weiter.":"İptal edildi – diğer verici çalışmaya devam ediyor.",
-"Videobitrate an die Kapazität von {std} angepasst":"Video bit hızı {std} kapasitesine uyarlandı"
+"Videobitrate an die Kapazität von {std} angepasst":"Video bit hızı {std} kapasitesine uyarlandı",
+"{name}: HDR10/HLG nur mit GPU (NVENC)":"{name}: HDR10/HLG yalnızca GPU (NVENC) ile"
 };
 export const TXT = {
   "title": "Kurulum",

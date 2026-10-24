@@ -115,7 +115,15 @@ def from_dashboard(raw):
                          "visible": p.get("visible", True),
                          "video": {"codec": v.get("codec", "mpeg2"), "size": RES_ALIASES.get(res, res),
                                    "bitrate_kbps": v.get("bitrate_kbps", "auto"), "fps": v.get("fps", 25),
-                                   "aspect": v.get("aspect", "16:9"), "interlaced": v.get("interlaced", False)},
+                                   "aspect": v.get("aspect", "16:9"), "interlaced": v.get("interlaced", False),
+                                   # Dashboard: encoder "cpu"/"nvenc", hdr "sdr"/"hdr10"/"hlg" (hier String, im Runner {"mode": …})
+                                   "encoder": v.get("encoder", "cpu"),
+                                   "hdr": ({"mode": "off"} if v.get("hdr") in (None, "", "sdr", "off")
+                                           else {"mode": v["hdr"], **({"master_display": v["master_display"]} if v.get("master_display") else {}),
+                                                 **({"max_cll": v["max_cll"]} if v.get("max_cll") else {}), **({"max_fall": v["max_fall"]} if v.get("max_fall") else {})}
+                                           if isinstance(v.get("hdr"), str) else (v.get("hdr") or {"mode": "off"})),
+                                   **({"preset": v["preset"]} if v.get("preset") else {}),
+                                   **({"bit_depth": v["bit_depth"]} if v.get("bit_depth") else {})},
                          "audio": {"codec": a.get("codec", "mp2"), "bitrate_kbps": a.get("bitrate_kbps"),
                                    "channels": a.get("channels", 2), "samplerate": a.get("samplerate", 48000)},
                          "source": src, "eit": e})
@@ -340,6 +348,9 @@ def normalize(raw):
                 E.append("services[%d]: HDR nur mit HEVC (Main10)" % i)
             if hd["mode"] != "off" and v["encoder"] != "nvenc":
                 E.append("services[%d]: HDR ist nur fuer video.encoder = nvenc umgesetzt" % i)
+            if str(v.get("size", "sd")).lower() in ("uhd", "2160p", "4k") and v["encoder"] == "cpu" and (os.cpu_count() or 0) < 16:
+                E.append("services[%d]: UHD mit CPU-Encoder nicht in Echtzeit (%d Threads) - video.encoder nvenc oder Aufloesung hd"
+                         % (i, os.cpu_count() or 0))
             size = str(v.get("size", "sd")).lower()
             if size in VIDEO_SIZES:
                 v["_wh"] = VIDEO_SIZES[size]

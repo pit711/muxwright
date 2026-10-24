@@ -1567,7 +1567,8 @@ export default {"Ensemble":"Ensemble",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"No Pluto está a correr um emissor que o Muxwright não iniciou (p. ex. de uma sessão anterior ou manualmente):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"O Muxwright deve pará-lo e assumir o Pluto?",
 "Abgebrochen – der andere Sender läuft weiter.":"Cancelado – o outro emissor continua a funcionar.",
-"Videobitrate an die Kapazität von {std} angepasst":"Taxa de bits de vídeo ajustada à capacidade de {std}"
+"Videobitrate an die Kapazität von {std} angepasst":"Taxa de bits de vídeo ajustada à capacidade de {std}",
+"{name}: HDR10/HLG nur mit GPU (NVENC)":"{name}: HDR10/HLG apenas com GPU (NVENC)"
 };
 export const TXT = {
  "title": "Configuração inicial",

@@ -1567,7 +1567,8 @@ export default {"Ensemble":"एन्सेम्बल",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"Pluto पर एक ट्रांसमीटर चल रहा है जिसे Muxwright ने खुद शुरू नहीं किया (जैसे पिछले सत्र से या हाथ से):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"क्या Muxwright इसे रोककर Pluto का नियंत्रण ले?",
 "Abgebrochen – der andere Sender läuft weiter.":"रद्द किया गया – दूसरा ट्रांसमीटर चलता रहेगा।",
-"Videobitrate an die Kapazität von {std} angepasst":"वीडियो बिटरेट {std} की क्षमता के अनुसार समायोजित किया गया"
+"Videobitrate an die Kapazität von {std} angepasst":"वीडियो बिटरेट {std} की क्षमता के अनुसार समायोजित किया गया",
+"{name}: HDR10/HLG nur mit GPU (NVENC)":"{name}: HDR10/HLG केवल GPU (NVENC) के साथ"
 };
 export const TXT = {
   "title": "सेटअप",

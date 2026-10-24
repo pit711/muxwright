@@ -323,7 +323,7 @@ function prgVideo(p, base) {
     card(T('Videocodierung'), 'wave', [
       h('div.grid3', null,
         field('Codec', segmented(`${base}.video.codec`, Object.entries(STD.VIDEO.CODECS).map(([k, l]) => ({ v: k, label: l.split(' ')[0] })), { tid: 'vid-codec', onchange: () => { if (p.video.codec !== 'hevc') p.video.hdr = 'sdr'; if (p.video.codec === 'mpeg2') { p.video.encoder = 'cpu'; if (p.video.resolution === 'uhd') p.video.resolution = 'hd'; } fixVideoBr(p); } }), { path: `${base}.video.codec`, hint: T('MPEG-2 = maximal kompatibel, H.264 für HD, HEVC für UHD/HDR') }),
-        field(T('Auflösung'), select(`${base}.video.resolution`, Object.entries(STD.VIDEO.RES).map(([k, l]) => ({ v: k, label: l })), { tid: 'vid-res', onchange: () => fixVideoBr(p) }), { path: `${base}.video.resolution` }),
+        field(T('Auflösung'), select(`${base}.video.resolution`, Object.entries(STD.VIDEO.RES).map(([k, l]) => ({ v: k, label: l })), { tid: 'vid-res', onchange: () => { if (p.video.resolution === 'uhd' && p.video.codec !== 'mpeg2' && nvencState()) p.video.encoder = 'nvenc'; fixVideoBr(p); } }), { path: `${base}.video.resolution` }),
         field(T('Bitrate (kbit/s)'), h('div.inrow', null, input(`${base}.video.bitrate_kbps`, { type: 'number', min: 300, max: 30000, step: 100, tid: 'vid-bitrate', mono: true, rerender: true }),
           (() => { const s = h('select', { tid: 'vid-bitrate-preset' }, h('option', { value: '' }, T('Vorschlag …')), brs.map(b => h('option', { value: b }, `${b}`)));
             s.addEventListener('change', () => { if (s.value) { p.video.bitrate_kbps = Number(s.value); edited(`${base}.video.bitrate_kbps`, true); } }); return s; })()),
@@ -331,7 +331,7 @@ function prgVideo(p, base) {
       h('div.grid2', null,
         field(T('Encoder'), segmented(`${base}.video.encoder`, Object.entries(STD.VIDEO.ENCODERS).map(([k, l]) => ({ v: k, label: k === 'cpu' ? 'CPU' : 'GPU (NVENC)', disabled: k === 'nvenc' && (v.codec === 'mpeg2' || nvencState() === false) })), { tid: 'vid-encoder' }),
           { path: `${base}.video.encoder`, hint: nvencHint() }),
-        field(T('Dynamikumfang'), segmented(`${base}.video.hdr`, Object.entries(STD.VIDEO.HDR).map(([k, l]) => ({ v: k, label: k === 'sdr' ? 'SDR' : k === 'hdr10' ? 'HDR10' : 'HLG', title: l })), { tid: 'vid-hdr', onchange: val => { if (val !== 'sdr') { p.video.codec = 'hevc'; fixVideoBr(p); } } }),
+        field(T('Dynamikumfang'), segmented(`${base}.video.hdr`, Object.entries(STD.VIDEO.HDR).map(([k, l]) => ({ v: k, label: k === 'sdr' ? 'SDR' : k === 'hdr10' ? 'HDR10' : 'HLG', title: l })), { tid: 'vid-hdr', onchange: val => { if (val !== 'sdr') { p.video.codec = 'hevc'; if (nvencState()) p.video.encoder = 'nvenc'; fixVideoBr(p); } } }),
           { path: `${base}.video.hdr`, hint: v.hdr === 'hdr10' ? T('HEVC Main10, PQ, BT.2020, Mastering-Metadaten (SEI)') : v.hdr === 'hlg' ? 'HEVC Main10, HLG (ARIB STD-B67), BT.2020' : 'BT.709, 8 bit' })),
       v.hdr !== 'sdr' && ['testpattern'].includes(v.source.kind) ? h('p.hint', null, icon('info'), T('Testbild in HDR: wird in BT.2020/10 bit gewandelt – für echte HDR-Prüfung eine HDR-Quelle (Datei/YouTube) verwenden.')) : null,
     ]));

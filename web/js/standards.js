@@ -487,6 +487,7 @@ export function validateStd(c, add) {
         if (v.hdr && v.hdr !== 'sdr' && v.codec !== 'hevc') add(`${b}.video.hdr`, T('{name}: HDR10/HLG nur mit HEVC (Main10)', { name: p.name }));
         if (v.resolution === 'uhd' && v.codec === 'mpeg2') add(`${b}.video.resolution`, T('{name}: UHD nicht mit MPEG-2', { name: p.name }));
         if (v.encoder === 'nvenc' && v.codec === 'mpeg2') add(`${b}.video.encoder`, T('{name}: NVENC kann kein MPEG-2', { name: p.name }));
+        if (v.hdr && v.hdr !== 'sdr' && v.encoder !== 'nvenc') add(`${b}.video.encoder`, T('{name}: HDR10/HLG nur mit GPU (NVENC)', { name: p.name }));
         if (v.source.kind === 'capture' && !v.source.device) add(`${b}.video.source.device`, T('{name}: Capture-Gerät wählen', { name: p.name }));
         const vmin = isHam(c) ? 100 : 300;
         if (!(v.bitrate_kbps >= vmin && v.bitrate_kbps <= 30000)) add(`${b}.video.bitrate_kbps`, T('{name}: Videobitrate {min}–30000 kbit/s', { name: p.name, min: vmin }));

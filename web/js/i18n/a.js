@@ -466,6 +466,7 @@ const R = [
   ['Soll Muxwright ihn beenden und den Pluto übernehmen?', 'Should Muxwright stop it and take over the Pluto?', 'Muxwright doit-il l’arrêter et reprendre le Pluto ?', '¿Debe Muxwright detenerlo y tomar el control del Pluto?', 'Muxwright deve arrestarlo e prendere il controllo del Pluto?', 'Moet Muxwright hem stoppen en de Pluto overnemen?', 'Czy Muxwright ma go zatrzymać i przejąć Pluto?'],
   ['Abgebrochen – der andere Sender läuft weiter.', 'Cancelled – the other transmitter keeps running.', 'Annulé – l’autre émetteur continue.', 'Cancelado: el otro transmisor sigue funcionando.', 'Annullato – l’altro trasmettitore resta attivo.', 'Geannuleerd – de andere zender blijft draaien.', 'Anulowano – drugi nadajnik nadal działa.'],
   ['Videobitrate an die Kapazität von {std} angepasst', 'Video bitrate adapted to the capacity of {std}', 'Débit vidéo adapté à la capacité de {std}', 'Tasa de bits de vídeo ajustada a la capacidad de {std}', 'Bitrate video adattato alla capacità di {std}', 'Videobitrate aangepast aan de capaciteit van {std}', 'Przepływność wideo dopasowana do pojemności {std}'],
+  ['{name}: HDR10/HLG nur mit GPU (NVENC)', '{name}: HDR10/HLG only with GPU (NVENC)', '{name} : HDR10/HLG uniquement avec GPU (NVENC)', '{name}: HDR10/HLG solo con GPU (NVENC)', '{name}: HDR10/HLG solo con GPU (NVENC)', '{name}: HDR10/HLG alleen met GPU (NVENC)', '{name}: HDR10/HLG tylko z GPU (NVENC)'],
 ];
 
 const D = Object.fromEntries(L.map(l => [l, {}]));

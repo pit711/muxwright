@@ -1240,8 +1240,17 @@ class App:
         und = max(0, unf - d["unf0"])
         if und > self.last_stats.get("underruns", 0) and (und <= 10 or und % 100 == 0):
             log("warn", f"Gerät: DAC-Underflow-Abtastungen {und}")
+        tgt, cur = rs.get("target_bps") or 0, rs.get("out_rate_bps")
+        if tgt and cur is not None and time.time() - self.tx_since > 25:
+            if cur < 0.6 * tgt:                       # Kette liefert dauerhaft deutlich zu wenig: Encoder zu langsam
+                d["starved"] = d.get("starved", 0) + 1
+                if d["starved"] == 5:
+                    log("error", f"TS-Kette liefert nur {cur / 1e6:.1f} von {tgt / 1e6:.1f} Mbit/s – Encoder zu langsam, das Bild bricht ab. "
+                                 "GPU (NVENC) wählen oder Auflösung/Bitrate senken.")
+            else:
+                d["starved"] = 0
         net = (st.get("udp") or {})
-        self.last_stats = {"underruns": und, "rate_ms": round((dac.get("rate_hz") or 0) / 1e6, 6) or None,
+        self.last_stats = {"underruns": und, "starved": d.get("starved", 0) >= 5, "rate_ms": round((dac.get("rate_hz") or 0) / 1e6, 6) or None,
                            "rate_avg_ms": None, "samples_sent": None,
                            "ts_rate_bps": rs.get("out_rate_bps"), "target_bps": rs.get("target_bps"),
                            "udp_rcvbuf_err": net.get("rcvbuf_err"), "cpu_pct": st.get("cpu_pct"),
