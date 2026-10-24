@@ -413,7 +413,7 @@ def functional(page: Page, base: str):
         page.click(T("protocol-html"))
     proto = pop.value
     proto.wait_for_load_state()
-    expect(proto.locator("h1")).to_contain_text("Messprotokoll PlutoSDR-Regie")
+    expect(proto.locator("h1")).to_contain_text("Messprotokoll Muxwright")
     expect(proto.locator("tr.bad").first).to_be_visible()
     proto.screenshot(path=str(SHOTS / "protokoll_druckansicht.png"), full_page=True)
     proto.close()
@@ -1119,17 +1119,17 @@ def website_shots(browser, base: str, console: Console):
             cfg["dvbc"].update({"symbol_rate": 6900000, "constellation": "256-QAM"})
         if m in ("dvbt", "dvbc", "dvbs"):
             def prog(n, name, lcn, typ="tv", vc="h264", res="hd", vbr=6000, ac="aac", abr=128, hdr="sdr", title="Testsendung"):
-                return {"key": f"prg{n}", "name": name, "provider": "PlutoSDR-Regie", "sid": f"0x{n:04X}", "lcn": lcn, "type": typ,
+                return {"key": f"prg{n}", "name": name, "provider": "Muxwright", "sid": f"0x{n:04X}", "lcn": lcn, "type": typ,
                         "video": {"source": {"kind": "testpattern", "pattern": "smptehdbars", "file": "", "url": "", "playlist": "", "loop": True}, "codec": vc, "resolution": res, "bitrate_kbps": vbr, "encoder": "cpu", "hdr": hdr},
                         "audio": {"codec": ac, "bitrate_kbps": abr, "source": {"kind": "tone", "freq_hz": 1000, "level_dbfs": -18}},
-                        "eit": {"title": title, "description": "Live aus der PlutoSDR-Regie", "duration_min": 60}}
+                        "eit": {"title": title, "description": "Live aus der Muxwright", "duration_min": 60}}
             cfg["dvb"]["programs"] = ([prog(1, "Regie HD", 1, vbr=7000), prog(2, "Regie UHD", 2, vc="hevc", res="uhd", vbr=14000), prog(3, "Regie HDR10", 3, vc="hevc", res="uhd", vbr=10000, hdr="hdr10")] if m == "dvbs"
                                       else [prog(1, "Regie HD", 1, vbr=8000), prog(2, "Regie SD", 2, vc="mpeg2", res="sd", vbr=3500, ac="mp2", abr=192), prog(3, "Regie Radio", 99, typ="radio", ac="mp2", abr=192)])
-            cfg["dvb"]["si"].update({"network_name": "PlutoSDR-Regie"})
+            cfg["dvb"]["si"].update({"network_name": "Muxwright"})
         if m == "fm":
-            cfg["fm"]["rds"].update({"ps": "REGIE", "rt": "PlutoSDR-Regie – UKW-Stereo mit RDS", "af": [93.3, 99.9, 104.4]})
+            cfg["fm"]["rds"].update({"ps": "REGIE", "rt": "Muxwright – UKW-Stereo mit RDS", "af": [93.3, 99.9, 104.4]})
         if m == "pal":
-            cfg["pal"]["image"].update({"kind": "testpattern", "pattern": "pal75bars", "text": "PlutoSDR-Regie", "text2": ""})
+            cfg["pal"]["image"].update({"kind": "testpattern", "pattern": "pal75bars", "text": "Muxwright", "text2": ""})
         api(base, "/api/config", cfg, method="PUT")
         api(base, "/api/tx/stop", {})
         api(base, "/api/tx/start", {})
