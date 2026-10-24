@@ -2,10 +2,10 @@
 
 **Multi-standard test transmitter for the ADALM-Pluto (PlutoSDR).** One Pluto, one dashboard: DAB+, FM with RDS,
 DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
-on the Pluto's own RX input, expected/actual reports and printable test records. The international version adds ATSC,
-ISDB-T/Tb, DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS (marked *untested* until verified with real receivers).
+on the Pluto's own RX input, expected/actual reports and printable test records. Since Beta 0.3 also ATSC, ISDB-T/Tb,
+DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS (marked *untested* until verified with real receivers).
 
-Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.1** (Europe) · **International Alpha 0.2** (all standards)
+Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.3**
 
 This repository contains the complete source. There are no binary releases here – build it yourself (see [Running from source](#running-from-source) and [Building the installer](#building-the-installer)) or request the installer on the website.
 
@@ -39,7 +39,7 @@ This repository contains the complete source. There are no binary releases here 
 
 | | |
 |---|---|
-| **Many standards, one UI** | DAB/DAB+ (EN 300 401), FM stereo + RDS/RBDS (ITU-R BS.450 / IEC 62106 / NRSC-4-B), DVB-T (EN 300 744), DVB-C (EN 300 429, J.83 A/B/C), DVB-S/S2 (EN 300 421 / EN 302 307-1), PAL B/G, D/K, I, M, N and NTSC-M/J (ITU-R BT.470), ATSC 1.0 (A/53), ISDB-T/Tb (ARIB STD-B31 / ABNT NBR 15601), DTMB (GB 20600) – the international additions are marked *untested* |
+| **Many standards, one UI** | DAB/DAB+ (EN 300 401), FM stereo + RDS/RBDS (ITU-R BS.450 / IEC 62106 / NRSC-4-B), DVB-T (EN 300 744), DVB-C (EN 300 429, J.83 A/B/C), DVB-S/S2 (EN 300 421 / EN 302 307-1), PAL B/G, D/K, I, M, N and NTSC-M/J (ITU-R BT.470), ATSC 1.0 (A/53), ISDB-T/Tb (ARIB STD-B31 / ABNT NBR 15601), DTMB (GB 20600) – the additions of Beta 0.3 are marked *untested* |
 | **Amateur radio DATV** | DVB-S2 on QO-100 (2401.5–2409.5 MHz uplink) and the 13 cm, 23 cm, 70 cm and 6 cm bands, 25–3500 kS/s, callsign enforced in SI tables |
 | **Monitoring receiver** | The Pluto's RX input decodes the transmitted signal: sync, SNR, services, RDS groups, PAL picture, DVB-S2 BBFRAME CRCs |
 | **Expected/actual reports** | Every configuration is rendered offline, decoded and compared line by line with the settings |
@@ -90,7 +90,7 @@ This repository contains the complete source. There are no binary releases here 
 | **DATV (ham)** | USB, 2/4/8 samples per symbol | DVB-S2 at 25–3500 kS/s on QO-100 or 13/23/70/6 cm, callsign in provider name and NIT network name, band-edge check | DVB-S2 receiver |
 | **PAL B/G, D/K, I** | USB | negative AM with vestigial sideband, PAL colour with burst, FM sound (+5.5/6.5/6.0 MHz), test pattern, image, video or YouTube source with clock overlay, channels E2–E12, K21–K69, S02–S41, China DS1–DS68 | own demodulator: line frequency, levels, sound/vision ratio, decoded picture |
 
-**International Alpha – new standards, not yet tested with real receivers:**
+**New in Beta 0.3 – not yet tested with real receivers (marked *untested* in the dashboard):**
 
 | Standard | Output path | Key parameters | Verification so far |
 |---|---|---|---|
