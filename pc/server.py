@@ -856,14 +856,18 @@ class App:
         Such a leftover is taken over without force; modulators started by hand stay foreign."""
         m = (self.agent_status or {}).get("mod") or {}
         cmd = str(m.get("cmd") or "")
-        try:
-            with open(DEVICE_MOD_FILE, encoding="utf-8") as f:
-                mine = json.load(f)
-        except (OSError, ValueError):
-            mine = {}
+        mine = self.remembered_mod()
         if m.get("pid") and m.get("pid") == mine.get("pid") and cmd.startswith(str(mine.get("cmd") or "\0")):
             return cmd
         return cmd if ("/tmp/dablab_files/" in cmd or "/tmp/dablab_bin/" in cmd) else ""
+
+    @staticmethod
+    def remembered_mod():
+        try:
+            with open(DEVICE_MOD_FILE, encoding="utf-8") as f:
+                return json.load(f) or {}
+        except (OSError, ValueError):
+            return {}
 
     def remember_device_mod(self, pid, cmd):
         try:
@@ -1017,7 +1021,8 @@ class App:
             self.tx_state, self.tx_since, self.tx_error = "starting", time.time(), None
             self.session = None
         worker = self._tx_start_device if path == "device" else self._tx_start_worker
-        threading.Thread(target=worker, args=(force,), daemon=True, name="tx-start").start()
+        self.start_thread = threading.Thread(target=worker, args=(force,), daemon=True, name="tx-start")
+        self.start_thread.start()
         return 200, {"ok": True, "state": "starting", "path": path}
 
     def _tx_start_device(self, force=False):
@@ -1038,7 +1043,9 @@ class App:
             if dev is not None:
                 stray = dev.stray_modulators()
                 if stray:
-                    ours = all("/tmp/dablab_files/" in s or "/tmp/dablab_bin/" in s for s in stray)
+                    mine = str(self.remembered_mod().get("pid") or "")
+                    ours = all("/tmp/dablab_files/" in s or "/tmp/dablab_bin/" in s or (mine and s.split()[0] == mine)
+                               for s in stray)
                     if ours and not force:
                         log("warn", f"Modulatorprozess einer früheren Muxwright-Sitzung wird beendet ({stray[0][:80]})")
                     if not force and not ours:
@@ -1445,6 +1452,12 @@ class App:
     def tx_stop(self):
         self.user_stopped = True
         self.sweep_stop.set()
+        # Stop während des Starts (z. B. schnell die nächste Karte „Auf Sendung“): erst den Start abwarten, sonst startet
+        # der Hintergrund-Thread danach noch den Modulator auf dem Pluto und niemand beendet ihn mehr.
+        t = getattr(self, "start_thread", None)
+        if t is not None and t.is_alive() and t is not threading.current_thread():
+            log("info", "TX-Stopp: warte auf den laufenden Start")
+            t.join(timeout=90)
         if self.stream is None and self.proc is None and self.device is None:
             self.safe_mute()
             self.tx_state = "idle"
