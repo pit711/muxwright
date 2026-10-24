@@ -262,6 +262,14 @@ export function newProgram(key, n = 1) {
 }
 export const defaultDvb = () => ({ programs: [newProgram('prg1', 1)], si: { network_id: '0xFF16', network_name: 'DAB-Lab Netz', onid: '0xFF16', tsid: '0x0016', lcn: true, eit: true, tdt: true, private_data: 'eacem' } });
 
+/** Videobitraten so setzen, dass der TS passt (85 % der Nettorate auf die Programme verteilt) */
+export function fitPrograms(c) {
+  const net = netRate(c), n = c.dvb.programs.length;
+  const share = (net - SI_OVERHEAD_BPS) * 0.85 / n;
+  for (const p of c.dvb.programs) { if (p.type === 'tv') p.video.bitrate_kbps = Math.max(300, Math.floor((share / (1 + PES_OVERHEAD) - p.audio.bitrate_kbps * 1000) / 1000 / 100) * 100); }
+  return c;
+}
+
 /** Füllt die standardspezifischen Teile auf (wie normalizeConfig für DAB) */
 export function normalizeStd(c) {
   const dfm = defaultFM();
@@ -295,6 +303,8 @@ export function normalizeStd(c) {
   c.dvbt = { ...defaultDvbt(), ...(c.dvbt || {}) };
   c.dvbc = { ...defaultDvbc(), ...(c.dvbc || {}) };
   c.dvbs = { ...defaultDvbs(), ...(c.dvbs || {}) };
+  // Der Server speichert für den Runner „horizontal“/„vertical“ – das Dashboard arbeitet mit H/V
+  c.dvbs.polarization = { horizontal: 'H', vertical: 'V', h: 'H', v: 'V' }[String(c.dvbs.polarization).toLowerCase()] || c.dvbs.polarization;
   const dp = defaultPal(), p0 = migratePal(c.pal || {});
   c.pal = { ...dp, ...p0, image: { ...dp.image, ...(p0.image || {}) }, sound: { ...dp.sound, ...(p0.sound || {}) } };
   const dd = defaultDvb();

@@ -185,13 +185,7 @@ export function planCheck(cfg) {
 const withStd = (b, std) => { const c = structuredClone(b); STD.setStandard(c, std); c.clusters = c.clusters || []; return c; };
 const fmCfg = (b, mut) => { const c = withStd(b, 'fm'); mut(c.fm, c); return c; };
 const prg = (n, o = {}) => { const p = STD.newProgram(`prg${n}`, n); Object.assign(p, o.top || {}); if (o.video) Object.assign(p.video, o.video); if (o.audio) Object.assign(p.audio, o.audio); if (o.eit) Object.assign(p.eit, o.eit); return p; };
-/** Videobitraten so setzen, dass der TS passt (85 % der Nettorate auf die Programme verteilt) */
-function fitPrograms(c) {
-  const net = STD.netRate(c), n = c.dvb.programs.length;
-  const share = (net - STD.SI_OVERHEAD_BPS) * 0.85 / n;
-  for (const p of c.dvb.programs) { if (p.type === 'tv') p.video.bitrate_kbps = Math.max(300, Math.floor((share / (1 + STD.PES_OVERHEAD) - p.audio.bitrate_kbps * 1000) / 1000 / 100) * 100); }
-  return c;
-}
+const fitPrograms = c => STD.fitPrograms(c);
 const dvbCfg = (b, std, mut) => { const c = withStd(b, std); c.dvbs = c.dvbs || STD.defaultDvbs(); mut(c, std === 'dvbt' ? c.dvbt : std === 'dvbs' ? c.dvbs : c.dvbc); return fitPrograms(c); };
 /** DVB-S-Feldtest (am TV bestätigt): 11038 MHz V, LOF 9750 → ZF 1288 MHz, 22000 kS/s, QPSK, ONID 0xFF03/TSID 3 */
 const dvbsField = (b, fec, programs) => dvbCfgFixed(b, 'dvbs', (c, m) => {

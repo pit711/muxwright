@@ -1757,7 +1757,12 @@ class App:
     def run_check(self, body):
         if not self.backend.available():
             return 503, {"ok": False, "error": f"Runner ({self.backend.name}) nicht installiert"}
-        secs = int((body or {}).get("seconds", 20))
+        try:
+            secs = int(float((body or {}).get("seconds", 20)))
+        except (TypeError, ValueError):
+            secs = -1
+        if not 2 <= secs <= 600:                      # sonst Timeout-Überlauf („timestamp out of range“) bzw. leerer Lauf
+            return 400, {"ok": False, "errors": ["seconds: 2–600"]}
         self.save_config()
         log("info", f"Prüfung startet ({secs} s)")
         try:

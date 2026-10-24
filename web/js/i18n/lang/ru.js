@@ -1566,7 +1566,8 @@ export default {"Ensemble":"Ансамбль",
 "Beenden und übernehmen":"Остановить и взять управление",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"На Pluto работает передатчик, который Muxwright не запускал (например, из прошлого сеанса или вручную):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"Остановить его и передать Pluto под управление Muxwright?",
-"Abgebrochen – der andere Sender läuft weiter.":"Отменено – другой передатчик продолжает работать."
+"Abgebrochen – der andere Sender läuft weiter.":"Отменено – другой передатчик продолжает работать.",
+"Videobitrate an die Kapazität von {std} angepasst":"Битрейт видео подстроен под ёмкость {std}"
 };
 export const TXT = {
  "title": "Настройка",

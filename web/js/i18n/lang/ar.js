@@ -1566,7 +1566,8 @@ export default {"Ensemble":"المجموعة",
 "Beenden und übernehmen":"إيقاف وتولّي التحكم",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"يعمل على Pluto مُرسِل لم يشغّله Muxwright بنفسه (مثلًا من جلسة سابقة أو يدويًا):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"هل يوقفه Muxwright ويتولى التحكم في Pluto؟",
-"Abgebrochen – der andere Sender läuft weiter.":"أُلغي – يستمر المُرسِل الآخر في العمل."
+"Abgebrochen – der andere Sender läuft weiter.":"أُلغي – يستمر المُرسِل الآخر في العمل.",
+"Videobitrate an die Kapazität von {std} angepasst":"تم ضبط معدل بت الفيديو وفق سعة {std}"
 };
 export const TXT = {
   "title": "الإعداد الأولي",

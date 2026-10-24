@@ -1566,7 +1566,8 @@ export default {"Ensemble":"Ансамбль",
 "Beenden und übernehmen":"Зупинити й перейняти",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"На Pluto працює передавач, який Muxwright не запускав (наприклад, з попереднього сеансу або вручну):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"Зупинити його й передати Pluto під керування Muxwright?",
-"Abgebrochen – der andere Sender läuft weiter.":"Скасовано – інший передавач продовжує працювати."
+"Abgebrochen – der andere Sender läuft weiter.":"Скасовано – інший передавач продовжує працювати.",
+"Videobitrate an die Kapazität von {std} angepasst":"Бітрейт відео підлаштовано під ємність {std}"
 };
 export const TXT = {
   "title": "Початкове налаштування",

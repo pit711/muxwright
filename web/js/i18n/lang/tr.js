@@ -1566,7 +1566,8 @@ export default {"Ensemble":"Ensemble",
 "Beenden und übernehmen":"Durdur ve devral",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"Pluto’da Muxwright’ın kendisinin başlatmadığı bir verici çalışıyor (ör. önceki bir oturumdan veya elle):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"Muxwright bunu durdurup Pluto’yu devralsın mı?",
-"Abgebrochen – der andere Sender läuft weiter.":"İptal edildi – diğer verici çalışmaya devam ediyor."
+"Abgebrochen – der andere Sender läuft weiter.":"İptal edildi – diğer verici çalışmaya devam ediyor.",
+"Videobitrate an die Kapazität von {std} angepasst":"Video bit hızı {std} kapasitesine uyarlandı"
 };
 export const TXT = {
   "title": "Kurulum",

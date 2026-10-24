@@ -59,12 +59,13 @@ function tileInfo(std, cfg) {
   const m = cfg.dvbc; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${m.constellation} · ${(m.symbol_rate / 1e6).toFixed(3)} MBd · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs };
 }
 
-async function waitRunning(ms = 12000) {
+async function waitRunning(ms = 90000) {   // PAL rendert und lädt die Bildschleife erst (15–30 s), DVB baut die TS-Kette auf
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     try { await refreshState(); } catch { /* weiter */ }
     if (S.state.tx?.state === 'running') return true;
     if (S.state.tx?.state === 'error') return false;
+    if (Date.now() - t0 > 5000 && !['starting', 'running'].includes(S.state.tx?.state)) return false;   // gar nicht erst gestartet
     await new Promise(r => setTimeout(r, 300));
   }
   return false;
@@ -87,7 +88,12 @@ export async function goOnAir(std) {
     const last = load('lastRf', {})[std];
     if (plausible(std, last) && std !== 'dvbs') Object.assign(S.draft.rf, { channel: last.channel, freq_hz: last.freq_hz });
     for (const k of ['channel', 'freq_hz', 'offset_hz']) if (JSON.stringify(S.draft.rf[k]) !== JSON.stringify(S.server.rf[k])) S.rfIntent.add(k);
-    const errs = STD.validateConfig(S.draft);
+    let errs = STD.validateConfig(S.draft);
+    if (errs.length && errs.every(e => e.path === 'tsbudget') && STD.isDvb(std) && S.draft.dvb?.programs?.length) {
+      STD.fitPrograms(S.draft);                       // z. B. von DVB-T (24 Mbit/s) auf DVB-S (8 Mbit/s): Video passend verkleinern
+      errs = STD.validateConfig(S.draft);
+      if (!errs.length) toast(T('Videobitrate an die Kapazität von {std} angepasst', { std: STD.stdName(std) }), 'info', 5000);
+    }
     if (errs.length) { toast(`${STD.stdName(std)}: ${errs[0].msg}`, 'error', 7000); location.hash = `#/${FIRST_PAGE[std]}`; S.render(true); return false; }
     if (txRunning()) { try { await api('POST', '/api/tx/stop'); } catch { /* weiter */ } try { await refreshState(); } catch { /* weiter */ } S.state.tx = { ...(S.state.tx || {}), state: 'idle' }; }
     if (!(await applyConfig({ quiet: true, noRestart: true }))) return false;

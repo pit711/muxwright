@@ -1566,7 +1566,8 @@ export default {"Ensemble":"Ensemble",
 "Beenden und übernehmen":"Stoppa och ta över",
 "Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"En sändare körs på Pluto som Muxwright inte har startat själv (t.ex. från en tidigare session eller manuellt):",
 "Soll Muxwright ihn beenden und den Pluto übernehmen?":"Ska Muxwright stoppa den och ta över Pluto?",
-"Abgebrochen – der andere Sender läuft weiter.":"Avbrutet – den andra sändaren fortsätter."
+"Abgebrochen – der andere Sender läuft weiter.":"Avbrutet – den andra sändaren fortsätter.",
+"Videobitrate an die Kapazität von {std} angepasst":"Videobithastighet anpassad till kapaciteten för {std}"
 };
 export const TXT = {
  "title": "Installation",
