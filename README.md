@@ -107,11 +107,32 @@ PAL test pattern as decoded by the Pluto's own RX input:
 
 | | Minimum | Recommended |
 |---|---|---|
-| **SDR** | ADALM-Pluto **Rev. B** with the AD9364 unlock (70 MHz–6 GHz). Rev. C and AD9363 clones ("PlutoSDR development board", Pluto+) are untested; DAB+/FM over USB usually work, the modulator firmware has not been verified on them | original ADALM-Pluto Rev. B<br><a href="https://www.amazon.de/dp/B0D47FDP3K?tag=wobranding-21"><img src="docs/img/pluto-amazon.svg" width="110" alt="PlutoSDR on Amazon"></a> <a href="https://s.click.aliexpress.com/e/_c3eTlIfV"><img src="docs/img/pluto-aliexpress.svg" width="110" alt="PlutoSDR on AliExpress"></a><br><sub>affiliate links</sub> |
+| **SDR** | ADALM-Pluto **Rev. B** with the AD9364 unlock (70 MHz–6 GHz). Rev. C and AD9363 clones ("PlutoSDR development board", Pluto+) are untested; DAB+/FM over USB usually work, the modulator firmware has not been verified on them | original ADALM-Pluto Rev. B |
 | **PC** | Windows 10 (2004+) / 11, 64-bit, WSL2 (virtualisation enabled in the BIOS), 8 GB RAM. Any 2-core CPU for DAB+/FM/SD | 6 cores / 12 threads for HD H.264 (x264), 16 cores or an NVIDIA GPU with NVENC (Turing or newer) for UHD/HDR10 |
 | **Cabling** | SMA → F (satellite IF, plus a **DC block** – receivers feed 13/18 V) or SMA → IEC (DVB-T/C, FM, PAL), 20–50 dB of attenuators | RF shielding box for antenna tests |
 
-The Pluto links in the table are affiliate links – they help fund the project, the price is the same for you. The full list of adapters, attenuators and QO-100 gear is on the [hardware page](https://muxwright.com/#hardware).
+### What you need
+
+A PlutoSDR and a few RF parts for a cabled, shielded setup. The links below are affiliate links (Amazon, AliExpress) – they help fund
+the project, the price is the same for you.
+
+| <a href="https://muxwright.com/go/pluto"><img src="https://muxwright.com/amzimg/pluto" width="170" alt="PlutoSDR-compatible SDR, 70 MHz – 6 GHz"></a> | <a href="https://muxwright.com/go/pluto-ali"><img src="https://muxwright.com/aliimg/pluto-ali" width="170" alt="Pluto+ SDR, AD9363, 70 MHz – 6 GHz"></a> |
+|:---:|:---:|
+| **PlutoSDR-compatible SDR** | **Pluto+ (AD9363)** |
+| 70 MHz – 6 GHz, Zynq + AD936x – a clone, not the original ADALM-Pluto Rev. B | 2T2R, Gigabit Ethernet – clone; DAB+/FM over USB usually work, the modulator firmware is untested on it |
+| [View on Amazon](https://muxwright.com/go/pluto) | [View on AliExpress](https://muxwright.com/go/pluto-ali) |
+
+The original ADALM-Pluto Rev. B (the board Muxwright is verified on) is sold by Analog Devices and its distributors.
+
+Cabling and protection – always transmit through attenuators into the receiver or a shielded box:
+
+| <a href="https://muxwright.com/go/att30"><img src="https://muxwright.com/amzimg/att30" width="140" alt="SMA attenuator 30 dB, 6 GHz"></a> | <a href="https://muxwright.com/go/dcblock"><img src="https://muxwright.com/amzimg/dcblock" width="140" alt="SMA DC block, 6 GHz"></a> | <a href="https://muxwright.com/go/sma"><img src="https://muxwright.com/amzimg/sma" width="140" alt="SMA cable male–male"></a> | <a href="https://muxwright.com/go/satf"><img src="https://muxwright.com/amzimg/satf" width="140" alt="Adapter SMA male to F female"></a> |
+|:---:|:---:|:---:|:---:|
+| **Attenuator 30 dB** | **DC block** | **SMA cable** | **SMA → F adapter** |
+| SMA, DC – 6 GHz; stack 20–50 dB in front of the receiver | protects the Pluto from the 13/18 V LNB feed of satellite receivers | short male–male leads | DVB-S/S2 into the satellite input |
+| [View on Amazon](https://muxwright.com/go/att30) | [View on Amazon](https://muxwright.com/go/dcblock) | [View on Amazon](https://muxwright.com/go/sma) | [View on Amazon](https://muxwright.com/go/satf) |
+
+The full list of adapters, attenuators and QO-100 gear is on the [hardware page](https://muxwright.com/#hardware).
 
 ## Installation
 
