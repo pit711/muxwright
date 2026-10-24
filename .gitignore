@@ -57,3 +57,4 @@ pluto_fw/mod/dvbt_mod
 pluto_fw/mod/isdbt_mod
 pluto_fw/mod/rrc_fir_gen
 pluto_fw/mod/tests/dvbt2_proto/
+pluto_fw/mod/tools/*.o
