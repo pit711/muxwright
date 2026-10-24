@@ -81,7 +81,57 @@ def unit():
     cfg["services"][0]["audio"]["source"] = {"kind": "playlist"}
     _, errs = server.validate_config(cfg)
     check("config: playlist name required", any("Name fehlt" in e for e in errs), errs)
+    world(server)
     shutil.rmtree(rt, ignore_errors=True)
+
+
+def world(server):
+    """Weltweite Standards (untested) durch die echte Server-Prüfung: Kanal, Rate, Ausgabeweg, typische Fehler."""
+    def prog(codec="mpeg2", audio="ac3", **kw):
+        return dict({"key": "prg1", "name": "LAB 1", "provider": "LAB", "sid": "0x0001", "lcn": 1, "type": "tv",
+                     "video": {"source": {"kind": "testpattern", "pattern": "smptebars"}, "codec": codec, "resolution": "sd",
+                               "bitrate_kbps": 4000, "encoder": "cpu", "hdr": "sdr"},
+                     "audio": {"codec": audio, "bitrate_kbps": 192, "source": {"kind": "tone"}}, "eit": {"title": "T", "description": "D"}}, **kw)
+
+    def run(mode, sec, rf, progs):
+        cfg = json.loads(json.dumps(server.DEFAULT_CONFIG))
+        cfg["mode"] = mode
+        cfg[mode] = sec
+        cfg["rf"].update(rf)
+        cfg["dvb"] = {"programs": progs, "si": {"network_id": "0x04D2", "network_name": "LAB", "onid": "0x04D2", "tsid": "0x04D2"}}
+        return server.validate_config(cfg)
+
+    c, e = run("atsc", {}, {"channel": "A14"}, [prog()])
+    check("world: ATSC A14 473 MHz, 19,39 Mbit/s, Gerät", not e and c["rf"]["freq_hz"] == 473000000 and abs(c["_dvb"]["rate_bps"] - 19392658.46) < 1
+          and c["_path"] == "device", (e, c.get("rf"), c.get("_path")))
+    c, e = run("isdbt", {"layers": 2, "region": "br"}, {"channel": "A20"}, [prog("h264", "aac"), prog("h264", "aac", key="prg2", sid="0x0002", lcn=2, oneseg=True)])
+    check("world: ISDB-Tb 2 Schichten 17,27 Mbit/s, Mitte + 1/7 MHz", not e and c["rf"]["freq_hz"] == 509142857 and abs(c["_dvb"]["rate_bps"] - 17267628.8) < 2, (e, c.get("rf")))
+    _, e = run("isdbt", {"mode": 2}, {"channel": "A20"}, [prog("h264", "aac")])
+    check("world: ISDB-T Mode 2 abgelehnt (nicht echtzeitfähig)", any("mode 2" in x for x in e), e)
+    c, e = run("isdbt", {"region": "jp"}, {"channel": "J27"}, [prog("mpeg2", "aac")])
+    check("world: ISDB-T Japan J27 557,142857 MHz", not e and c["rf"]["freq_hz"] == 557142857, (e, c.get("rf")))
+    c, e = run("dtmb", {"constellation": "64-QAM", "code_rate": "0.8", "header": 420}, {"channel": "DS25"}, [prog("h264", "mp2")])
+    check("world: DTMB DS25 610 MHz, 64-QAM 0,8 PN420 32,49 Mbit/s", not e and c["rf"]["freq_hz"] == 610000000 and abs(c["_dvb"]["rate_bps"] - 32486400) < 1, (e, c.get("rf")))
+    _, e = run("dtmb", {"constellation": "32-QAM", "code_rate": "0.4", "header": 420}, {"channel": "DS25"}, [prog("h264", "mp2")])
+    check("world: DTMB 32-QAM nur 0,8", any("dtmb.code_rate" in x for x in e), e)
+    c, e = run("dvbc", {"annex": "b", "constellation": "256-QAM", "sps": 2}, {"channel": "C80"}, [prog()])
+    check("world: J.83 B 256-QAM 38,81 Mbit/s, C80 561 MHz, Gerät", not e and c["rf"]["freq_hz"] == 561000000 and abs(c["_dvb"]["rate_bps"] - 38810701) < 2
+          and c["_path"] == "device", (e, c.get("rf"), c.get("_path")))
+    cfg = json.loads(json.dumps(server.DEFAULT_CONFIG))
+    cfg["mode"] = "pal"
+    cfg["pal"] = {"system": "NTSC_M", "image": {"kind": "testpattern", "pattern": "smptebars"}, "sound": {"kind": "tone"}}
+    cfg["rf"].update({"channel": "A14"})
+    c, e = server.validate_config(cfg)
+    check("world: NTSC-M A14 Bildträger 471,25 MHz, 7,993 MS/s", not e and c["rf"]["freq_hz"] == 471250000 and c["_pal"]["fs"] == 7993007, (e, c.get("rf"), c.get("_pal")))
+    cfg = json.loads(json.dumps(server.DEFAULT_CONFIG))
+    cfg["mode"] = "fm"
+    cfg["fm"] = {"freq_mhz": 80.0, "region": "jp", "rds": {"enable": True, "standard": "rbds", "pi": "0x54A8", "ps": "LAB"}}
+    cfg["rf"].update({"channel": "fm", "freq_hz": 80000000})
+    c, e = server.validate_config(cfg)
+    check("world: UKW Japan 80,0 MHz erlaubt", not e and c["rf"]["freq_hz"] == 80000000, e)
+    cfg["fm"]["region"] = "eu"
+    _, e = server.validate_config(cfg)
+    check("world: UKW 80,0 MHz ohne Region Japan abgelehnt", any("87,5" in x for x in e), e)
 
 
 def http_test(port=None):

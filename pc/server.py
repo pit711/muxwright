@@ -1099,7 +1099,16 @@ class App:
                 if not os.path.exists(src):
                     raise RuntimeError(f"Modulator für {std} fehlt ({os.path.basename(src)}) – Standard noch nicht fertig")
                 dev.ensure(src, agentmod.MOD_PATHS[key], "0755")
-            cmd, margs, opts = agentmod.modulator_command(std, self.runner_config(), self.args.device_udp_port,
+            mcfg = self.runner_config()
+            if std == "isdbt":
+                # Schicht A (1seg): PMT/Video/Audio der als oneseg markierten Programme; PSI/SI legt isdbt_mod selbst in beide Schichten
+                C = standards.runner_dvb()[0]
+                n, E, _ = C.normalize(copy.deepcopy(mcfg))
+                if not E and n["isdbt"]["layers"] == 2:
+                    mcfg = copy.deepcopy(mcfg)
+                    mcfg.setdefault("isdbt", {})["_layer_a_pids"] = [p for s in n["services"] if s.get("oneseg")
+                                                                     for p in (s.get("_pmt_pid_out", s["_pmt_pid"]), s["_vpid"], s["_apid"])]
+            cmd, margs, opts = agentmod.modulator_command(std, mcfg, self.args.device_udp_port,
                                                          self.args.device_mod_dir, lo_hz=lo, window=self.args.device_window,
                                                          fir=fir, rfbw_hz=rfbw)
             r = self.agent.mod_start(cmd, margs, cpu=opts["cpu"], rt_prio=opts["rt_prio"])

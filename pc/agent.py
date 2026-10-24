@@ -184,7 +184,7 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
             args += ["--fir", fir]
         opts = {"cpu": 1, "rt_prio": 50}
     elif std == "atsc":
-        opts = {"cpu": 1, "rt_prio": 50}
+        opts = {"cpu": -1, "rt_prio": 50}                  # zwei Threads: Echtzeit nur mit beiden A9-Kernen (kein Pinning)
     elif std == "isdbt":
         d = cfg.get("isdbt") or {}
         two = int(d.get("layers", 1)) == 2
@@ -192,15 +192,18 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
         args += ["--mode", int(d.get("mode", 3)), "--guard", d.get("guard", "1/8"), "--layers", 2 if two else 1]
         for L in ("a", "b") if two else ("a",):
             ly = d.get("layer_" + L) or {}
-            args += [f"--{L}-mod", cst(ly.get("constellation")), f"--{L}-rate", ly.get("code_rate", "3/4"), f"--{L}-ti", int(ly.get("ti", 2))]
+            # Zeitverschachtelung im Dashboard als Mode-3-Wert (0/1/2/4); Mode 1 nutzt das Vierfache (0/4/8/16, ARIB STD-B31)
+            ti = int(ly.get("ti", 2)) * (4 if int(d.get("mode", 3)) == 1 else 1)
+            args += [f"--{L}-mod", cst(ly.get("constellation")), f"--{L}-rate", ly.get("code_rate", "3/4"), f"--{L}-ti", ti]
         if two and d.get("_layer_a_pids"):
             args += ["--layer-a-pids", ",".join(str(int(p)) for p in d["_layer_a_pids"])]
-        opts = {"cpu": 1, "rt_prio": 50}
+        args += ["--threads", 2, "--affinity", "--rt"]     # isdbt_mod verteilt Coder und IFFT selbst auf beide Kerne
+        opts = {"cpu": -1, "rt_prio": 0}
     elif std == "dtmb":
         d = cfg.get("dtmb") or {}
         args += ["--carriers", int(d.get("carriers", 3780)), "--const", str(d.get("constellation", "64-QAM")).lower().replace("-", ""),
                  "--rate", d.get("code_rate", "0.6"), "--pn", int(d.get("header", 945)), "--ti", int(d.get("interleaver", 720))]
-        opts = {"cpu": 1, "rt_prio": 50}
+        opts = {"cpu": -1, "rt_prio": 50}
     else:
         raise ValueError(f"kein Gerätemodulator für {std}")
     if backoff is not None:

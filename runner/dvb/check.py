@@ -440,7 +440,7 @@ def analyze_file(host, cfg, path, log=None, decode_seconds=4):
                       "tsanalyze_bps": an_rate, "null_share": round(null, 4) if null is not None else None,
                       "max_jitter_ns": max([v["jitter_max_ns"] for v in pids.values()] or [None])}
     rep["continuity"] = continuity_pcr(host, path)
-    err, tabs = tstables(host, path, extra_pids=[s["_pmt_pid"] for s in cfg["services"]])
+    err, tabs = tstables(host, path, extra_pids=[s.get("_pmt_pid_out", s["_pmt_pid"]) for s in cfg["services"]])
     rep["tables"] = parse_tables(tabs) if not err else {"error": err}
     rep["table_counts"] = {k: len(v) for k, v in tabs.items()}
     progs = {p["program_id"]: p for p in ffprobe_programs(host, path)}

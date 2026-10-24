@@ -125,7 +125,7 @@ function updateFieldErrors() {
     const errs = S.errors.filter(e => e.path === p || (f.dataset.deep && e.path.startsWith(p + '.')));
     f.classList.toggle('invalid', errs.length > 0);
     const msg = f.querySelector(':scope > .msg');
-    if (msg) msg.textContent = errs.length ? errs[0].msg : (f.dataset.hint || '');
+    if (msg) { if (errs.length) msg.textContent = errs[0].msg; else if (f._hintNode) msg.replaceChildren(f._hintNode); else msg.textContent = f.dataset.hint || ''; }
   }
 }
 
@@ -185,7 +185,8 @@ export function field(label, control, o = {}) {
     label || o.extra ? h('label.lbl', null, label, o.extra || null) : null, control, h('small.msg', null, o.hint || ''));
   if (o.path) f.dataset.path = o.path;
   if (o.deep) f.dataset.deep = '1';
-  if (o.hint) f.dataset.hint = o.hint;
+  if (o.hint instanceof Node) { f._hintNode = o.hint; f.dataset.hint = o.hint.textContent; }   // Hinweis mit Elementen (Flaggen, „untested“)
+  else if (o.hint) f.dataset.hint = o.hint;
   return f;
 }
 

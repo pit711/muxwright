@@ -83,8 +83,8 @@ def normalize(raw):
         v = channel_lookup(ch)
         if not v:
             E.append("rf.channel '%s' nicht in der PAL-Kanaltabelle" % ch)
-        elif not rf.get("freq_hz"):
-            rf["freq_hz"] = v
+        else:
+            rf["freq_hz"] = v              # Kanal ist maßgeblich (feine Verschiebung über rf.offset_hz)
     rf["freq_hz"] = int(rf.get("freq_hz") or 591250000)
     rf["lo_hz"] = int(rf["freq_hz"] + p["_offset_loop"])            # Schleife (render)
     rf["lo_hz_live"] = int(rf["freq_hz"] + p["_offset_live"])       # live

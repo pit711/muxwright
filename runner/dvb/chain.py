@@ -331,7 +331,8 @@ class DvbChain:
             if c["output"]["kind"] == "udp" and not self.render:
                 cmd += ["-P", "count", "--interval", str(max(1000, int(c["_rate_bps"] / 8 / 188 * 5)))]
             return cmd + output
-        cmd = [tsp, "--bitrate", R, "-I", "file",
+        remap = ["%d=%d" % (s["_pmt_pid"], s["_pmt_pid_out"]) for s in c["services"] if s.get("_pmt_pid_out")]
+        cmd = [tsp, "--bitrate", R, "-I", "file"] + (["-P", "remap"] + remap if remap else []) + [
                "-P", "inject", "--pid", "16", "--replace", "--stuffing", "--poll-files", os.path.join(self.sdir, "nit.xml"),
                "-P", "inject", "--pid", "17", "--replace", "--stuffing", "--poll-files", os.path.join(self.sdir, "sdt.xml")]
         if ts.get("tdt", True):
@@ -483,7 +484,7 @@ class DvbChain:
              "services": {s["key"]: {"service_id": s["service_id"], "name": s["name"], "provider": s["provider"],
                                      "lcn": s["lcn"], "playlist": s["source"]["kind"] == "playlist",
                                      "eit_file": os.path.join(self.sdir, "eit", "eit_%s.xml" % s["key"]),
-                                     "pmt_pid": s["_pmt_pid"], "video_pid": s["_vpid"], "audio_pid": s["_apid"]}
+                                     "pmt_pid": s.get("_pmt_pid_out", s["_pmt_pid"]), "video_pid": s["_vpid"], "audio_pid": s["_apid"]}
                           for s in c["services"]},
              "versions": self.versions, "names": self.names}
         if extra:

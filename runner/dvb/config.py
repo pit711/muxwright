@@ -20,7 +20,7 @@ AUDIO_GEN = ("sine", "speech", "sine+speech", "silence", "noise", "file")
 OUTPUT_KINDS = ("stdout", "udp", "modulator", "file")
 STANDARDS = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")
 UNTESTED = ("atsc", "isdbt", "dtmb")      # dazu DVB-C Annex B/C (J.83 B/C)
-ATSC_SAMPLE_RATE = 2 * 10762238           # atsc_mod: 2 Samples/Symbol (wird mit --print-rates abgeglichen)
+ATSC_SAMPLE_RATE = 10762238               # atsc_mod: 1 Sample/Symbol (--print-rates), Pilot bei −2,69 MHz um den LO
 SERVICE_TYPES = {"tv": 0x01, "radio": 0x02, "hdtv": 0x19, "aac_radio": 0x0A}
 
 
@@ -245,6 +245,8 @@ def normalize(raw):
         d["remote_key"] = _int(d.get("remote_key"), 1)
         if d["mode"] not in (1, 2, 3):
             E.append("isdbt.mode: 1, 2 oder 3")
+        elif d["mode"] == 2 and (cfg.get("output") or {}).get("kind") not in ("file", "stdout"):
+            E.append("isdbt.mode 2: auf dem Pluto nicht echtzeitfähig (4096-Punkt-IFFT) – Mode 1 oder 3 wählen")
         if not d["guard"]:
             E.append("isdbt.guard: 1/4, 1/8, 1/16, 1/32")
         if d["layers"] not in (1, 2):
@@ -302,8 +304,7 @@ def normalize(raw):
                                                                          "j83b": "US-Kabel-", "dtmb": "China-", "isdbt_jp": "Japan-"}.get(tab, tab)))
     if look:
         rf["channel"] = str(ch).upper()
-        if not rf.get("freq_hz"):
-            rf["freq_hz"] = look[0]
+        rf["freq_hz"] = look[0]            # Kanal ist maßgeblich (feine Verschiebung über rf.offset_hz)
         if std == "dvbt" and not d["bandwidth_mhz"]:
             d["bandwidth_mhz"] = look[1]
     if std == "dvbt":
@@ -560,6 +561,9 @@ def normalize(raw):
             s["_service_type"] = _int(s["service_type"])
         # PIDs
         s["_pmt_pid"] = ts["pmt_start_pid"] + i
+        if s.get("oneseg"):
+            # ARIB TR-B14 / ABNT NBR 15603: PMT des 1seg-Dienstes auf 0x1FC8–0x1FCF (Empfänger suchen dort); tsp remap setzt sie um
+            s["_pmt_pid_out"] = 0x1FC8 + sum(1 for x in svcs[:i] if x.get("oneseg"))
         s["_vpid"] = ts["start_pid"] + 16 * i
         s["_apid"] = ts["start_pid"] + 16 * i + 1
         s["_pcr_pid"] = s["_vpid"] if s["type"] == "tv" else s["_apid"]
@@ -654,5 +658,5 @@ def summary(cfg):
                           "type": s["type"], "video": (s["video"].get("codec"), s["video"].get("size"),
                                                        s["video"].get("bitrate_kbps")) if s["type"] == "tv" else None,
                           "audio": (s["audio"]["codec"], s["audio"]["bitrate_kbps"]), "source": s["source"]["kind"],
-                          "pmt_pid": s["_pmt_pid"], "video_pid": s["_vpid"], "audio_pid": s["_apid"]}
+                          "pmt_pid": s.get("_pmt_pid_out", s["_pmt_pid"]), "video_pid": s["_vpid"], "audio_pid": s["_apid"]}
                          for s in cfg["services"]]}

@@ -1025,6 +1025,109 @@ def datv_ui(browser, base: str, console: Console):
     ctx.close()
 
 
+def apply_now(page):
+    if page.locator(T("apply")).is_disabled():
+        page.click(T("apply-errors"))
+        raise AssertionError(f"Entwurf ungültig: {page.locator('.ab-errlist li').all_inner_texts()}")
+    page.click(T("apply"))
+    if page.locator(T("confirm-restart-ok")).count():
+        page.click(T("confirm-restart-ok"))
+    expect(page.locator(T("applybar"))).to_be_hidden(timeout=8000)
+
+
+def world_ui(browser, base: str, console: Console):
+    """Weltweite Standards (untested): ATSC, ISDB-T/Tb, DTMB, J.83 B, NTSC-M, UKW-Region Japan – Seiten, Raten, Kanäle, Flaggen."""
+    ctx = browser.new_context(locale="de-DE", viewport={"width": 1440, "height": 900}, color_scheme="light")
+    ctx.add_init_script("try { localStorage.setItem('dablab.autoApply', 'false') } catch (e) {}")
+    page = ctx.new_page()
+    console.attach(page)
+    page.goto(base + "#/regie")
+    expect(page.locator(T("conn"))).to_have_class("conn ok", timeout=15000)
+
+    step("Welt: Regie zeigt Flaggen und „untested“ bei den neuen Standards")
+    for std, n in (("atsc", 4), ("isdbt", 6), ("dtmb", 4)):
+        expect(page.locator(T(f"flags-{std}") + " img.flag")).to_have_count(n)
+        expect(page.locator(T(f"flags-{std}") + " .badge-untested")).to_have_count(1)
+    expect(page.locator(T("flags-dvbt") + " .badge-untested")).to_have_count(0)
+    assert page.evaluate("[...document.querySelectorAll('img.flag')].every(i => i.complete && i.naturalWidth > 0)"), "Flaggenbild fehlt"
+
+    step("Welt: ATSC – 19,39 Mbit/s, Kanal A14, MPEG-2 + AC-3")
+    page.click(T("regie-edit-atsc"))
+    expect(page.locator("#main")).to_have_attribute("data-page", "modulation")
+    expect(page.locator(T("card-atsc") + " .badge-untested")).to_be_visible()
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("19,39")
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["mode"] == "atsc" and c["rf"]["channel"] == "A14" and c["rf"]["freq_hz"] == 473000000, c["rf"]
+    assert all(pr["audio"]["codec"] == "ac3" for pr in c["dvb"]["programs"]), [pr["audio"]["codec"] for pr in c["dvb"]["programs"]]
+
+    step("Welt: ISDB-T – zwei Schichten, Japan-Raster J13")
+    goto(page, "regie")
+    page.click(T("regie-edit-isdbt"))
+    expect(page.locator(T("card-isdbt"))).to_be_visible()
+    page.click(T("isdbt-layers-2"))
+    expect(page.locator(T("isdbt-layer-b"))).to_be_visible()
+    expect(page.locator(T("isdbt-mode-2"))).to_have_count(0)
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("17,2")
+    page.click(T("isdbt-region-jp"))
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["mode"] == "isdbt" and c["isdbt"]["region"] == "jp" and int(c["isdbt"]["layers"]) == 2 and c["rf"]["channel"] == "J13", (c["isdbt"], c["rf"])
+
+    step("Welt: DTMB – 32-QAM nur mit Coderate 0,8, Kanal DS13")
+    goto(page, "regie")
+    page.click(T("regie-edit-dtmb"))
+    expect(page.locator(T("card-dtmb"))).to_be_visible()
+    page.click(T("dtmb-constellation-32-QAM"))
+    expect(page.locator(T("dtmb-coderate-0.4"))).to_have_count(0)
+    page.click(T("dtmb-constellation-64-QAM"))
+    page.click(T("dtmb-header-420"))
+    page.click(T("dtmb-coderate-0.8"))
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("32,48")
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["mode"] == "dtmb" and c["rf"]["channel"] == "DS13" and c["dtmb"]["constellation"] == "64-QAM", (c["dtmb"], c["rf"])
+
+    step("Welt: DVB-C Annex B (J.83 B) – 256-QAM 38,81 Mbit/s, US-Kabel C80")
+    goto(page, "regie")
+    page.click(T("regie-edit-dvbc"))
+    page.click(T("dvbc-annex-b"))
+    expect(page.locator(T("card-j83b"))).to_be_visible()
+    page.click(T("j83b-constellation-64-QAM"))
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("26,97")
+    page.click(T("j83b-constellation-256-QAM"))
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("38,81")
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["dvbc"]["annex"] == "b" and c["rf"]["channel"] == "C80", (c["dvbc"], c["rf"])
+    page.click(T("dvbc-annex-a"))
+    apply_now(page)
+
+    step("Welt: Analog-TV NTSC-M – Kanal A14, Ton 4,5 MHz, nur Standbild-Schleife")
+    goto(page, "regie")
+    page.click(T("regie-edit-pal"))
+    page.click(T("pal-system-NTSC_M"))
+    expect(page.locator(".field[data-path='pal.system'] .badge-untested")).to_be_visible()
+    expect(page.locator(T("pal-live-true"))).to_be_disabled()
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["pal"]["system"] == "NTSC_M" and c["rf"]["channel"] == "A14" and c["pal"]["sound"]["preemphasis_us"] == 75, (c["pal"]["system"], c["rf"])
+    page.click(T("pal-system-BG"))
+    apply_now(page)
+
+    step("Welt: UKW-Region Japan – 76–95 MHz, Frequenz wird ins Band gesetzt")
+    goto(page, "regie")
+    page.click(T("regie-edit-fm"))
+    page.click(T("fm-region-jp"))
+    expect(page.locator(T("card-fm-region") + " img.flag")).to_have_count(1)
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["fm"]["region"] == "jp" and 76e6 <= c["rf"]["freq_hz"] <= 95e6, (c["fm"].get("region"), c["rf"]["freq_hz"])
+    page.click(T("fm-region-eu"))
+    apply_now(page)
+    ctx.close()
+
+
 def screenshots(browser, base: str, console: Console):
     variants = [("hell", "light", "desktop", {"width": 1440, "height": 900}),
                 ("dunkel", "dark", "desktop", {"width": 1440, "height": 900}),
@@ -1197,6 +1300,8 @@ def main():
             auto_apply(browser, base, console)
             onboarding_flow(browser, base, console)
             datv_ui(browser, base, console)
+            print("Weltweite Standards:")
+            world_ui(browser, base, console)
             if a.shots == "all":
                 print("Screenshots:")
                 screenshots(browser, base, console)

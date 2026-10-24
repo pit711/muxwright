@@ -327,7 +327,7 @@ def build_pal_report(kind):
 
 def standard_of(cfg):
     m = cfg.get("mode")
-    return m if m in ("fm", "dvbt", "dvbc", "dvbs", "pal") else "dab"
+    return m if m in ("fm", "dvbt", "dvbc", "dvbs", "pal", "atsc", "isdbt", "dtmb") else "dab"
 
 
 BITS = {"QPSK": 2, "16-QAM": 4, "32-QAM": 5, "64-QAM": 6, "128-QAM": 7, "256-QAM": 8}
@@ -343,7 +343,21 @@ def net_rate(cfg):
         return 6048 * BITS[m["constellation"]] * a / b * 188 / 204 / (tu * (1 + ga / gb))
     if std == "dvbc":
         m = cfg["dvbc"]
+        if m.get("annex") == "b":
+            return {"64-QAM": 26970350, "256-QAM": 38810701}.get(m["constellation"], 0)
         return m["symbol_rate"] * BITS[m["constellation"]] * 188 / 204
+    if std == "atsc":
+        return 19392658.46
+    if std == "isdbt":
+        m = cfg["isdbt"]
+        fr = lambda s: (lambda a, b: a / b)(*(int(x) for x in s.split("/")))  # noqa: E731
+        lay = lambda segs, ly: 96e6 / 252 * segs * BITS[ly["constellation"]] * fr(ly["code_rate"]) * 188 / 204 / (1 + fr(m["guard"]))  # noqa: E731
+        two = int(m.get("layers", 1)) == 2
+        return lay(1 if two else 13, m["layer_a"]) + (lay(12, m["layer_b"]) if two else 0)
+    if std == "dtmb":
+        m = cfg["dtmb"]
+        b = {"4-QAM-NR": 1, "4-QAM": 2, "16-QAM": 4, "32-QAM": 5, "64-QAM": 6}[m["constellation"]]
+        return 7560000 / (3780 + int(m["header"])) * 3744 * b / 7488 * {"0.4": 3008, "0.6": 4512, "0.8": 6016}[str(m["code_rate"])]
     if std == "dvbs":
         m = cfg["dvbs"]
         a, b = (int(x) for x in m["fec"].split("/"))
@@ -355,7 +369,7 @@ def net_rate(cfg):
 
 def rf_path(cfg):
     std = standard_of(cfg)
-    if std == "pal":
+    if std in ("pal", "atsc", "isdbt", "dtmb") or (std == "dvbc" and cfg["dvbc"].get("annex") == "b"):
         return "device"
     if std == "dvbt" and float(cfg["dvbt"]["bandwidth_mhz"]) >= 7:
         return "device"
@@ -714,7 +728,7 @@ def build_fm_report(kind):
 def build_dvb_report(kind):
     cfg = ST["config"]
     std = standard_of(cfg)
-    m = cfg["dvbt"] if std == "dvbt" else cfg["dvbs"] if std == "dvbs" else cfg["dvbc"]
+    m = cfg.get(std) or cfg["dvbc"]
     si = cfg["dvb"]["si"]
     running = ST["tx"]["state"] == "running" and cfg["rf"]["enabled"]
     if kind == "monitor" and not running:
@@ -725,7 +739,7 @@ def build_dvb_report(kind):
                "symbol_rate": m["symbol_rate"], "modulation_type": m["modulation"], "fec": m["fec"], "roll_off": m["rolloff"], "frequency_hz": int(m["transponder_mhz"] * 1e6)}
     else:
         mod = ({"bandwidth_mhz": m["bandwidth_mhz"], "fft": m["fft"], "constellation": m["constellation"], "code_rate": m["code_rate"], "guard": m["guard"], "cell_id": m["cell_id"]}
-               if std == "dvbt" else {"symbol_rate": m["symbol_rate"], "constellation": m["constellation"]})
+               if std == "dvbt" else {"symbol_rate": m["symbol_rate"], "constellation": m["constellation"]} if std == "dvbc" else dict(m))
         mod["frequency_hz"] = cfg["rf"]["freq_hz"]
     services = []
     for i, p in enumerate(cfg["dvb"]["programs"]):
@@ -761,7 +775,7 @@ def build_any_report(kind):
     std = standard_of(ST["config"])
     if std == "fm":
         return build_fm_report(kind)
-    if std in ("dvbt", "dvbc"):
+    if std in ("dvbt", "dvbc", "atsc", "isdbt", "dtmb"):
         return build_dvb_report(kind)
     if std == "pal":
         return build_pal_report(kind)

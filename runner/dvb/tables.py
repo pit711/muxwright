@@ -248,7 +248,7 @@ def j83b_useful_bitrate(constellation):
 # Tu = 252 * 2^(m-1) us -> modusunabhaengig 96/252 MHz * b * CR * 188/204 / (1 + GI) je Segment.
 # Beispiel 13 Segmente 64-QAM 3/4 GI 1/8: 18,25 Mb/s. Abtastrate 512/63 MHz.
 # ---------------------------------------------------------------------------------------------
-ISDBT_BITS = {"DQPSK": 2, "QPSK": 2, "16-QAM": 4, "64-QAM": 6}
+ISDBT_BITS = {"QPSK": 2, "16-QAM": 4, "64-QAM": 6}           # DQPSK setzt isdbt_mod nicht um
 ISDBT_SAMPLE_RATE = Fraction(512000000, 63)
 ISDBT_TI = (0, 1, 2, 4)                 # Zeitverschachtelung I (Mode 3: 0, 1, 2, 4)
 

@@ -145,7 +145,9 @@ function pageIsdbt(head) {
       h('div.grid3', null,
         field(T('Modus'), segmented('isdbt.mode', STD.ISDBT.MODES.map(v => ({ v, label: `Mode ${v}` })), { tid: 'isdbt-mode' }), { path: 'isdbt.mode', hint: T('Mode 3 = 8k (5617 Träger), üblich') }),
         field(T('Guard-Intervall'), segmented('isdbt.guard', STD.ISDBT.GI.map(v => ({ v, label: v })), { tid: 'isdbt-guard' }), { path: 'isdbt.guard' }),
-        field(T('Schichten'), segmented('isdbt.layers', [{ v: 1, label: T('1 (13 Segmente)') }, { v: 2, label: T('2 (1seg + 12)') }], { tid: 'isdbt-layers', rerender: true }),
+        field(T('Schichten'), segmented('isdbt.layers', [{ v: 1, label: T('1 (13 Segmente)') }, { v: 2, label: T('2 (1seg + 12)') }], { tid: 'isdbt-layers', rerender: true,
+          // Schicht A: 1seg robust (QPSK 2/3, I=4) bzw. bei 13 Segmenten 64-QAM 3/4 – wie runner/dvb/config.py
+          onchange: v => { S.draft.isdbt.layer_a = Number(v) === 2 ? { constellation: 'QPSK', code_rate: '2/3', ti: 4 } : { constellation: '64-QAM', code_rate: '3/4', ti: 2 }; } }),
           { path: 'isdbt.layers', hint: T('2 Schichten: Schicht A trägt das Handy-Programm (1seg, QPSK), Schicht B das HD-Programm') })),
       layer('a', two ? 1 : 13),
       two ? layer('b', 12) : null,

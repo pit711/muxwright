@@ -121,7 +121,8 @@ export const dtmbNetRate = p => DTMB.SR / (3780 + Number(p.header)) * 3744 * (DT
 /** ATSC 1.0: feste Nutzrate 19,39 Mbit/s (312 · 188 Byte je 313 · 832 Symbole bei 10,762 MBd) */
 export const ATSC = { SR: 4.5e6 / 286 * 684, RATE: 4.5e6 / 286 * 684 * 312 * 188 * 8 / (313 * 832) };
 /** ISDB-T: 13 Segmente, Mode 1–3, je Schicht Konstellation/Coderate/Zeitverschachtelung */
-export const ISDBT = { MODES: [1, 2, 3], GI: ['1/4', '1/8', '1/16', '1/32'], CONST: ['QPSK', '16-QAM', '64-QAM'], CR: ['1/2', '2/3', '3/4', '5/6', '7/8'], TI: [0, 1, 2, 4],
+export const ISDBT = { MODES: [1, 3],             // Mode 2: isdbt_mod nicht echtzeitfähig
+  GI: ['1/4', '1/8', '1/16', '1/32'], CONST: ['QPSK', '16-QAM', '64-QAM'], CR: ['1/2', '2/3', '3/4', '5/6', '7/8'], TI: [0, 1, 2, 4],
   SAMPLE_RATE: 512e6 / 63 };
 export const isdbtLayerRate = (segs, l, gi) => 96e6 / 252 * segs * BITS[l.constellation] * frac(l.code_rate) * 188 / 204 / (1 + frac(gi));
 export function isdbtNetRate(p) { const two = Number(p.layers) === 2; return isdbtLayerRate(two ? 1 : 13, p.layer_a, p.guard) + (two ? isdbtLayerRate(12, p.layer_b, p.guard) : 0); }
@@ -205,7 +206,7 @@ export function requiredSampleRate(cfg) {
   if (s === 'dvbt') return Math.round((Number(cfg.dvbt.bandwidth_mhz) || 8) * 8e6 / 7);
   if (s === 'dvbc') return (Number(cfg.dvbc.sps) || 2) * Number(cfg.dvbc.symbol_rate);
   if (s === 'dvbs') { const sr = Number(cfg.dvbs.symbol_rate); return cfg.dvbs.use === 'ham' ? hamSps(sr) * sr : 2 * sr; }
-  if (s === 'atsc') return Math.round(2 * ATSC.SR);
+  if (s === 'atsc') return Math.round(ATSC.SR);          // atsc_mod: 1 Sample/Symbol
   if (s === 'isdbt') return Math.round(ISDBT.SAMPLE_RATE);
   if (s === 'dtmb') return 2 * DTMB.SR;
   if (s === 'pal') return PAL_SYSTEMS[cfg.pal?.system]?.lines === 525 ? FS_525 : cfg.pal?.live ? (Number(cfg.pal?.live_fs) || 7000000) : (Number(cfg.pal?.fs) || 8000000);
@@ -301,7 +302,11 @@ export const defaultIsdbt = () => ({ region: 'br', mode: 3, guard: '1/8', layers
 /** Programme auf die regionalen Codecs bringen: ATSC/US-Kabel MPEG-2 + AC-3, ISDB-Tb H.264 + AAC */
 export function regionCodecs(c, std) {
   for (const p of c.dvb?.programs || []) {
-    if (std === 'atsc' || (std === 'dvbc' && isJ83b(c))) { if (p.type === 'tv' && p.video.codec !== 'mpeg2' && std === 'atsc') p.video.codec = 'mpeg2'; p.audio.codec = 'ac3'; if (!VIDEO.AUDIO_BR.ac3.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 384; }
+    if (std === 'atsc' || (std === 'dvbc' && isJ83b(c))) {
+      // ATSC 1.0: MPEG-2 bis 1080 (A/53), kein HDR; NVENC kann kein MPEG-2 → CPU-Encoder
+      if (p.type === 'tv' && std === 'atsc') { p.video.codec = 'mpeg2'; p.video.encoder = 'cpu'; p.video.hdr = 'sdr'; if (p.video.resolution === 'uhd') p.video.resolution = 'hd'; }
+      p.audio.codec = 'ac3'; if (!VIDEO.AUDIO_BR.ac3.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 384;
+    }
     if (std === 'dtmb') { if (p.type === 'tv' && p.video.codec === 'hevc') p.video.codec = 'h264'; if (p.audio.codec === 'aac') p.audio.codec = 'mp2'; }
     if (std === 'isdbt' && c.isdbt?.region === 'jp') { if (p.type === 'tv' && !p.oneseg) p.video.codec = 'mpeg2'; p.audio.codec = 'aac'; continue; }
     if (std === 'isdbt') { if (p.type === 'tv') p.video.codec = 'h264'; if (p.video.hdr && p.video.hdr !== 'sdr') p.video.hdr = 'sdr'; p.audio.codec = 'aac'; if (!VIDEO.AUDIO_BR.aac.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 128; }
@@ -572,7 +577,7 @@ export function validateStd(c, add) {
       if (!DVBT.GI.includes(m.guard)) add('dvbt.guard', 'Guard 1/4…1/32');
       if (!(m.cell_id >= 0 && m.cell_id <= 65535)) add('dvbt.cell_id', T('Zellen-ID 0–65535'));
     } else if (std === 'isdbt') {
-      if (!ISDBT.MODES.includes(Number(c.isdbt.mode))) add('isdbt.mode', T('Modus 1, 2 oder 3'));
+      if (!ISDBT.MODES.includes(Number(c.isdbt.mode))) add('isdbt.mode', T('Modus 1 oder 3'));
       if (!ISDBT.GI.includes(c.isdbt.guard)) add('isdbt.guard', 'Guard 1/4…1/32');
       for (const L of Number(c.isdbt.layers) === 2 ? ['a', 'b'] : ['a']) {
         const l = c.isdbt['layer_' + L];
