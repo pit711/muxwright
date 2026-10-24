@@ -4,7 +4,9 @@
 DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
 on the Pluto's own RX input, expected/actual reports and printable test records.
 
-Website: **https://muxwright.com** · Download: [Muxwright-Setup-0.1-beta.exe](https://github.com/pit711/muxwright/releases/download/v0.1.0-beta/Muxwright-Setup-0.1-beta.exe) (Windows 10/11, 64-bit) · Status: **Beta 0.1**
+Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.1**
+
+This repository contains the complete source. There are no binary releases here – build it yourself (see [Running from source](#running-from-source) and [Building the installer](#building-the-installer)) or request the installer on the website.
 
 ![Muxwright dashboard, DVB-T modulation page](docs/img/dashboard.webp)
 
@@ -24,10 +26,11 @@ Website: **https://muxwright.com** · Download: [Muxwright-Setup-0.1-beta.exe](h
 5. [Installation](#installation)
 6. [Repository layout](#repository-layout)
 7. [Running from source](#running-from-source)
-8. [API](#api)
-9. [Tests](#tests)
-10. [Licences and codecs](#licences-and-codecs)
-11. [Credits](#credits)
+8. [Building the installer](#building-the-installer)
+9. [API](#api)
+10. [Tests](#tests)
+11. [Licences and codecs](#licences-and-codecs)
+12. [Credits](#credits)
 
 ---
 
@@ -112,8 +115,9 @@ Where to get the Pluto: [Amazon.de](https://www.amazon.de/s?k=ADALM+Pluto&i=elec
 
 ## Installation
 
-1. Run `Muxwright-Setup-0.1-beta.exe` (no administrator rights needed; ~81 MB). Verify the SHA-256 from the
-   release page if you like.
+1. Request the installer at https://muxwright.com/download.html. You confirm your e-mail address and that you use
+   Muxwright only in a shielded lab; the download link arrives by e-mail. Run `Muxwright-Setup-0.1-beta.exe`
+   (no administrator rights needed; ~81 MB) and compare the SHA-256 shown on the download page.
 2. Start Muxwright – a console window (the server) opens and the dashboard appears in your browser at
    `http://127.0.0.1:8792/`. Closing the console mutes the Pluto and stops the server.
 3. The **guided setup** walks you through: device and firmware check → PC performance → operating mode (lab or
@@ -180,6 +184,20 @@ wsl -d dablab -u root -- bash .../setup_components.sh ... ffmpeg tsduck odr well
 Firmware: `pluto_fw/README.md` describes the Buildroot build (about 25 minutes with 8 cores), RAM boot via DFU
 (`boot_ram.cmd`) and recovery. Modulators alone: `cd pluto_fw/mod && make` (x86 self-test) or
 `tests/pluto/build_s2.sh` for the ARM binaries.
+
+## Building the installer
+
+```bat
+:: 1. launcher (PyInstaller; bundles Python, numpy, scipy, pylibiio, paramiko)
+cd launcher
+python -m PyInstaller --noconfirm --clean build\DABLab.spec
+:: 2. Inno Setup script (installer/muxwright.iss, next to this repository) – needs Inno Setup 6 (winget: JRSoftware.InnoSetup)
+::    and the firmware image pluto_fw/out/build3/pluto.frm from the firmware build (pluto_fw/README.md)
+python ..\installeruild.py
+```
+
+`test/installer_e2e.py` installs the result silently into a scratch folder, creates a fresh WSL distribution, runs the
+whole guided setup with Playwright and checks self-test, renders and DAB monitoring – without touching a real Pluto.
 
 ## API
 
