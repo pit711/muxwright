@@ -308,8 +308,8 @@ TESTPLANS.push(
       { title: T('DVB-S 11 038 MHz V · 22 000 kS/s · QPSK 7/8 · 3 Dienste (HD/UHD/HDR10)'), instruction: T('⚠️ DC-Block zwischen Pluto und Sat-Eingang! LNB-Speisung am Receiver aus. TV: Satellit → manueller Transponder 11 038 MHz V, 22 000 kS/s, LOF 9750 (Low-Band, 22 kHz aus) → Sat-ZF 1288 MHz. Modulator auf dem Pluto.'), expect: T('Drei Dienste: HD (H.264), UHD (HEVC), HDR10 (HEVC Main10) – HDR-Kennung am TV.'),
         config: b => dvbsField(b, '7/8', [
           prg(1, { top: { name: 'DABLAB Sat HD', provider: 'DABLAB', sid: '0x0001', lcn: 1 }, video: { codec: 'h264', resolution: 'hd', bitrate_kbps: 7000, hdr: 'sdr' }, audio: { codec: 'aac', bitrate_kbps: 128 } }),
-          prg(2, { top: { name: 'DABLAB Sat UHD', provider: 'DABLAB', sid: '0x0002', lcn: 2 }, video: { codec: 'hevc', resolution: 'uhd', bitrate_kbps: 14000, hdr: 'sdr' }, audio: { codec: 'aac', bitrate_kbps: 128 } }),
-          prg(3, { top: { name: 'DABLAB Sat HDR10', provider: 'DABLAB', sid: '0x0003', lcn: 3 }, video: { codec: 'hevc', resolution: 'uhd', bitrate_kbps: 10000, hdr: 'hdr10' }, audio: { codec: 'aac', bitrate_kbps: 128 } }),
+          prg(2, { top: { name: 'DABLAB Sat UHD', provider: 'DABLAB', sid: '0x0002', lcn: 2 }, video: { codec: 'hevc', resolution: 'uhd', bitrate_kbps: 14000, hdr: 'sdr', encoder: 'nvenc' }, audio: { codec: 'aac', bitrate_kbps: 128 } }),
+          prg(3, { top: { name: 'DABLAB Sat HDR10', provider: 'DABLAB', sid: '0x0003', lcn: 3 }, video: { codec: 'hevc', resolution: 'uhd', bitrate_kbps: 10000, hdr: 'hdr10', encoder: 'nvenc' }, audio: { codec: 'aac', bitrate_kbps: 128 } }),
         ]) },
       { title: T('DVB-S 11 038 MHz V · 22 000 kS/s · QPSK 1/2 · 1 Dienst'), instruction: T('Wie oben, FEC 1/2 (robuster). Receiver neu abstimmen.'), expect: T('Dienst „DABLAB Sat“ (HD H.264) gefunden.'),
         config: b => dvbsField(b, '1/2', [prg(1, { top: { name: 'DABLAB Sat', provider: 'DABLAB', sid: '0x0001', lcn: 1 }, video: { codec: 'h264', resolution: 'hd', bitrate_kbps: 12000, hdr: 'sdr' }, audio: { codec: 'aac', bitrate_kbps: 128 } })]) },
