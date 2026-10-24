@@ -116,10 +116,10 @@ PAL test pattern as decoded by the Pluto's own RX input:
 A PlutoSDR and a few RF parts for a cabled, shielded setup. The links below are affiliate links (Amazon, AliExpress) – they help fund
 the project, the price is the same for you.
 
-| <a href="https://muxwright.com/go/pluto"><img src="https://muxwright.com/amzimg/pluto" width="170" alt="PlutoSDR-compatible SDR, 70 MHz – 6 GHz"></a> | <a href="https://muxwright.com/go/pluto-ali"><img src="https://muxwright.com/aliimg/pluto-ali" width="170" alt="Pluto+ SDR, AD9363, 70 MHz – 6 GHz"></a> |
+| <a href="https://muxwright.com/go/pluto"><img src="https://muxwright.com/amzimg/pluto" width="170" alt="PlutoSDR-compatible SDR, 70 MHz – 6 GHz"></a> | <a href="https://muxwright.com/go/pluto-ali"><img src="https://muxwright.com/aliimg/pluto-ali" width="170" alt="PlutoSky R2 SDR, 70 MHz – 6 GHz"></a> |
 |:---:|:---:|
-| **PlutoSDR-compatible SDR** | **Pluto+ (AD9363)** |
-| 70 MHz – 6 GHz, Zynq + AD936x – a clone, not the original ADALM-Pluto Rev. B | 2T2R, Gigabit Ethernet – clone; DAB+/FM over USB usually work, the modulator firmware is untested on it |
+| **PlutoSDR-compatible SDR** | **PlutoSky R2 (Zynq 7020, AD9361)** |
+| 70 MHz – 6 GHz, Zynq + AD936x – a clone, not the original ADALM-Pluto Rev. B | 2T2R clone by OpenSourceSDRLab; DAB+/FM over USB usually work, the modulator firmware is untested on it |
 | [View on Amazon](https://muxwright.com/go/pluto) | [View on AliExpress](https://muxwright.com/go/pluto-ali) |
 
 The original ADALM-Pluto Rev. B (the board Muxwright is verified on) is sold by Analog Devices and its distributors.
