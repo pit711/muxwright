@@ -849,6 +849,13 @@ class App:
         st = self.agent_status or {}
         return bool((st.get("mod") or {}).get("running")) and self.device is None
 
+    def orphan_mod(self):
+        """Command line if the device modulator was started by Muxwright itself (earlier session, server restarted or
+        closed while transmitting): it uses our upload folders. Such a leftover is taken over without force.
+        Modulators started by hand (e.g. /usr/bin/dvbt_mod for live TV) stay foreign."""
+        cmd = str(((self.agent_status or {}).get("mod") or {}).get("cmd") or "")
+        return cmd if ("/tmp/dablab_files/" in cmd or "/tmp/dablab_bin/" in cmd) else ""
+
     def public_cfg(self):
         return {k: v for k, v in self.cfg.items() if not k.startswith("_")}
 
@@ -979,6 +986,9 @@ class App:
                 return 409, {"ok": False, "error": "TX läuft bereits"}
             if self.agent is not None and (time.time() - self.agent_t > 3):
                 self._poll_agent()
+            if self.foreign_mod() and not force and self.orphan_mod():
+                log("warn", f"Modulator einer früheren Muxwright-Sitzung läuft noch – wird übernommen ({self.orphan_mod()[:80]})")
+                force = True
             if self.foreign_mod() and not force:
                 m = (self.agent_status or {}).get("mod") or {}
                 return 409, {"ok": False, "error": f"Auf dem Pluto läuft ein fremder Modulator ({m.get('cmd')}); "
@@ -1012,7 +1022,10 @@ class App:
             if dev is not None:
                 stray = dev.stray_modulators()
                 if stray:
-                    if not force:
+                    ours = all("/tmp/dablab_files/" in s or "/tmp/dablab_bin/" in s for s in stray)
+                    if ours and not force:
+                        log("warn", f"Modulatorprozess einer früheren Muxwright-Sitzung wird beendet ({stray[0][:80]})")
+                    if not force and not ours:
                         raise RuntimeError(f"Auf dem Pluto laufen fremde Modulatorprozesse ({stray[0][:80]}); mit force übernehmen")
                     dev.kill_stray()
             st = self.agent.status()
