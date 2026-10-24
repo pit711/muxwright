@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: Bahasa Indonesia
-export default {"Modus 1 oder 3":"Mode 1 atau 3",
+export default {"J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)":"J.83 {annex}: modulator di Pluto ({sps} MS/s)",
+"Modus 1 oder 3":"Mode 1 atau 3",
 "Annex A (Europa/China)":"Annex A (Eropa/Tiongkok)",
 "Annex B (USA, J.83 B)":"Annex B (AS, J.83 B)",
 "Annex C (Japan, J.83 C)":"Annex C (Jepang, J.83 C)",

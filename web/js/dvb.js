@@ -73,8 +73,8 @@ function annexSwitch() {
   return field(T('Norm'), segmented('dvbc.annex', [{ v: 'a', label: T('Annex A (Europa/China)') }, { v: 'b', label: T('Annex B (USA, J.83 B)') }, { v: 'c', label: T('Annex C (Japan, J.83 C)') }], { tid: 'dvbc-annex', rerender: true,
     onchange: v => {
       const d = S.draft.dvbc, rf = S.draft.rf;
-      if (v === 'b') { if (!STD.DVBC.J83B[d.constellation]) d.constellation = '256-QAM'; d.symbol_rate = STD.DVBC.J83B[d.constellation].sr; rf.channel = 'C80'; rf.freq_hz = 561e6; STD.regionCodecs(S.draft, 'dvbc'); }
-      else if (v === 'c') { if (!['64-QAM', '256-QAM'].includes(d.constellation)) d.constellation = '64-QAM'; d.symbol_rate = STD.DVBC.J83C_SR; }
+      if (v === 'b') { if (!STD.DVBC.J83B[d.constellation]) d.constellation = '256-QAM'; d.symbol_rate = STD.DVBC.J83B[d.constellation].sr; d.sps = 1; rf.channel = 'C80'; rf.freq_hz = 561e6; STD.regionCodecs(S.draft, 'dvbc'); }
+      else if (v === 'c') { if (!['64-QAM', '256-QAM'].includes(d.constellation)) d.constellation = '64-QAM'; d.symbol_rate = STD.DVBC.J83C_SR; d.sps = 1; }
       else { d.symbol_rate = 6900000; rf.channel = 'S21'; rf.freq_hz = 306e6; }
       S.rfIntent.add('channel'); S.rfIntent.add('freq_hz');
     } }), { path: 'dvbc.annex', hint: h('span', null, S.draft.dvbc.annex === 'c' ? T('Annex C: Codierung wie Annex A, RRC α 0,13, 6-MHz-Kanal; Japan 5,274 MBd') : T('Annex B: US-Kabel (SCTE 07), feste Symbolrate je QAM, PSIP statt DVB-SI'),

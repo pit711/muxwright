@@ -161,16 +161,20 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
     elif std == "dvbc":
         d = cfg.get("dvbc") or {}
         qam = "".join(ch for ch in str(d.get("constellation", "256-QAM")) if ch.isdigit()) or "256"
-        sps = int(d.get("sps", 1))
-        args += ["--qam", qam, "--sr", int(d.get("symbol_rate", 6900000)), "--sps", sps]
         annex = str(d.get("annex", "a")).lower()
+        sps = 1 if annex in ("b", "c") else int(d.get("sps", 1))
+        args += ["--qam", qam, "--sr", int(d.get("symbol_rate", 6900000)), "--sps", sps]
         if annex in ("b", "c"):
             args += ["--annex", annex]                    # J.83 B (US-Kabel) / J.83 C (Japan, RRC 0,13)
+            if annex == "b":                              # Normsymbolrate je QAM (SCTE 07), nie die 6,9-MBd-Vorgabe
+                i = args.index("--sr")
+                args[i + 1] = 5056941 if qam == "64" else 5360537
         if sps == 1:
             if not fir:
                 raise ValueError("dvbc_mod --sps 1 braucht eine RRC-FIR-Datei")
             args += ["--fir", fir]
-        opts = {"cpu": 1, "rt_prio": 50}
+        # Annex B: Coder auf zwei Threads (256-QAM nur so echtzeitfähig) → nicht an einen Kern binden
+        opts = {"cpu": -1, "rt_prio": 50} if annex in ("b", "c") else {"cpu": 1, "rt_prio": 50}
     elif std == "dvbs":
         d = cfg.get("dvbs") or {}
         sps = int(d.get("sps", 1))

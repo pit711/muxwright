@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: Türkçe
-export default {"Modus 1 oder 3":"Mod 1 veya 3",
+export default {"J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)":"J.83 {annex}: Pluto üzerinde modülatör ({sps} MS/s)",
+"Modus 1 oder 3":"Mod 1 veya 3",
 "Annex A (Europa/China)":"Ek A (Avrupa/Çin)",
 "Annex B (USA, J.83 B)":"Ek B (ABD, J.83 B)",
 "Annex C (Japan, J.83 C)":"Ek C (Japonya, J.83 C)",

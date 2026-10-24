@@ -275,13 +275,14 @@ def normalize(raw):
         d["annex"] = "b" if an in ("b", "j83b", "us") else "c" if an in ("c", "j83c", "jp") else "a"
         if d["annex"] == "c":
             d.setdefault("symbol_rate", T.J83C_SR)
+            d["sps"] = 1                         # wie Annex B: RRC 0,13 im AD9361-FIR
         if d["annex"] == "b":                    # J.83 B: Symbolrate fest je QAM, RRC 0,18 (64) / 0,12 (256)
             d["constellation"] = _norm_const(d.get("constellation", "256-QAM"), T.DVBC_BITS)
             if d["constellation"] not in T.J83B:
                 E.append("dvbc.constellation: J.83 Annex B nur 64-QAM oder 256-QAM")
                 d["constellation"] = "256-QAM"
             d["symbol_rate"] = T.J83B[d["constellation"]][0]
-            d["sps"] = _int(d.get("sps"), 2)
+            d["sps"] = 1                         # Pluto: nur 1 Sample/Symbol echtzeitfähig (RRC im AD9361-FIR)
         else:
             d["constellation"] = _norm_const(d.get("constellation", "256-QAM"), T.DVBC_BITS)
             d["symbol_rate"] = _int(d.get("symbol_rate"), 6900000)

@@ -344,7 +344,7 @@ def net_rate(cfg):
     if std == "dvbc":
         m = cfg["dvbc"]
         if m.get("annex") == "b":
-            return {"64-QAM": 26970350, "256-QAM": 38810701}.get(m["constellation"], 0)
+            return {"64-QAM": 26970352, "256-QAM": 38810701}.get(m["constellation"], 0)
         return m["symbol_rate"] * BITS[m["constellation"]] * 188 / 204
     if std == "atsc":
         return 19392658.46

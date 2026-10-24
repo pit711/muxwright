@@ -501,6 +501,7 @@ const R = [
   ['Rahmenkopf PN420/595/945', 'Frame header PN420/595/945', 'En-tête de trame PN420/595/945', 'Cabecera de trama PN420/595/945', 'Intestazione di trama PN420/595/945', 'Frameheader PN420/595/945', 'Nagłówek ramki PN420/595/945'],
   ['J.83 B: 64-QAM oder 256-QAM', 'J.83 B: 64-QAM or 256-QAM', 'J.83 B : 64-QAM ou 256-QAM', 'J.83 B: 64-QAM o 256-QAM', 'J.83 B: 64-QAM o 256-QAM', 'J.83 B: 64-QAM of 256-QAM', 'J.83 B: 64-QAM lub 256-QAM'],
   ['Modus 1 oder 3', 'Mode 1 or 3', 'Mode 1 ou 3', 'Modo 1 o 3', 'Modo 1 o 3', 'Modus 1 of 3', 'Tryb 1 lub 3'],
+  ['J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)', 'J.83 {annex}: modulator on the Pluto ({sps} MS/s)', 'J.83 {annex} : modulateur sur le Pluto ({sps} MS/s)', 'J.83 {annex}: modulador en el Pluto ({sps} MS/s)', 'J.83 {annex}: modulatore sul Pluto ({sps} MS/s)', 'J.83 {annex}: modulator op de Pluto ({sps} MS/s)', 'J.83 {annex}: modulator na Pluto ({sps} MS/s)'],
 ];
 
 const D = Object.fromEntries(L.map(l => [l, {}]));

@@ -213,8 +213,8 @@ def choose_path(c, std):
         return "device", "ISDB-T: isdbt_mod auf dem Pluto (OFDM 8,127 MS/s, TS per UDP)"
     if std == "dtmb":
         return "device", "DTMB: dtmb_mod auf dem Pluto (7,56 MS/s, TS per UDP)"
-    if std == "dvbc" and str((c.get("dvbc") or {}).get("annex", "a")).lower() == "b":
-        return "device", "J.83 B: dvbc_mod --annex b auf dem Pluto (TS per UDP)"
+    if std == "dvbc" and str((c.get("dvbc") or {}).get("annex", "a")).lower() in ("b", "c"):
+        return "device", "J.83 B/C: dvbc_mod --annex b|c auf dem Pluto (1 Sample/Symbol, RRC im AD9361-FIR)"
     sr = int(rf.get("sample_rate") or 0)
     fits = 0 < sr <= USB_MAX_SPS
     if std == "dvbc" and int((c.get("dvbc") or {}).get("sps", 2)) == 1:

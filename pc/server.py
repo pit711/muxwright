@@ -1080,7 +1080,7 @@ class App:
                 d = self.cfg.get("dvbc") or {}
                 annex = str(d.get("annex", "a")).lower()
                 rfbw = 6000000 if annex in ("b", "c") else 8000000
-                if int(d.get("sps", 1)) == 1:
+                if annex in ("b", "c") or int(d.get("sps", 1)) == 1:          # Annex B/C immer sps 1 (FIR im AD9361)
                     # RRC: Annex A 0,15; J.83 C (Japan) 0,13; J.83 B 0,18 (64-QAM) / 0,12 (256-QAM)
                     alpha = 0.13 if annex == "c" else (0.18 if "64" in str(d.get("constellation")) else 0.12) if annex == "b" else 0.15
                     fir = dev.ensure_fir("dvbc", int(d.get("symbol_rate", 6900000)), alpha, 128, self.args.wsl_distro)

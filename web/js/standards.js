@@ -112,7 +112,7 @@ export const DVBT = {
   CR: ['1/2', '2/3', '3/4', '5/6', '7/8'], GI: ['1/4', '1/8', '1/16', '1/32'],
 };
 export const DVBC = { CONST: ['16-QAM', '32-QAM', '64-QAM', '128-QAM', '256-QAM'], SR_PRESETS: [6875000, 6900000, 3450000],
-  J83B: { '64-QAM': { sr: 5056941, rate: 26970350 }, '256-QAM': { sr: 5360537, rate: 38810701 } }, J83C_SR: 5274000 };
+  J83B: { '64-QAM': { sr: 5056941, rate: 26970352 }, '256-QAM': { sr: 5360537, rate: 38810701 } }, J83C_SR: 5274000 };
 /** DTMB (GB 20600): 7,56 MS/s, Rahmenkopf PN420/595/945, LDPC 0,4/0,6/0,8 */
 export const DTMB = { SR: 7560000, CONST: ['4-QAM-NR', '4-QAM', '16-QAM', '32-QAM', '64-QAM'], CR: ['0.4', '0.6', '0.8'], PN: [420, 595, 945], TI: [240, 720],
   BITS: { '4-QAM-NR': 1, '4-QAM': 2, '16-QAM': 4, '32-QAM': 5, '64-QAM': 6 }, K: { '0.4': 3008, '0.6': 4512, '0.8': 6016 },
@@ -220,7 +220,7 @@ export function requiredPath(cfg) {
   if (s === 'atsc') return { path: 'pluto', sps, reason: T('ATSC 8-VSB: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'isdbt') return { path: 'pluto', sps, reason: T('ISDB-T: OFDM-Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dtmb') return { path: 'pluto', sps, reason: T('DTMB: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
-  if (s === 'dvbc' && isJ83b(cfg)) return { path: 'pluto', sps, reason: T('J.83 B: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
+  if (s === 'dvbc' && ['b', 'c'].includes(cfg.dvbc?.annex)) return { path: 'pluto', sps, reason: T('J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)', { annex: cfg.dvbc.annex.toUpperCase(), sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbt' && Number(cfg.dvbt.bandwidth_mhz) >= 7) return { path: 'pluto', sps, reason: T('DVB-T {bw} MHz braucht {sps} MS/s – nur Modulator/Loop auf dem Pluto (USB max. 7,15 MS/s)', { bw: cfg.dvbt.bandwidth_mhz, sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbs') return sps > USB_MAX_SPS ? { path: 'pluto', sps, reason: T('{sr} MS/s Symbolrate × 2 = {sps} MS/s – Modulator auf dem Pluto (USB max. 7,15 MS/s)', { sr: (cfg.dvbs.symbol_rate / 1e6).toFixed(3), sps: (sps / 1e6).toFixed(2) }) }
     : { path: 'usb', sps, reason: T('{sps} MS/s – USB-Streaming möglich', { sps: (sps / 1e6).toFixed(2) }) };

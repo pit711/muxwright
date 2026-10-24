@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: 日本語
-export default {"Modus 1 oder 3":"モード 1 または 3",
+export default {"J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)":"J.83 {annex}：Pluto 上の変調器（{sps} MS/s）",
+"Modus 1 oder 3":"モード 1 または 3",
 "Annex A (Europa/China)":"Annex A（欧州/中国）",
 "Annex B (USA, J.83 B)":"Annex B（米国、J.83 B）",
 "Annex C (Japan, J.83 C)":"Annex C（日本、J.83 C）",

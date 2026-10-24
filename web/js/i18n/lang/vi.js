@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: Tiếng Việt
-export default {"Modus 1 oder 3":"Chế độ 1 hoặc 3",
+export default {"J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)":"J.83 {annex}: bộ điều chế trên Pluto ({sps} MS/s)",
+"Modus 1 oder 3":"Chế độ 1 hoặc 3",
 "Annex A (Europa/China)":"Phụ lục A (châu Âu/Trung Quốc)",
 "Annex B (USA, J.83 B)":"Phụ lục B (Mỹ, J.83 B)",
 "Annex C (Japan, J.83 C)":"Phụ lục C (Nhật Bản, J.83 C)",
