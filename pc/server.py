@@ -2282,6 +2282,30 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     # ---------------------------------------------------------------- helpers
+    LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+
+    def _foreign_request(self, write):
+        """True (und 403 gesendet), wenn die Anfrage nicht vom eigenen Dashboard stammt:
+        - Host muss localhost sein (außer --lan) – schützt gegen DNS-Rebinding fremder Seiten,
+        - schreibende Anfragen: Origin (falls vorhanden) muss genau dieser Host sein, Sec-Fetch-Site nicht „cross-site“ –
+          sonst könnte jede im Browser geöffnete Webseite z. B. /api/tx/start auslösen (CSRF)."""
+        host = (self.headers.get("Host") or "").strip().lower()
+        hostname = host.rsplit(":", 1)[0] if not host.startswith("[") else host.split("]")[0] + "]"
+        bad = None
+        if not APP.args.lan and hostname not in self.LOCAL_HOSTS:
+            bad = f"Host {host!r}"
+        elif write:
+            origin = (self.headers.get("Origin") or "").strip().lower()
+            if origin and origin != "null" and urlparse(origin).netloc != host:
+                bad = f"Origin {origin!r}"
+            elif origin == "null" or self.headers.get("Sec-Fetch-Site", "").lower() == "cross-site":
+                bad = "cross-site"
+        if bad:
+            log("warn", f"Anfrage abgelehnt (fremde Herkunft: {bad}) {self.command} {self.path[:80]}")
+            self._send(403, {"ok": False, "error": "Anfrage von fremder Herkunft abgelehnt"})
+            return True
+        return False
+
     def _send(self, code, obj, ctype="application/json; charset=utf-8"):
         body = obj if isinstance(obj, (bytes, bytearray)) else json.dumps(obj, ensure_ascii=False).encode("utf-8")
         self.send_response(code)
@@ -2319,6 +2343,8 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        if self._foreign_request(write=False):
+            return
         try:
             u = urlparse(self.path)
             p = u.path
@@ -2402,6 +2428,8 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
     def do_PUT(self):
+        if self._foreign_request(write=True):
+            return
         try:
             p = urlparse(self.path).path
             if p == "/api/config":
@@ -2436,6 +2464,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"ok": False, "error": str(e)})
 
     def do_DELETE(self):
+        if self._foreign_request(write=True):
+            return
         p = urlparse(self.path).path
         if p.startswith("/api/media/"):
             return self._send(*APP.media_delete(p[len("/api/media/"):]))
@@ -2454,6 +2484,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"ok": False, "error": "unbekannter Pfad"})
 
     def do_POST(self):
+        if self._foreign_request(write=True):
+            return
         try:
             u = urlparse(self.path)
             p = u.path
