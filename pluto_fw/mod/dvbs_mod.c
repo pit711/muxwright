@@ -25,7 +25,7 @@ static void usage(void)
 "  -i SPEC        TS-Eingang: Datei | - | udp://[addr]:port | prbs[:N] | null   (Standard prbs)\n"
 "  -o PATH        Ausgabe: Datei | - | iio: | iio:URI                              (Standard -)\n"
 "  --sr BAUD      Symbolrate (Standard 27500000)   --rate 1/2|2/3|3/4|5/6|7/8 (Standard 3/4)\n"
-"  --sps 1|2|4|8  1 = RRC im AD9361-FIR (Ausgaberate = SR), 2/4/8 = RRC α=0,35 im Programm (kleine Symbolraten, z. B. DATV)\n"
+"  --sps N       1 = RRC im AD9361-FIR (Ausgaberate = SR), 2…128 = RRC α=0,35 im Programm (kleine Symbolraten, z. B. DATV)\n"
 "  --taps N       RRC-Länge bei --sps ≥ 2 (Standard 32·sps)   --backoff dB (Standard 6)\n"
 "  --packets N | --seconds S  --loop  --realtime  --udp-buffer N  --quiet  --bench N (Pakete, ohne Ausgabe)\n"
 "  IIO: --lo HZ --atten DB --rfbw HZ --iio-buf SAMPLES --iio-kbufs N --cyclic --enable --fir DATEI\n");
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
         else if (ARG("--fir")) op.fir_file = argv[++i];
         else { usage(); return 2; }
     }
-    if (sps != 1 && sps != 2 && sps != 4 && sps != 8) { usage(); return 2; }
+    if (sps < 1 || sps > 128) { usage(); return 2; }   /* DATV über USB: bis 84 Samples/Symbol (25 kS/s → 2,1 MS/s) */
     if (taps <= 0) taps = 32 * sps;
     const double bitrate = sr * 2.0 * dvb_coderate_num[cr] / dvb_coderate_den[cr] * 188.0 / 204.0;
     const double sample_rate = sr * sps;
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
     signal(SIGINT, on_sig); signal(SIGTERM, on_sig);
     uint8_t pkt[RS_PKT], il[RS_PKT], bits[2 * RS_PKT + 8];
     static uint32_t sym[4 * (2 * RS_PKT + 8)];
-    static int16_t smp[2 * 8 * 4 * (2 * RS_PKT + 8)];
+    int16_t *smp = sps > 1 ? malloc(sizeof(int16_t) * 2 * (size_t)sps * 4 * (2 * RS_PKT + 8)) : NULL;   /* I/Q je Sample, sps bis 128 */
     long long npk = 0; double t0 = dvb_now(), last = t0, cpu0 = dvb_cpu_time();
     uint64_t total = 0;
     while (!stop_flag) {
@@ -144,6 +144,6 @@ int main(int argc, char **argv)
             npk, (unsigned long long)total, total / sample_rate, el, total / sample_rate / (el > 0 ? el : 1), dvb_cpu_time() - cpu0,
             el > 0 ? (double)total / sps / (dvb_cpu_time() - cpu0) : 0);
     if (out) out_close(out);
-    ts_input_close(ts); if (sps > 1) rrc_free(&rrc);
+    ts_input_close(ts); if (sps > 1) { rrc_free(&rrc); free(smp); }
     return 0;
 }

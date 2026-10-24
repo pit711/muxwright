@@ -27,7 +27,7 @@ static void usage(void)
 "  --sr BAUD      Symbolrate (Standard 22000000)\n"
 "  --mod qpsk|8psk|16apsk|32apsk (Standard qpsk)   --rate 1/4 … 9/10 (Standard 3/4)\n"
 "  --pilots 0|1   (Standard 1)   --short 0|1 (Standard 0)   --rolloff 0.35|0.25|0.20 (Standard 0.35)   --gold N (Standard 0)\n"
-"  --sps 1|2|4|8  1 = RRC im AD9361-FIR (Ausgaberate = SR), 2/4/8 = RRC im Programm (kleine Symbolraten, z. B. DATV)\n"
+"  --sps N       1 = RRC im AD9361-FIR (Ausgaberate = SR), 2…128 = RRC im Programm (kleine Symbolraten, z. B. DATV)\n"
 "  --taps N       RRC-Länge bei --sps ≥ 2 (Standard 32·sps)   --backoff dB (Standard 6)\n"
 "  --frames N | --seconds S  --loop  --realtime  --udp-buffer N  --quiet  --bench N (PLFRAMEs, ohne Ausgabe)\n"
 "  IIO: --lo HZ --atten DB --rfbw HZ --iio-buf SAMPLES --iio-kbufs N --cyclic --enable --fir DATEI\n");
@@ -94,7 +94,7 @@ int main(int argc, char **argv)
         else if (ARG("--fir")) op.fir_file = argv[++i];
         else { usage(); return 2; }
     }
-    if (sps != 1 && sps != 2 && sps != 4 && sps != 8) { usage(); return 2; }
+    if (sps < 1 || sps > 128) { usage(); return 2; }   /* DATV über USB: bis 84 Samples/Symbol (25 kS/s → 2,1 MS/s) */
     if (taps <= 0) taps = 32 * sps;
     const double sample_rate = sr * sps;
     /* Pegel: Symbole mit RMS-Betrag A; nach RRC (sps 2) bzw. AD9361-FIR (sps 1) RMS ≈ A */

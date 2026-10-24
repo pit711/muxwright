@@ -135,12 +135,15 @@ export function dvbsNetRate(p) {
 }
 export function netRate(cfg) { const s = standardOf(cfg); return s === 'dvbt' ? dvbtNetRate(cfg.dvbt) : s === 'dvbc' ? dvbcNetRate(cfg.dvbc) : s === 'dvbs' ? dvbsNetRate(cfg.dvbs) : 0; }
 
+/** DATV am PC: kleinste Samples/Symbol ≥ 2, damit der Pluto ≥ 2,1 MS/s bekommt (wie runner/dvb/tables.py ham_sps) */
+export const hamSps = sr => Math.max(2, Math.ceil(2100000 / sr));
+
 /** Abtastrate am Pluto (S/s) je Standard */
 export function requiredSampleRate(cfg) {
   const s = standardOf(cfg);
   if (s === 'dvbt') return Math.round((Number(cfg.dvbt.bandwidth_mhz) || 8) * 8e6 / 7);
   if (s === 'dvbc') return (Number(cfg.dvbc.sps) || 2) * Number(cfg.dvbc.symbol_rate);
-  if (s === 'dvbs') return 2 * Number(cfg.dvbs.symbol_rate);
+  if (s === 'dvbs') { const sr = Number(cfg.dvbs.symbol_rate); return cfg.dvbs.use === 'ham' ? hamSps(sr) * sr : 2 * sr; }
   if (s === 'pal') return cfg.pal?.live ? (Number(cfg.pal?.live_fs) || 7000000) : (Number(cfg.pal?.fs) || 8000000);
   return Number(cfg.rf.sample_rate) || 4096000;
 }

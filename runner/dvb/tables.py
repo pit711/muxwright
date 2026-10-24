@@ -124,12 +124,13 @@ HAM_SR_MIN, HAM_SR_MAX = 25000, 3500000
 CALLSIGN_RE = r"^(?=.*\d)[A-Z0-9]{1,3}\d[A-Z0-9]{0,3}[A-Z](/[A-Z0-9]{1,4})?$"
 
 
+HAM_FS_MIN = 2100000   # AD9364 ohne FIR-Interpolation: ab 2,083 MS/s (pc/pluto.py schaltet das FIR für USB ab)
+
+
 def ham_sps(symbol_rate):
-    """Samples/Symbol für USB-IQ: AD9364 braucht ≥ 521 kS/s, USB schafft ≤ 7 MS/s."""
-    for sps in (2, 4, 8):
-        if symbol_rate * sps >= 600000:
-            return sps
-    return 8
+    """Samples/Symbol für USB-IQ: kleinste ganze Zahl ≥ 2 mit Symbolrate × sps ≥ 2,1 MS/s (USB schafft ≤ 7 MS/s).
+    QO-100 333 kS/s → 7 (2,331 MS/s), 125 kS/s → 17, 25 kS/s → 84."""
+    return max(2, -(-HAM_FS_MIN // int(symbol_rate)))
 
 
 def ham_band_of(freq_hz, half_bw, want=None):
