@@ -375,6 +375,10 @@ class DvbChain:
         regulate = (kind == "udp" or (kind == "file" and c["output"].get("regulate"))) and not self.render
         if out_file:
             out = ["-O", "file", out_file]
+        elif kind == "udp" and not self.render and c["output"].get("via") == "stdout":
+            # WSL2 (NAT) stellt UDP an das USB-Netz des Pluto nicht zu: geregelter TS auf stdout, der Server (Windows)
+            # schickt ihn per UDP weiter (pc/server.py _udp_relay)
+            out = ["-O", "file"]
         elif kind == "udp" and not self.render:
             o = c["output"]
             out = ["-O", "ip", "%s:%d" % (o["host"], o["port"]), "--packet-burst", str(o["burst"]), "--enforce-burst"]

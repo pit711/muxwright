@@ -355,10 +355,11 @@ def normalize(raw):
         rate = T.atsc_useful_bitrate()
         rf["sample_rate"] = int(d.get("sample_rate") or ATSC_SAMPLE_RATE)
     elif std == "isdbt":
-        d["_rate_a"] = T.isdbt_layer_bitrate(d["layer_a"]["segments"], d["layer_a"]["constellation"], d["layer_a"]["code_rate"], d["guard"])
-        d["_rate_b"] = (T.isdbt_layer_bitrate(12, d["layer_b"]["constellation"], d["layer_b"]["code_rate"], d["guard"])
-                        if d["layers"] == 2 else 0)
-        rate = d["_rate_a"] + d["_rate_b"]
+        ra = T.isdbt_layer_bitrate(d["layer_a"]["segments"], d["layer_a"]["constellation"], d["layer_a"]["code_rate"], d["guard"])
+        rb = (T.isdbt_layer_bitrate(12, d["layer_b"]["constellation"], d["layer_b"]["code_rate"], d["guard"])
+              if d["layers"] == 2 else 0)
+        rate = ra + rb                       # exakt (Fraction); in der Konfiguration nur JSON-taugliche Zahlen
+        d["_rate_a"], d["_rate_b"] = float(ra), float(rb)
         rf["sample_rate"] = int(round(T.ISDBT_SAMPLE_RATE))
     elif d.get("annex") == "b":
         rate = T.j83b_useful_bitrate(d["constellation"])

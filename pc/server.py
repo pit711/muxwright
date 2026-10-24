@@ -840,6 +840,9 @@ class App:
             if path == "device":
                 c["output"] = {"kind": "udp", "host": self.args.device_host, "port": int(self.args.device_udp_port),
                                "burst": 7, "rtp": False}
+                if self.args.backend == "wsl":
+                    # WSL2-NAT stellt UDP an das USB-Netz des Pluto nicht zu (gemessen: 0 von 2000 Paketen) → Relais unter Windows
+                    c["output"]["via"] = "stdout"
             else:
                 c["output"] = {"kind": "modulator"}
         return c
@@ -1137,7 +1140,10 @@ class App:
                                          creationflags=NOWIN | NEWGRP)
             self.proc_pid = None
             threading.Thread(target=self._stderr_reader, args=(self.proc,), daemon=True, name="tx-stderr").start()
-            threading.Thread(target=self._drain, args=(self.proc,), daemon=True, name="tx-stdout").start()
+            if self.args.backend == "wsl":
+                threading.Thread(target=self._udp_relay, args=(self.proc,), daemon=True, name="tx-udp-relay").start()
+            else:
+                threading.Thread(target=self._drain, args=(self.proc,), daemon=True, name="tx-stdout").start()
         except Exception as e:
             log("error", f"TX-Start (Gerät): {e}")
             self.tx_error = str(e)
@@ -1210,6 +1216,30 @@ class App:
         self.device = {"cmd": "pal", "args": [name], "file": name, "pid": r.get("pid"), "started": time.time(),
                        "unf0": None, "host": self.args.device_host, "standard": "pal", "loop": j.get("summary")}
         self.source = "runner"
+
+    def _udp_relay(self, proc):
+        """TS vom Runner (stdout, bereits auf die Nutzrate geregelt) paketgenau per UDP an den Gerätemodulator:
+        je Datagramm 7 × 188 Byte wie tsp -O ip --packet-burst 7."""
+        import socket
+        dst = (self.args.device_host, int(self.args.device_udp_port))
+        so = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        so.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1 << 20)
+        buf, need, sent = bytearray(), 7 * 188, 0
+        try:
+            while True:
+                chunk = proc.stdout.read1(65536) if hasattr(proc.stdout, "read1") else proc.stdout.read(need)
+                if not chunk:
+                    break
+                buf += chunk
+                while len(buf) >= need:
+                    so.sendto(bytes(buf[:need]), dst)
+                    del buf[:need]
+                    sent += 1
+        except Exception as e:  # noqa: BLE001
+            log("warn", f"UDP-Relais: {e}")
+        finally:
+            so.close()
+            log("info", f"UDP-Relais beendet ({sent} Datagramme an {dst[0]}:{dst[1]})")
 
     @staticmethod
     def _drain(proc):

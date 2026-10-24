@@ -99,7 +99,12 @@ def world(server):
         cfg[mode] = sec
         cfg["rf"].update(rf)
         cfg["dvb"] = {"programs": progs, "si": {"network_id": "0x04D2", "network_name": "LAB", "onid": "0x04D2", "tsid": "0x04D2"}}
-        return server.validate_config(cfg)
+        c, e = server.validate_config(cfg)
+        try:
+            json.dumps(c)                    # /api/state liefert die geprüfte Konfiguration als JSON aus
+        except TypeError as x:
+            e = list(e) + [f"nicht JSON-tauglich: {x}"]
+        return c, e
 
     c, e = run("atsc", {}, {"channel": "A14"}, [prog()])
     check("world: ATSC A14 473 MHz, 19,39 Mbit/s, Gerät", not e and c["rf"]["freq_hz"] == 473000000 and abs(c["_dvb"]["rate_bps"] - 19392658.46) < 1
