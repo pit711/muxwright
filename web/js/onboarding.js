@@ -175,7 +175,7 @@ function componentsStep(lang, rerender) {
     if (!box.isConnected && compState.data) return;
     draw();
     clearTimeout(compState.poll);
-    if (compState.data?.job?.running) compState.poll = setTimeout(() => refresh(), 1500);
+    if (compState.data?.job?.running || compState.data?.all_running) compState.poll = setTimeout(() => refresh(), 1500);   // Installer-Einrichtung: zwischen zwei Komponenten weiter abfragen
     else if (compState.data?.job?.finished && compState._lastFinished !== compState.data.job.finished) {
       compState._lastFinished = compState.data.job.finished; refresh(true);
     }

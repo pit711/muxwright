@@ -62,11 +62,11 @@ class Setup:
         except (OSError, ValueError):
             return {}
 
-    def _consent(self, key):
+    def _consent(self, key, via="dashboard"):
         c = self.consents()
         meta = next(x for x in COMPONENTS if x["key"] == key)
         c[key] = {"accepted_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "license": meta["license"],
-                  "source": meta["source"], "patent_note": bool(meta.get("patents"))}
+                  "source": meta["source"], "patent_note": bool(meta.get("patents")), "via": via}
         os.makedirs(self.runtime, exist_ok=True)
         tmp = self.consent_file + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
@@ -96,8 +96,9 @@ class Setup:
         return None
 
     def status(self, fresh=False):
-        if not fresh and self._cache and time.time() - self._cache_t < 20 and not self.job["running"]:
-            return dict(self._cache, job=self._job())
+        if not fresh and self._cache and time.time() - self._cache_t < 20 and not self.job["running"] \
+                and not getattr(self, "_all_running", False):
+            return dict(self._cache, job=self._job(), all_running=getattr(self, "_all_running", False))
         w = self.wsl_state()
         inst = {}
         if w["distro_ok"] and os.path.isfile(SCRIPT):
@@ -117,7 +118,7 @@ class Setup:
         req = [c for c in comps if not c["optional"]]
         self._cache = {"wsl": w, "components": comps, "ubuntu": inst.get("ubuntu"), "complete": all(c["installed"] for c in req)}
         self._cache_t = time.time()
-        return dict(self._cache, job=self._job())
+        return dict(self._cache, job=self._job(), all_running=getattr(self, "_all_running", False))
 
     def _job(self):
         with self.lock:
@@ -140,6 +141,34 @@ class Setup:
         self.log("info", f"Komponente {key}: Lizenz bestätigt, Installation gestartet ({meta['source']})")
         threading.Thread(target=self._run, args=(key,), daemon=True, name=f"setup-{key}").start()
         return 200, {"ok": True, "job": self._job()}
+
+    def install_all(self, via="installer"):
+        """All required components one after another (order of COMPONENTS = dependency order), skipping installed ones.
+        Started by the Windows installer (--setup-components): the licence/patent notes were accepted there."""
+        with self.lock:
+            if self.job["running"] or getattr(self, "_all_running", False):
+                return 409, {"ok": False, "errors": ["Installation läuft bereits"]}
+            self._all_running = True
+        threading.Thread(target=self._run_all, args=(via,), daemon=True, name="setup-all").start()
+        return 200, {"ok": True}
+
+    def _run_all(self, via):
+        try:
+            todo = [c["key"] for c in self.status(fresh=True)["components"] if not c["optional"] and not c["installed"]]
+            self.log("info", f"Komponenten-Einrichtung ({via}): {', '.join(todo) or 'alles vorhanden'}")
+            for i, key in enumerate(todo):
+                meta = next(x for x in COMPONENTS if x["key"] == key)
+                with self.lock:
+                    self.job = {"running": True, "key": key, "lines": [], "result": None, "error": None, "started": time.time(),
+                                "finished": None, "queue": todo[i + 1:], "via": via}
+                self._consent(key, via)
+                self.log("info", f"Komponente {key}: Lizenz bestätigt ({via}), Installation gestartet ({meta['source']})")
+                self._run(key)
+                if self.job.get("result") != "ok":
+                    break                                   # Fehler steht im Job; Rest bleibt im Assistenten nachholbar
+        finally:
+            self._all_running = False
+            self._cache = None
 
     def _line(self, s):
         with self.lock:

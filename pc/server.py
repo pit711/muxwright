@@ -2588,6 +2588,8 @@ def main():
                     help="anderer runtime-Ordner (Standard dablab/runtime; für Testinstanzen)")
     ap.add_argument("--no-priority", action="store_true", help="Prozess-/Threadpriorität nicht anheben")
     ap.add_argument("--no-nco", action="store_true", help="Versatz über LO statt NCO, lo_offset_hz ignorieren")
+    ap.add_argument("--setup-components", action="store_true",
+                    help="alle Pflichtkomponenten im Hintergrund einrichten (vom Windows-Installer, Lizenzen dort bestätigt)")
     ap.add_argument("--no-auto-restart", dest="auto_restart", action="store_false",
                     help="TX nach Pluto-/Quellenfehler nicht automatisch neu starten")
     ap.add_argument("--nsamp", type=int, default=1 << 17, help="TX-Puffergröße in Samples")
@@ -2631,6 +2633,8 @@ def main():
     SETUP = setupmod.Setup(distro=args.wsl_distro, runtime=RUNTIME, log=log,
                            distro_dir=os.environ.get("DABLAB_WSL_DIR") or None)
     APP = App(args)
+    if args.setup_components:
+        SETUP.install_all(via="installer")
     global FLASHER
     FLASHER = flashermod.Flasher(ROOT, RUNTIME, app=APP, device_host=args.device_host, log=log,
                                  agent_url=args.agent,
