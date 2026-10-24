@@ -327,7 +327,7 @@ def validate_rf(rf, errs, base=None, std="dab", freq_ok=True):
         except Exception:
             errs.append(f"rf.{k} ungültig")
     try:
-        sr = int(out.get("sample_rate", 4096000))
+        sr = 4096000 if std == "fm" else int(out.get("sample_rate", 4096000))   # UKW-Sender (runner/fm) läuft fest mit 4,096 MS/s
         hi = 7000000 if std in ("dab", "fm") else 61440000
         if not 2100000 <= sr <= hi:
             errs.append(f"rf.sample_rate muss 2,1 … {hi / 1e6:g} MS/s sein (Standard 4096000)")

@@ -330,7 +330,7 @@ export function setStandard(cfg, std) {
     else if (std === 'pal') { rf.channel = 'K21'; rf.freq_hz = 471.25e6; }
     else { rf.channel = '6C'; rf.freq_hz = 185360000; }
     // Abtastrate: DAB+/UKW laufen per USB mit 2,1–7 MS/s (PAL nimmt 8 MS/s mit, DVB rechnet der Server selbst)
-    if ((std === 'dab' || std === 'fm') && !(rf.sample_rate >= 2.1e6 && rf.sample_rate <= 7e6)) rf.sample_rate = 4096000;
+    if (std === 'fm' || (std === 'dab' && !(rf.sample_rate >= 2.1e6 && rf.sample_rate <= 7e6))) rf.sample_rate = 4096000;   // UKW fest 4,096 MS/s
     // Backoff des alten Standards nicht übernehmen, wenn er für den neuen zu klein (bzw. bei FM unnötig groß) ist
     const [def, min] = BACKOFF[std] || BACKOFF.dab;
     if (!(Number(rf.backoff_db) >= min) || (std === 'fm' && rf.backoff_db > 6)) rf.backoff_db = def;
