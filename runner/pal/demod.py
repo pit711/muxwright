@@ -90,27 +90,29 @@ def analyze(x, fs, carrier_hz, system="BG", png=None, ref_luma=None, ffmpeg="ffm
     wide = (e[:, int(10e-6 * fs): int(25e-6 * fs)].mean(1) > 0.9 * synctip)
     starts = [i for i in range(1, len(wide)) if wide[i] and not wide[i - 1]]
     rep["vsync_lines"] = starts[:6]
-    # Bild: 625 Zeilen ab dem ersten Vollbild-Anfang, Halbbilder verschraenkt
+    # Bild ab dem ersten Vollbild-Anfang, Halbbilder verschraenkt
+    # 625: breite Impulse ab Zeile 1, aktive Zeilen 24..310 / 336..622 (576), aktiv ab 10,5 us
+    # 525: breite Impulse ab Zeile 4, aktive Zeilen 22..261 / 285..524 (480), aktiv ab 9,4 us
+    LN = sysd.get("lines", 625)
+    geo = {625: (1, (24, 311), (336, 623), 576, 10.5e-6, 52.0e-6), 525: (4, (22, 262), (285, 525), 480, 9.4e-6, 52.6e-6)}[LN]
+    first_broad, f1r, f2r, nrows, act0, act_len = geo
     img = None
-    if sysd.get("lines", 625) == 625 and len(starts) >= 2 and starts[0] + 625 <= nl:   # Bild nur fuer 625er Normen
-        f1 = starts[0]
-        # erstes Halbbild beginnt mit breiten Impulsen in Zeile 1 (Index f1); aktive Zeilen 24..310 bzw. 336..622
-        a0, a1 = int(10.5e-6 * fs), int(62.5e-6 * fs)
-        L = np.arange(625)
-        fld = e[f1: f1 + 625, a0:a1]
-        rows = np.zeros((576, a1 - a0))
-        for Ln in range(24, 311):
-            r = 2 * (Ln - 24)
-            if r < 576:
+    a0, a1 = int(act0 * fs), int((act0 + act_len) * fs)
+    if len(starts) >= 2 and starts[0] - (first_broad - 1) >= 0 and starts[0] - (first_broad - 1) + LN <= nl:
+        f1 = starts[0] - (first_broad - 1)
+        fld = e[f1: f1 + LN, a0:a1]
+        rows = np.zeros((nrows, a1 - a0))
+        for Ln in range(*f1r):
+            r = 2 * (Ln - f1r[0])
+            if r < nrows:
                 rows[r] = fld[Ln - 1]
-        for Ln in range(336, 623):
-            r = 2 * (Ln - 336) + 1
-            if r < 576:
+        for Ln in range(*f2r):
+            r = 2 * (Ln - f2r[0]) + 1
+            if r < nrows:
                 rows[r] = fld[Ln - 1]
         img = np.clip((blank - rows) / (blank - white + 1e-12), 0, 1)
     else:
-        a0, a1 = int(10.5e-6 * fs), int(62.5e-6 * fs)
-        img = np.clip((blank - e[:576, a0:a1]) / (blank - white + 1e-12), 0, 1)
+        img = np.clip((blank - e[:nrows, a0:a1]) / (blank - white + 1e-12), 0, 1)
     rep["image_size"] = list(img.shape)
     if ref_luma is not None:
         # Sollbild (576 x 720, 0..1) auf die gemessene Breite bringen; die ersten/letzten Zeilen (teils Austastung) weg
@@ -135,6 +137,6 @@ def analyze(x, fs, carrier_hz, system="BG", png=None, ref_luma=None, ffmpeg="ffm
         h, w = img.shape
         raw = (img * 255).astype(np.uint8).tobytes()
         subprocess.run([ffmpeg, "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "gray", "-s", "%dx%d" % (w, h), "-i", "-",
-                        "-vf", "scale=768:576", png], input=raw, check=True)
+                        "-vf", "scale=768:%d" % (576 if LN == 625 else 480), png], input=raw, check=True)
         rep["png"] = png
     return rep

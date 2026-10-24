@@ -1,0 +1,22 @@
+{
+ "mode": "pal",
+ "_kommentar": "NTSC-M (untested): Kanal A14, Standbild-Schleife 525 Zeilen",
+ "rf": {
+  "channel": "A14"
+ },
+ "pal": {
+  "system": "NTSC_M",
+  "image": {
+   "kind": "testpattern",
+   "pattern": "smptebars",
+   "text": "NTSC-M"
+  },
+  "sound": {
+   "kind": "tone",
+   "freq_hz": 1000
+  }
+ },
+ "output": {
+  "kind": "file"
+ }
+}

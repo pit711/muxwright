@@ -1,0 +1,38 @@
+{
+ "mode": "atsc",
+ "_kommentar": "ATSC 1.0 (untested): Kanal A14, zwei SD-Programme MPEG-2 + AC-3, PSIP",
+ "rf": {
+  "channel": "A14"
+ },
+ "services": [
+  {
+   "name": "LAB 1",
+   "type": "tv",
+   "video": {
+    "codec": "mpeg2",
+    "size": "sd"
+   },
+   "audio": {
+    "codec": "ac3",
+    "bitrate_kbps": 192,
+    "language": "eng"
+   }
+  },
+  {
+   "name": "LAB 2",
+   "type": "tv",
+   "video": {
+    "codec": "mpeg2",
+    "size": "sd"
+   },
+   "audio": {
+    "codec": "ac3",
+    "bitrate_kbps": 192,
+    "language": "eng"
+   }
+  }
+ ],
+ "output": {
+  "kind": "file"
+ }
+}

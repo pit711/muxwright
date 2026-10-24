@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: Türkçe
-export default {"Annex A (Europa/China)":"Ek A (Avrupa/Çin)",
+export default {"Modus 1 oder 3":"Mod 1 veya 3",
+"Annex A (Europa/China)":"Ek A (Avrupa/Çin)",
 "Annex B (USA, J.83 B)":"Ek B (ABD, J.83 B)",
 "Annex C (Japan, J.83 C)":"Ek C (Japonya, J.83 C)",
 "Annex C: Codierung wie Annex A, RRC α 0,13, 6-MHz-Kanal; Japan 5,274 MBd":"Ek C: Ek A gibi kodlama, RRC α 0,13, 6 MHz kanal; Japonya 5,274 MBd",

@@ -1,0 +1,29 @@
+{
+ "mode": "dtmb",
+ "_kommentar": "DTMB (untested): Kanal DS25, 64-QAM 0,6 PN945",
+ "rf": {
+  "channel": "DS25"
+ },
+ "dtmb": {
+  "constellation": "64-QAM",
+  "code_rate": "0.6",
+  "header": 945
+ },
+ "services": [
+  {
+   "name": "LAB CN",
+   "type": "tv",
+   "video": {
+    "codec": "h264",
+    "size": "hd"
+   },
+   "audio": {
+    "codec": "mp2",
+    "language": "chi"
+   }
+  }
+ ],
+ "output": {
+  "kind": "file"
+ }
+}

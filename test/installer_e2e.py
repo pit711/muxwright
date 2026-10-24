@@ -223,6 +223,16 @@ def main():
         f"Abweichungen {ck.get('mismatches')}")
     if ck.get("ok") is not True:
         raise SystemExit("DAB-Prüfung fehlgeschlagen")
+    # Weltweite Standards (untested): TS-Ketten mit PSIP/ISDB-SI und die 525-Zeilen-Analogschleife in der frischen Distro
+    for cfg, sec in (("atsc_testbild_sd.json", 4), ("isdbt_1seg_hd.json", 4), ("dtmb_testbild_hd.json", 4), ("j83b_256qam.json", 4),
+                     ("ntsc_m_testbild.json", 0)):
+        args = ["wsl", "-d", a.distro, "--", "python3", runner, "check", "--config", w(app / "runner" / "examples" / cfg)] + (["--seconds", str(sec)] if sec else [])
+        o = run(args, timeout=1800, check=False)
+        (base / f"check_{cfg[:-5]}.log").write_text(o, "utf-8")
+        ck = first_json(o)
+        say(f"Prüfung {cfg}: ok={ck.get('ok')} Abweichungen {ck.get('mismatches')}")
+        if ck.get("ok") is not True:
+            raise SystemExit(f"Prüfung {cfg} fehlgeschlagen: {o[-3000:]}")
 
     if not a.keep:
         say("räume auf (Distro und Installation entfernen; --keep behält beides)")

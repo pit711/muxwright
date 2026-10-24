@@ -1,0 +1,29 @@
+{
+ "mode": "dvbc",
+ "_kommentar": "J.83 Annex B (untested): US-Kabel C80, 256-QAM, CVCT",
+ "dvbc": {
+  "annex": "b",
+  "constellation": "256-QAM"
+ },
+ "rf": {
+  "channel": "C80"
+ },
+ "services": [
+  {
+   "name": "CABLE1",
+   "type": "tv",
+   "video": {
+    "codec": "mpeg2",
+    "size": "hd"
+   },
+   "audio": {
+    "codec": "ac3",
+    "bitrate_kbps": 384,
+    "language": "eng"
+   }
+  }
+ ],
+ "output": {
+  "kind": "file"
+ }
+}

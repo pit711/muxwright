@@ -185,6 +185,8 @@ def cmd_check(args, host):
     rgb = _still_rgb(host, c)
     ref = 0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]
     methods = ["fft", "stream"] if getattr(args, "method", "both") == "both" else [args.method]
+    if SYSTEMS[p["system"]]["lines"] == 525:
+        methods = ["fft"]                         # 525 Zeilen: nur Standbild-Schleife (kein Strom-Encoder)
     rep = {"ok": True, "standard": "pal", "session": sid, "summary": summary(c), "warnings": W, "methods": {}, "mismatches": []}
     for mth in methods:
         s, spec = (gen.loop_iq(params(c), rgb) if mth == "fft" else stream_loop(host, c, rgb))
@@ -210,9 +212,14 @@ def cmd_check(args, host):
             M.append(tag + "Zeilenfrequenz %.1f Hz (soll %.1f)" % (d["line_rate_hz"], fh_soll))
         if abs(d["blank_rel"] - 0.73) > 0.04:
             M.append(tag + "Austastpegel %.3f statt 0,73" % d["blank_rel"])
-        if abs(d["white_rel"] - 0.10) > 0.05:
-            M.append(tag + "Weisspegel %.3f statt 0,10" % d["white_rel"])
-        if SYSTEMS[p["system"]]["lines"] == 625 and d.get("luma_correlation", 0) < 0.95:
+        # Soll-Weisspegel aus dem hellsten Wert des Sollbilds (z. B. SMPTE-Balken nur 75 %) und der Schwarzabhebung (NTSC-M 7,5 IRE)
+        setup = float(SYSTEMS[p["system"]].get("setup", 0.0))
+        ymax = float(np.percentile(ref, 98.7))     # Messung: 1-%-Quantil der Hüllkurve über alle Samples (aktiv ≈ 81 %)
+        wexp = 0.73 - (setup + ymax * (0.7 - setup)) / 0.7 * (0.73 - 0.10)
+        d["white_rel_expected"] = round(wexp, 3)
+        if abs(d["white_rel"] - wexp) > 0.05:
+            M.append(tag + "Weisspegel %.3f statt %.3f" % (d["white_rel"], wexp))
+        if d.get("luma_correlation", 0) < 0.95:
             M.append(tag + "Bild weicht ab (Korrelation %.3f)" % d.get("luma_correlation", 0))
         if p["sound"]["kind"] == "tone":
             if abs(d.get("audio_tone_hz", 0) - p["sound"]["freq_hz"]) > 15:

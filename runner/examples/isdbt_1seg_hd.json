@@ -1,0 +1,45 @@
+{
+ "mode": "isdbt",
+ "_kommentar": "ISDB-Tb (untested): HD-Programm + 1seg in Schicht A",
+ "rf": {
+  "channel": "A20"
+ },
+ "isdbt": {
+  "layers": 2
+ },
+ "ts": {
+  "network_id": 1234,
+  "network_name": "LAB"
+ },
+ "services": [
+  {
+   "name": "LAB HD",
+   "type": "tv",
+   "video": {
+    "codec": "h264",
+    "size": "hd"
+   },
+   "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 128,
+    "language": "por"
+   }
+  },
+  {
+   "name": "LAB 1seg",
+   "type": "tv",
+   "oneseg": true,
+   "video": {
+    "codec": "h264"
+   },
+   "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 64,
+    "language": "por"
+   }
+  }
+ ],
+ "output": {
+  "kind": "file"
+ }
+}

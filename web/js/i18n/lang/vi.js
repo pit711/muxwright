@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: Tiếng Việt
-export default {"Annex A (Europa/China)":"Phụ lục A (châu Âu/Trung Quốc)",
+export default {"Modus 1 oder 3":"Chế độ 1 hoặc 3",
+"Annex A (Europa/China)":"Phụ lục A (châu Âu/Trung Quốc)",
 "Annex B (USA, J.83 B)":"Phụ lục B (Mỹ, J.83 B)",
 "Annex C (Japan, J.83 C)":"Phụ lục C (Nhật Bản, J.83 C)",
 "Annex C: Codierung wie Annex A, RRC α 0,13, 6-MHz-Kanal; Japan 5,274 MBd":"Phụ lục C: mã hóa như phụ lục A, RRC α 0,13, kênh 6 MHz; Nhật Bản 5,274 MBd",

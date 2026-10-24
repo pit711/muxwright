@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: 中文（简体）
-export default {"Annex A (Europa/China)":"附录 A（欧洲/中国）",
+export default {"Modus 1 oder 3":"模式 1 或 3",
+"Annex A (Europa/China)":"附录 A（欧洲/中国）",
 "Annex B (USA, J.83 B)":"附录 B（美国，J.83 B）",
 "Annex C (Japan, J.83 C)":"附录 C（日本，J.83 C）",
 "Annex C: Codierung wie Annex A, RRC α 0,13, 6-MHz-Kanal; Japan 5,274 MBd":"附录 C：编码同附录 A，RRC α 0.13，6 MHz 信道；日本 5.274 MBd",

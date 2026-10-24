@@ -1,5 +1,6 @@
 // Muxwright-Dashboard: Русский
-export default {"Annex A (Europa/China)":"Annex A (Европа/Китай)",
+export default {"Modus 1 oder 3":"Режим 1 или 3",
+"Annex A (Europa/China)":"Annex A (Европа/Китай)",
 "Annex B (USA, J.83 B)":"Annex B (США, J.83 B)",
 "Annex C (Japan, J.83 C)":"Annex C (Япония, J.83 C)",
 "Annex C: Codierung wie Annex A, RRC α 0,13, 6-MHz-Kanal; Japan 5,274 MBd":"Annex C: кодирование как в Annex A, RRC α 0,13, канал 6 МГц; Япония 5,274 МБод",
