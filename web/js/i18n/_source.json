@@ -1594,7 +1594,7 @@
   "c_agent_fw": "comes with the firmware",
   "c_runner": "Signal generation (WSL)",
   "c_runner_ok": "ready",
-  "c_runner_no": "WSL environment \"dablab\" not reachable – check the installation",
+  "c_runner_no": "noch nicht eingerichtet – das erledigt Schritt „Komponenten“",
   "unknown": "unknown",
   "mode_h": "Operating mode",
   "mode_lab": "Lab – shielded",

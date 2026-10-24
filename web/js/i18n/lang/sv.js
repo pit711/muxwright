@@ -1594,7 +1594,7 @@ export const TXT = {
  "c_agent_fw": "följer med firmware",
  "c_runner": "Signalgenerering (WSL)",
  "c_runner_ok": "redo",
- "c_runner_no": "WSL-miljön \"dablab\" är inte nåbar – kontrollera installationen",
+ "c_runner_no": "inte konfigurerad än – steget ”Komponenter” ordnar det",
  "unknown": "okänd",
  "mode_h": "Driftläge",
  "mode_lab": "Labb – skärmat",

@@ -1594,7 +1594,7 @@ export const TXT = {
  "c_agent_fw": "vem com o firmware",
  "c_runner": "Geração de sinal (WSL)",
  "c_runner_ok": "pronto",
- "c_runner_no": "Ambiente WSL \"dablab\" inacessível – verifique a instalação",
+ "c_runner_no": "ainda não configurado – o passo “Componentes” trata disso",
  "unknown": "desconhecido",
  "mode_h": "Modo de operação",
  "mode_lab": "Laboratório – blindado",

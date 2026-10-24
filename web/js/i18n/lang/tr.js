@@ -1594,7 +1594,7 @@ export const TXT = {
   "c_agent_fw": "yazılımla birlikte gelir",
   "c_runner": "Sinyal üretimi (WSL)",
   "c_runner_ok": "hazır",
-  "c_runner_no": "“dablab” WSL ortamına erişilemiyor – kurulumu kontrol edin",
+  "c_runner_no": "henüz kurulmadı – bunu “Bileşenler” adımı yapar",
   "unknown": "bilinmiyor",
   "mode_h": "Çalışma modu",
   "mode_lab": "Laboratuvar – ekranlı",

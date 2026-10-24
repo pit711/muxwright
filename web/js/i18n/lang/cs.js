@@ -1594,7 +1594,7 @@ export const TXT = {
  "c_agent_fw": "je součástí firmwaru",
  "c_runner": "Generování signálu (WSL)",
  "c_runner_ok": "připraveno",
- "c_runner_no": "Prostředí WSL \"dablab\" nedostupné – zkontrolujte instalaci",
+ "c_runner_no": "zatím nenastaveno – postará se o to krok „Komponenty“",
  "unknown": "neznámý",
  "mode_h": "Provozní režim",
  "mode_lab": "Laboratoř – stíněno",

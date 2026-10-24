@@ -21,7 +21,7 @@ function checks(t) {
     { k: 'pluto', ok: !!pl.connected, label: t.c_pluto, detail: pl.connected ? `${pl.model || 'ADALM-Pluto'} · ${pl.uri || ''}` : t.c_pluto_no },
     { k: 'fw', ok: fwOk, warn: pl.connected && !fwOk, label: t.c_fw, detail: !pl.connected ? t.c_fw_wait : fwOk ? fmt(t.c_fw_ok, { fw }) : fmt(t.c_fw_no, { fw }) },
     { k: 'agent', ok: dev.reachable !== false && fwOk, warn: fwOk && dev.reachable === false, label: t.c_agent, detail: dev.reachable === false ? t.c_agent_no : fwOk ? t.c_agent_ok : t.c_agent_fw },
-    { k: 'runner', ok: !!rn.reachable, label: t.c_runner, detail: rn.reachable ? t.c_runner_ok : t.c_runner_no },
+    { k: 'runner', ok: !!rn.reachable, warn: !rn.reachable, label: t.c_runner, detail: rn.reachable ? t.c_runner_ok : t.c_runner_no },
   ];
 }
 
