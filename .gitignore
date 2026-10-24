@@ -41,3 +41,19 @@ test/tx_6c_max.py
 test/monitor_6c*.json
 test/configs/
 test/lgtv.py
+# Build-Ergebnisse der Modulatoren (x86, aus make)
+pluto_fw/mod/*.o
+pluto_fw/mod/lib/*.o
+pluto_fw/mod/*.a
+pluto_fw/mod/atsc_mod
+pluto_fw/mod/dtmb_mod
+pluto_fw/mod/dvbc_mod
+pluto_fw/mod/dvbmod_selftest
+pluto_fw/mod/dvbs2_mod
+pluto_fw/mod/dvbs2_stage
+pluto_fw/mod/dvbs_mod
+pluto_fw/mod/dvbs_rx
+pluto_fw/mod/dvbt_mod
+pluto_fw/mod/isdbt_mod
+pluto_fw/mod/rrc_fir_gen
+pluto_fw/mod/tests/dvbt2_proto/
