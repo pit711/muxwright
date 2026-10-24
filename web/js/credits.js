@@ -27,7 +27,9 @@ export const CREDITS = [
   ['base', 'yt-dlp', 'yt-dlp contributors', 'optional video sources', 'https://github.com/yt-dlp/yt-dlp'],
   ['check', 'welle.io / welle-cli', 'Albrecht Lohöfener', 'DAB monitoring receiver', 'https://github.com/AlbrechtL/welle.io'],
   ['check', 'redsea', 'Oona Räisänen, OH2EIQ', 'RDS decoder for verification', 'https://github.com/windytan/redsea'],
-  ['check', 'GNU Radio gr-dtv', 'Ron Economos, W6RZ, and the GNU Radio project', 'DVB-T/S2 reference for bit-exact tests', 'https://github.com/gnuradio/gnuradio'],
+  ['check', 'GNU Radio gr-dtv', 'Ron Economos, W6RZ, and the GNU Radio project', 'DVB-T/S2 and ATSC reference for bit-exact tests', 'https://github.com/gnuradio/gnuradio'],
+  ['check', 'gr-isdbt', 'ARTES group (Universidad de la República, Uruguay)', 'independent ISDB-T receiver for loopback tests', 'https://github.com/git-artes/gr-isdbt'],
+  ['base', 'flag-icons', 'Panayiotis Lipiridis', 'country flags per standard (MIT)', 'https://github.com/lipis/flag-icons'],
 ];
 
 export function creditsPanel(lang, { open = false } = {}) {
