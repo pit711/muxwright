@@ -2483,6 +2483,10 @@ class Handler(BaseHTTPRequestHandler):
             if p == "/api/firmware":
                 b = body or {}
                 return self._send(*FLASHER.start(str(b.get("action") or ""), b.get("image"), confirm=b.get("confirm") is True))
+            if p == "/api/setup/install_all":
+                if (body or {}).get("accepted") is not True:
+                    return self._send(400, {"ok": False, "errors": ["Lizenzen müssen bestätigt werden (accepted: true)"]})
+                return self._send(*SETUP.install_all(via="dashboard"))
             if p == "/api/setup/install":
                 b = body or {}
                 return self._send(*SETUP.install(str(b.get("component") or ""), accepted=b.get("accepted") is True))

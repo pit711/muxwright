@@ -925,6 +925,11 @@ dialog.modal.onb .modal-actions { padding: 14px 24px; border-top: 1px solid var(
 .onb-comp-item.ok { border-color: color-mix(in srgb, var(--ok, #16a34a) 50%, var(--border)); }
 .onb-comp-item.bad { border-color: var(--bad, #dc2626); }
 .onb-comp-item p { margin: 0; }
+.onb-comp-all { border: 1px solid var(--accent); border-radius: 10px; padding: 12px; display: grid; gap: 10px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.onb-comp-all .btn { justify-self: start; }
+.onb-comp-busy { display: inline-flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 600; font-size: 13px; }
+.progress.indet i { width: 35% !important; animation: stripes 1s linear infinite, indet 1.4s ease-in-out infinite; }
+@keyframes indet { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
 .onb-comp-head { display: flex; align-items: center; gap: 8px; }
 .onb-comp-head .ico { width: 20px; height: 20px; flex: none; }
 .onb-comp-item.ok .onb-comp-head .ico { color: var(--ok, #16a34a); }

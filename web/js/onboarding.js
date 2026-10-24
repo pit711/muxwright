@@ -145,8 +145,9 @@ function componentsStep(lang, rerender) {
       cb.checked = x.installed || compState.accept.has(x.key);
       cb.addEventListener('change', () => { cb.checked ? compState.accept.add(x.key) : compState.accept.delete(x.key); draw(); });
       const running = job.running && job.key === x.key;
-      const btn = h('button.btn.sm' + (x.installed ? '.ghost' : '.primary'), { type: 'button', tid: `comp-install-${x.key}`,
-        disabled: x.installed || running || job.running || !depsOk || !compState.accept.has(x.key) || null,
+      const btn = running ? h('span.onb-comp-busy', { tid: `comp-busy-${x.key}` }, h('span.spinner'), c.installing)
+        : h('button.btn.sm' + (x.installed ? '.ghost' : '.primary'), { type: 'button', tid: `comp-install-${x.key}`,
+        disabled: x.installed || job.running || d.all_running || !depsOk || !compState.accept.has(x.key) || null,
         onclick: async () => {
           try { await api('POST', '/api/setup/install', { component: x.key, accepted: true }); } catch (e) { toast(e.message, 'error', 6000); }
           refresh();
@@ -155,17 +156,39 @@ function componentsStep(lang, rerender) {
       return h('div.onb-comp-item', { class: x.installed ? 'ok' : failed ? 'bad' : null, tid: `comp-${x.key}` },
         h('div.onb-comp-head', null, icon(x.installed ? 'check' : failed ? 'x' : 'download'),
           h('b', null, c.names[x.key] || x.key), h('span.chip-sm', null, x.optional ? c.optional : c.required), h('span.grow'), btn),
+        running ? h('div.progress.thin.run.indet', { tid: `comp-bar-${x.key}` }, h('i')) : null,
         h('p.small', null, c.desc[x.key] || ''),
         h('p.small.muted', null, `${c.license}: ${x.license} · ${c.source}: `,
           /^https?:/.test(x.source) ? h('a', { href: x.source, target: '_blank', rel: 'noopener' }, x.source) : x.source,
           !depsOk && !x.installed ? ` · ${c.needs}: ${(x.needs || []).filter(n => !inst[n]).map(n => c.names[n] || n).join(', ')}` : ''),
-        x.installed ? null : h('label.onb-item.small', null, cb, h('span', null, c.accept)),
+        x.installed || job.running || d.all_running ? null : h('label.onb-item.small', null, cb, h('span', null, c.accept)),
         failed ? h('p.alert.small', null, icon('alert'), `${c.failed}: ${job.error || ''}`) : null,
         running || failed ? h('pre.onb-comp-log', { tid: `comp-log-${x.key}` }, (job.lines || []).slice(-8).join('\n')) : null);
     });
     const req = d.components.filter(x => !x.optional);
+    const done = req.filter(x => x.installed).length, busy = job.running || d.all_running;
+    // Kopf: alles auf einmal installieren bzw. Fortschritt der laufenden Installation
+    let head = null;
+    if (busy) {
+      const name = c.names[job.key] || job.key || '…';
+      head = h('div.onb-comp-all.run', { tid: 'comp-progress' },
+        h('div.inrow', null, h('span.spinner'), h('b', null, fmt(c.progress, { name, i: Math.min(done + 1, req.length), n: req.length }))),
+        h('div.progress.run', null, h('i', { style: `width:${Math.max(4, Math.round(100 * done / req.length))}%` })),
+        job.via === 'installer' ? h('p.small.muted', null, c.auto) : null);
+    } else if (done < req.length && !(d.wsl && !d.wsl.installed)) {
+      const cbAll = h('input', { type: 'checkbox', tid: 'comp-accept-all' });
+      cbAll.checked = !!compState.acceptAll;
+      const go = h('button.btn.primary', { type: 'button', tid: 'comp-install-all', disabled: !compState.acceptAll || null,
+        onclick: async () => {
+          try { await api('POST', '/api/setup/install_all', { accepted: true }); } catch (e) { toast(e.message, 'error', 6000); }
+          refresh();
+        } }, icon('download'), c.install_all);
+      cbAll.addEventListener('change', () => { compState.acceptAll = cbAll.checked; go.disabled = !cbAll.checked; });
+      head = h('div.onb-comp-all', null, h('label.onb-item.small', null, cbAll, h('span', null, c.accept_all)), go);
+    }
     list.replaceChildren(...[
       d.wsl && !d.wsl.installed ? h('p.alert', { tid: 'comp-wsl-missing' }, icon('alert'), c.wsl_missing) : null,
+      head,
       ...rows,
       h('div.inrow', null, h('button.btn.ghost.sm', { type: 'button', tid: 'comp-recheck', onclick: () => refresh(true) }, icon('refresh'), c.recheck),
         req.every(x => x.installed) ? h('span.small', { tid: 'comp-all-done' }, icon('check'), ' ', c.all_done) : null)].filter(Boolean));

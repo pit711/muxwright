@@ -1722,52 +1722,56 @@ export const HW = {
   "log_count": "{n} kayıt"
 };
 export const COMP = {
-  "step": "Bileşenler",
-  "h": "Bileşenleri kendiniz kurun",
-  "intro": "Muxwright, patent veya lisans yükümlülüğü olan codec'ler ya da üçüncü taraf programlar içermez. Bunları burada resmi kaynaklardan bu bilgisayara kendiniz kurarsınız: bir bileşen seçin, lisansı okuyun, onaylayın, “Kur”.",
-  "patents": "Patentli teknolojiler (H.264, HEVC, AAC/HE-AAC): Almanya'da özel, ticari olmayan kullanım patentten muaftır (§ 11 Nr. 1 PatG – Alman Patent Kanunu). Ticari kullanım için lisansları kendiniz edinirsiniz (Via LA, Access Advance, Sisvel).",
-  "accept": "Bu bileşeni belirtilen kaynaktan kendim kuruyorum ve lisansı ile notları okudum.",
-  "install": "Kur",
-  "installing": "Kuruluyor …",
-  "installed": "kurulu",
-  "failed": "başarısız",
-  "optional": "isteğe bağlı",
-  "required": "gerekli",
-  "license": "Lisans",
-  "source": "Kaynak",
-  "needs": "önce gerekli",
-  "recheck": "Durumu kontrol et",
-  "log": "Çıktı",
-  "wsl_missing": "WSL eksik: yönetici olarak bir komut istemi açın, “wsl --install --no-distribution” komutunu çalıştırın ve bilgisayarı yeniden başlatın.",
-  "skip": "Her şey kurulmadan kurulumu tamamlayabilirsiniz – eksik standartlar o zaman kilitli kalır.",
-  "all_done": "Gerekli tüm bileşenler kurulu.",
-  "duration": "ODR-mmbTools ve welle-cli derlemesi birkaç dakika sürer.",
-  "names": {
-    "wsl_distro": "Linux ortamı (WSL2, Ubuntu 24.04)",
-    "base": "Temel paketler (Python, numpy, derleme araçları)",
-    "ffmpeg": "x264/x265 ile FFmpeg",
-    "tsduck": "TSDuck (DVB tabloları)",
-    "odr": "ODR-mmbTools + FDK-AAC (DAB+)",
-    "welle": "welle-cli + redsea (DAB izleme, RDS)",
-    "modulators": "Muxwright modülatörleri (PC)",
-    "ytdlp": "yt-dlp (YouTube kaynakları)",
-    "win_ffmpeg": "Windows için FFmpeg (NVIDIA NVENC)"
-  },
-  "desc": {
-    "wsl_distro": "Sinyal üretimi kendi Ubuntu ortamında çalışır.",
-    "base": "Derleme ve kontrol araçları.",
-    "ffmpeg": "Video/ses kodlar (MPEG-2, H.264, HEVC, AAC).",
-    "tsduck": "Taşıma akışı, NIT/SDT/EIT.",
-    "odr": "HE-AAC kodlayıcı dahil DAB+ zinciri. FDK-AAC lisansı patent lisansı vermez.",
-    "welle": "İzleme için DAB sinyalini çözer.",
-    "modulators": "Muxwright kaynak kodundan bilgisayarınızda derlenen DVB-T/C/S/S2 modülatörleri.",
-    "ytdlp": "Yalnızca YouTube videolarını kaynak olarak kullanıyorsanız gerekir; platformun kullanım koşullarına uyun.",
-    "win_ffmpeg": "Yalnızca NVIDIA ekran kartıyla GPU kodlaması (UHD/HDR10 canlı) için."
-  },
-  "legal": [
-    "Üçüncü taraf bileşenler ve codec'ler",
-    "Muxwright codec içermez. Bir sonraki adımda FFmpeg, x264/x265, FDK-AAC'li ODR-mmbTools, TSDuck ve welle-cli'yi resmi kaynaklardan kendim kurar ve lisanslarına (GPL/LGPL/BSD, FDK-AAC) uyarım. Patentli codec'lerin özel, ticari olmayan kullanımına Almanya'da § 11 Nr. 1 PatG (Alman Patent Kanunu) uyarınca izin verilir; ticari kullanım için gerekli patent lisanslarını kendim edinirim."
-  ]
+ "step": "Bileşenler",
+ "h": "Bileşenleri kendiniz kurun",
+ "intro": "Muxwright, patent veya lisans yükümlülüğü olan codec'ler ya da üçüncü taraf programlar içermez. Bunları burada resmi kaynaklardan bu bilgisayara kendiniz kurarsınız: bir bileşen seçin, lisansı okuyun, onaylayın, “Kur”.",
+ "patents": "Patentli teknolojiler (H.264, HEVC, AAC/HE-AAC): Almanya'da özel, ticari olmayan kullanım patentten muaftır (§ 11 Nr. 1 PatG – Alman Patent Kanunu). Ticari kullanım için lisansları kendiniz edinirsiniz (Via LA, Access Advance, Sisvel).",
+ "accept": "Bu bileşeni belirtilen kaynaktan kendim kuruyorum ve lisansı ile notları okudum.",
+ "install": "Kur",
+ "installing": "Kuruluyor …",
+ "installed": "kurulu",
+ "failed": "başarısız",
+ "optional": "isteğe bağlı",
+ "required": "gerekli",
+ "license": "Lisans",
+ "source": "Kaynak",
+ "needs": "önce gerekli",
+ "recheck": "Durumu kontrol et",
+ "log": "Çıktı",
+ "wsl_missing": "WSL eksik: yönetici olarak bir komut istemi açın, “wsl --install --no-distribution” komutunu çalıştırın ve bilgisayarı yeniden başlatın.",
+ "skip": "Her şey kurulmadan kurulumu tamamlayabilirsiniz – eksik standartlar o zaman kilitli kalır.",
+ "all_done": "Gerekli tüm bileşenler kurulu.",
+ "duration": "ODR-mmbTools ve welle-cli derlemesi birkaç dakika sürer.",
+ "names": {
+  "wsl_distro": "Linux ortamı (WSL2, Ubuntu 24.04)",
+  "base": "Temel paketler (Python, numpy, derleme araçları)",
+  "ffmpeg": "x264/x265 ile FFmpeg",
+  "tsduck": "TSDuck (DVB tabloları)",
+  "odr": "ODR-mmbTools + FDK-AAC (DAB+)",
+  "welle": "welle-cli + redsea (DAB izleme, RDS)",
+  "modulators": "Muxwright modülatörleri (PC)",
+  "ytdlp": "yt-dlp (YouTube kaynakları)",
+  "win_ffmpeg": "Windows için FFmpeg (NVIDIA NVENC)"
+ },
+ "desc": {
+  "wsl_distro": "Sinyal üretimi kendi Ubuntu ortamında çalışır.",
+  "base": "Derleme ve kontrol araçları.",
+  "ffmpeg": "Video/ses kodlar (MPEG-2, H.264, HEVC, AAC).",
+  "tsduck": "Taşıma akışı, NIT/SDT/EIT.",
+  "odr": "HE-AAC kodlayıcı dahil DAB+ zinciri. FDK-AAC lisansı patent lisansı vermez.",
+  "welle": "İzleme için DAB sinyalini çözer.",
+  "modulators": "Muxwright kaynak kodundan bilgisayarınızda derlenen DVB-T/C/S/S2 modülatörleri.",
+  "ytdlp": "Yalnızca YouTube videolarını kaynak olarak kullanıyorsanız gerekir; platformun kullanım koşullarına uyun.",
+  "win_ffmpeg": "Yalnızca NVIDIA ekran kartıyla GPU kodlaması (UHD/HDR10 canlı) için."
+ },
+ "legal": [
+  "Üçüncü taraf bileşenler ve codec'ler",
+  "Muxwright codec içermez. Bir sonraki adımda FFmpeg, x264/x265, FDK-AAC'li ODR-mmbTools, TSDuck ve welle-cli'yi resmi kaynaklardan kendim kurar ve lisanslarına (GPL/LGPL/BSD, FDK-AAC) uyarım. Patentli codec'lerin özel, ticari olmayan kullanımına Almanya'da § 11 Nr. 1 PatG (Alman Patent Kanunu) uyarınca izin verilir; ticari kullanım için gerekli patent lisanslarını kendim edinirim."
+ ],
+ "install_all": "Şimdi tümünü kur",
+ "accept_all": "Gerekli tüm bileşenleri belirtilen kaynaklardan kendim kuruyorum; lisansları ve notları okudum.",
+ "progress": "{name} kuruluyor – adım {i} / {n}",
+ "auto": "Kurulum otomatik olarak çalışıyor (yükleyici tarafından başlatıldı). Devam edebilirsin – arka planda sürer."
 };
 export const FW = {
   "h": "Pluto yazılımı",

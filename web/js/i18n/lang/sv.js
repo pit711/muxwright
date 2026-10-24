@@ -1767,7 +1767,11 @@ export const COMP = {
  "legal": [
   "Tredjepartskomponenter och kodekar",
   "Muxwright levereras utan kodekar. I nästa steg installerar jag själv FFmpeg, x264/x265, ODR-mmbTools med FDK-AAC, TSDuck och welle-cli från de officiella källorna och respekterar deras licenser (GPL/LGPL/BSD, FDK-AAC). Privat, icke-kommersiell användning av patenterade kodekar är tillåten i Tyskland enligt § 11 Nr. 1 PatG; för kommersiell användning skaffar jag själv de patentlicenser som krävs."
- ]
+ ],
+ "install_all": "Installera allt nu",
+ "accept_all": "Jag installerar själv alla nödvändiga komponenter från de angivna källorna och har tagit del av licenserna och anvisningarna.",
+ "progress": "Installerar {name} – steg {i} av {n}",
+ "auto": "Installationen körs automatiskt (startad av installationsprogrammet). Du kan fortsätta – den fortsätter i bakgrunden."
 };
 export const FW = {
  "h": "Pluto-firmware",

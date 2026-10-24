@@ -1767,7 +1767,11 @@ export const COMP = {
  "legal": [
   "Komponenty a kodeky třetích stran",
   "Muxwright nedodává žádné kodeky. V dalším kroku si sám nainstaluji FFmpeg, x264/x265, ODR-mmbTools s FDK-AAC, TSDuck a welle-cli z oficiálních zdrojů a budu dodržovat jejich licence (GPL/LGPL/BSD, FDK-AAC). Soukromé, nekomerční použití patentovaných kodeků je v Německu povoleno podle § 11 Nr. 1 PatG; pro komerční použití si potřebné patentové licence obstarám sám."
- ]
+ ],
+ "install_all": "Nainstalovat vše nyní",
+ "accept_all": "Všechny potřebné komponenty instaluji sám z uvedených zdrojů a seznámil jsem se s licencemi a upozorněními.",
+ "progress": "Instaluje se {name} – krok {i} z {n}",
+ "auto": "Instalace probíhá automaticky (spustil ji instalátor). Můžeš pokračovat – běží dál na pozadí."
 };
 export const FW = {
  "h": "Firmware Pluta",

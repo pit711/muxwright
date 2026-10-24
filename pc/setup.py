@@ -96,8 +96,7 @@ class Setup:
         return None
 
     def status(self, fresh=False):
-        if not fresh and self._cache and time.time() - self._cache_t < 20 and not self.job["running"] \
-                and not getattr(self, "_all_running", False):
+        if not fresh and self._cache and time.time() - self._cache_t < 20:   # Job-Daten sind live, _finish leert den Cache
             return dict(self._cache, job=self._job(), all_running=getattr(self, "_all_running", False))
         w = self.wsl_state()
         inst = {}

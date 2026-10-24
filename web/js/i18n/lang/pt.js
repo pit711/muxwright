@@ -1767,7 +1767,11 @@ export const COMP = {
  "legal": [
   "Componentes de terceiros e codecs",
   "O Muxwright não inclui codecs. No próximo passo eu mesmo instalo FFmpeg, x264/x265, ODR-mmbTools com FDK-AAC, TSDuck e welle-cli a partir das fontes oficiais e respeito suas licenças (GPL/LGPL/BSD, FDK-AAC). O uso privado e não comercial de codecs patenteados é permitido na Alemanha pelo § 11 Nr. 1 PatG; para uso comercial, eu mesmo obtenho as licenças de patente necessárias."
- ]
+ ],
+ "install_all": "Instalar tudo agora",
+ "accept_all": "Instalo eu próprio todos os componentes necessários a partir das fontes indicadas e tomei conhecimento das licenças e notas.",
+ "progress": "A instalar {name} – passo {i} de {n}",
+ "auto": "A instalação decorre automaticamente (iniciada pelo instalador). Podes continuar – prossegue em segundo plano."
 };
 export const FW = {
  "h": "Firmware do Pluto",

@@ -419,11 +419,24 @@ def setup_status():
     comps = [{"key": k, "license": "Testlizenz", "source": "https://example.org/" + k, "optional": o, "needs": n,
               "installed": SETUP["installed"][k], "accepted": SETUP["installed"][k]} for k, o, n in SETUP_META]
     return {"wsl": {"installed": True, "distro": "dablab", "distro_ok": True}, "components": comps, "ubuntu": "24.04",
-            "complete": all(c["installed"] for c in comps if not c["optional"]), "job": dict(SETUP["job"])}
+            "complete": all(c["installed"] for c in comps if not c["optional"]), "job": dict(SETUP["job"]),
+            "all_running": SETUP.get("all_running", False)}
+
+
+def setup_all(via):
+    SETUP["all_running"] = True
+    try:
+        todo = [k for k, o, _ in SETUP_META if not o and not SETUP["installed"][k]]
+        for i, k in enumerate(todo):
+            setup_job(k)
+            SETUP["job"].update(queue=todo[i + 1:], via=via)
+    finally:
+        SETUP["all_running"] = False
 
 
 def setup_job(key):
-    SETUP["job"] = {"running": True, "key": key, "lines": [f"@@STEP installiere {key}"], "result": None, "error": None, "finished": None}
+    SETUP["job"] = {"running": True, "key": key, "lines": [f"@@STEP installiere {key}"], "result": None, "error": None, "finished": None,
+                    "via": SETUP.get("via")}
     time.sleep(1.2 if not FAST else 0.6)
     SETUP["installed"][key] = True
     SETUP["job"].update(running=False, result="ok", finished=time.time(), lines=SETUP["job"]["lines"] + [f"@@OK {key}"])
@@ -1107,6 +1120,16 @@ class H(BaseHTTPRequestHandler):
             threading.Thread(target=fw_job, args=(act,), daemon=True).start()
             time.sleep(0.05)
             return self.send_json({"ok": True})
+        if p == "/api/setup/install_all":
+            d = self.jbody()
+            if d.get("accepted") is not True:
+                return self.send_json({"ok": False, "errors": ["Lizenzen müssen bestätigt werden"]}, 400)
+            if SETUP["job"]["running"] or SETUP.get("all_running"):
+                return self.send_json({"ok": False, "errors": ["Installation läuft bereits"]}, 409)
+            SETUP["via"] = "dashboard"
+            threading.Thread(target=setup_all, args=("dashboard",), daemon=True).start()
+            time.sleep(0.05)
+            return self.send_json({"ok": True})
         if p == "/api/setup/install":
             d = self.jbody()
             k = d.get("component")
@@ -1305,10 +1328,19 @@ def main():
     ap.add_argument("--port", type=int, default=8793)
     ap.add_argument("--fast", action="store_true", help="kurze Wartezeiten (Tests)")
     ap.add_argument("--onboarding", action="store_true", help="ohne abgeschlossene Einrichtung starten")
+    ap.add_argument("--no-components", action="store_true", help="ohne Pflichtkomponenten starten (Linux-Umgebung vorhanden)")
+    ap.add_argument("--installer-setup", action="store_true", help="wie vom Installer gestartet: Komponenten laufen sofort an")
     a = ap.parse_args()
     FAST = a.fast
     if a.onboarding:
         ST["onboarding"] = {"done": False, "version": 0, "required_version": 1}
+    if a.no_components or a.installer_setup:
+        for k, o, _ in SETUP_META:
+            if k != "wsl_distro":
+                SETUP["installed"][k] = False
+    if a.installer_setup:
+        SETUP["via"] = "installer"
+        threading.Thread(target=setup_all, args=("installer",), daemon=True).start()
     make_media()
     init_playlists()
     log("Mock-Server gestartet (keine Hardware)")
