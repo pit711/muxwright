@@ -1561,7 +1561,13 @@ export default {"Ensemble":"Ансамбль",
 "DVB-S/S2: Symbolraten & FEC":"DVB-S/S2: символьные скорости и FEC",
 "DVB-S QPSK 1/2…7/8 bei 6000 kS/s, DVB-S2 QPSK/8PSK mit Rolloff 0,20/0,35 – ⚠️ nur mit DC-Block.":"DVB-S QPSK 1/2…7/8 при 6000 kS/s, DVB-S2 QPSK/8PSK с roll-off 0,20/0,35 – ⚠️ только с DC-блоком.",
 "Receiver neu abstimmen (manueller Transponder), Lock und Bild prüfen.":"Перенастройте ресивер (ручной транспондер), проверьте захват и изображение.",
-"Lock, Bild/Ton fehlerfrei.":"Захват, изображение/звук без ошибок."};
+"Lock, Bild/Ton fehlerfrei.":"Захват, изображение/звук без ошибок.",
+"Pluto ist belegt":"Pluto занят",
+"Beenden und übernehmen":"Остановить и взять управление",
+"Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"На Pluto работает передатчик, который Muxwright не запускал (например, из прошлого сеанса или вручную):",
+"Soll Muxwright ihn beenden und den Pluto übernehmen?":"Остановить его и передать Pluto под управление Muxwright?",
+"Abgebrochen – der andere Sender läuft weiter.":"Отменено – другой передатчик продолжает работать."
+};
 export const TXT = {
  "title": "Настройка",
  "steps": [

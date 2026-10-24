@@ -4,7 +4,7 @@
 import { h, icon, api, toast, dialog } from './ui.js';
 import * as D from './dab.js';
 import * as STD from './standards.js';
-import { S, txRunning, rfUpdate, confirmAtten, applyConfig, refreshState, changes, nowPlaying, load, save } from './core.js';
+import { S, txRunning, rfUpdate, confirmAtten, applyConfig, refreshState, changes, nowPlaying, load, save, apiTxStart } from './core.js';
 import { estDbm } from './pages.js';
 import { APP_NAME } from './brand.js';
 import { T } from './i18n.js';
@@ -93,7 +93,7 @@ export async function goOnAir(std) {
     if (!(await applyConfig({ quiet: true, noRestart: true }))) return false;
   }
   if (!txRunning()) {
-    try { await api('POST', '/api/tx/start'); } catch (e) { toast(T('Start fehlgeschlagen: {msg}', { msg: e.message }), 'error', 6000); return false; }
+    try { await apiTxStart(); } catch (e) { toast(T('Start fehlgeschlagen: {msg}', { msg: e.message }), 'error', 6000); return false; }
     if (!(await waitRunning())) { toast(T('Kette läuft nicht – siehe Log'), 'error', 6000); return false; }
   }
   if (!(await confirmAtten(S.server.rf.atten_db, D.ATTEN_MAX))) return false;

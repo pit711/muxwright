@@ -1561,7 +1561,13 @@ export default {"Ensemble":"Ensemble",
 "DVB-S/S2: Symbolraten & FEC":"DVB-S/S2: taxas de símbolos e FEC",
 "DVB-S QPSK 1/2…7/8 bei 6000 kS/s, DVB-S2 QPSK/8PSK mit Rolloff 0,20/0,35 – ⚠️ nur mit DC-Block.":"DVB-S QPSK 1/2…7/8 a 6000 kS/s, DVB-S2 QPSK/8PSK com roll-off 0,20/0,35 – ⚠️ só com bloqueador DC.",
 "Receiver neu abstimmen (manueller Transponder), Lock und Bild prüfen.":"Ressintonize o receptor (transponder manual), verifique lock e imagem.",
-"Lock, Bild/Ton fehlerfrei.":"Lock, imagem/som sem erros."};
+"Lock, Bild/Ton fehlerfrei.":"Lock, imagem/som sem erros.",
+"Pluto ist belegt":"O Pluto está ocupado",
+"Beenden und übernehmen":"Parar e assumir",
+"Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"No Pluto está a correr um emissor que o Muxwright não iniciou (p. ex. de uma sessão anterior ou manualmente):",
+"Soll Muxwright ihn beenden und den Pluto übernehmen?":"O Muxwright deve pará-lo e assumir o Pluto?",
+"Abgebrochen – der andere Sender läuft weiter.":"Cancelado – o outro emissor continua a funcionar."
+};
 export const TXT = {
  "title": "Configuração inicial",
  "steps": [

@@ -1011,8 +1011,9 @@ class App:
                 force = True
             if self.foreign_mod() and not force:
                 m = (self.agent_status or {}).get("mod") or {}
-                return 409, {"ok": False, "error": f"Auf dem Pluto läuft ein fremder Modulator ({m.get('cmd')}); "
-                                                   "mit {\"force\":true} beenden und übernehmen"}
+                return 409, {"ok": False, "code": "foreign_mod", "cmd": m.get("cmd"),
+                             "error": f"Auf dem Pluto läuft ein fremder Modulator ({m.get('cmd')}); "
+                                      "mit {\"force\":true} beenden und übernehmen"}
             if path == "device":
                 if self.agent is None or self.agent_status is None:
                     return 503, {"ok": False, "error": "dablab-agent auf dem Pluto nicht erreichbar (rf.path device)"}

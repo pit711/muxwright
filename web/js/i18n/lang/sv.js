@@ -1561,7 +1561,13 @@ export default {"Ensemble":"Ensemble",
 "DVB-S/S2: Symbolraten & FEC":"DVB-S/S2: symbolhastigheter och FEC",
 "DVB-S QPSK 1/2…7/8 bei 6000 kS/s, DVB-S2 QPSK/8PSK mit Rolloff 0,20/0,35 – ⚠️ nur mit DC-Block.":"DVB-S QPSK 1/2…7/8 vid 6000 kS/s, DVB-S2 QPSK/8PSK med roll-off 0,20/0,35 – ⚠️ endast med DC-block.",
 "Receiver neu abstimmen (manueller Transponder), Lock und Bild prüfen.":"Ställ in mottagaren på nytt (manuell transponder), kontrollera låsning och bild.",
-"Lock, Bild/Ton fehlerfrei.":"Låsning, bild/ljud felfritt."};
+"Lock, Bild/Ton fehlerfrei.":"Låsning, bild/ljud felfritt.",
+"Pluto ist belegt":"Pluto är upptagen",
+"Beenden und übernehmen":"Stoppa och ta över",
+"Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"En sändare körs på Pluto som Muxwright inte har startat själv (t.ex. från en tidigare session eller manuellt):",
+"Soll Muxwright ihn beenden und den Pluto übernehmen?":"Ska Muxwright stoppa den och ta över Pluto?",
+"Abgebrochen – der andere Sender läuft weiter.":"Avbrutet – den andra sändaren fortsätter."
+};
 export const TXT = {
  "title": "Installation",
  "steps": [

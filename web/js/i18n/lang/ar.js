@@ -1561,7 +1561,13 @@ export default {"Ensemble":"المجموعة",
 "DVB-S/S2: Symbolraten & FEC":"DVB-S/S2: معدلات الرموز وFEC",
 "DVB-S QPSK 1/2…7/8 bei 6000 kS/s, DVB-S2 QPSK/8PSK mit Rolloff 0,20/0,35 – ⚠️ nur mit DC-Block.":"DVB-S QPSK 1/2…7/8 عند 6000 kS/s، وDVB-S2 QPSK/8PSK مع roll-off ‏0.20/0.35 – ⚠️ فقط مع مانع DC.",
 "Receiver neu abstimmen (manueller Transponder), Lock und Bild prüfen.":"أعد ضبط المستقبل (مرحِّل يدوي)، وتحقق من القفل والصورة.",
-"Lock, Bild/Ton fehlerfrei.":"قفل، صورة/صوت بلا أخطاء."};
+"Lock, Bild/Ton fehlerfrei.":"قفل، صورة/صوت بلا أخطاء.",
+"Pluto ist belegt":"جهاز Pluto مشغول",
+"Beenden und übernehmen":"إيقاف وتولّي التحكم",
+"Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"يعمل على Pluto مُرسِل لم يشغّله Muxwright بنفسه (مثلًا من جلسة سابقة أو يدويًا):",
+"Soll Muxwright ihn beenden und den Pluto übernehmen?":"هل يوقفه Muxwright ويتولى التحكم في Pluto؟",
+"Abgebrochen – der andere Sender läuft weiter.":"أُلغي – يستمر المُرسِل الآخر في العمل."
+};
 export const TXT = {
   "title": "الإعداد الأولي",
   "steps": [

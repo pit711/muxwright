@@ -1561,7 +1561,13 @@ export default {"Ensemble":"एन्सेम्बल",
 "DVB-S/S2: Symbolraten & FEC":"DVB-S/S2: सिंबल रेट और FEC",
 "DVB-S QPSK 1/2…7/8 bei 6000 kS/s, DVB-S2 QPSK/8PSK mit Rolloff 0,20/0,35 – ⚠️ nur mit DC-Block.":"6000 kS/s पर DVB-S QPSK 1/2…7/8, रोल-ऑफ़ 0.20/0.35 के साथ DVB-S2 QPSK/8PSK – ⚠️ केवल DC ब्लॉक के साथ।",
 "Receiver neu abstimmen (manueller Transponder), Lock und Bild prüfen.":"रिसीवर को फिर से ट्यून करें (मैनुअल ट्रांसपोंडर), लॉक और चित्र जाँचें।",
-"Lock, Bild/Ton fehlerfrei.":"लॉक, चित्र/ध्वनि त्रुटि-रहित।"};
+"Lock, Bild/Ton fehlerfrei.":"लॉक, चित्र/ध्वनि त्रुटि-रहित।",
+"Pluto ist belegt":"Pluto व्यस्त है",
+"Beenden und übernehmen":"रोकें और नियंत्रण लें",
+"Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"Pluto पर एक ट्रांसमीटर चल रहा है जिसे Muxwright ने खुद शुरू नहीं किया (जैसे पिछले सत्र से या हाथ से):",
+"Soll Muxwright ihn beenden und den Pluto übernehmen?":"क्या Muxwright इसे रोककर Pluto का नियंत्रण ले?",
+"Abgebrochen – der andere Sender läuft weiter.":"रद्द किया गया – दूसरा ट्रांसमीटर चलता रहेगा।"
+};
 export const TXT = {
   "title": "सेटअप",
   "steps": [

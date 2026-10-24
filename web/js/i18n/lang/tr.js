@@ -1561,7 +1561,13 @@ export default {"Ensemble":"Ensemble",
 "DVB-S/S2: Symbolraten & FEC":"DVB-S/S2: sembol hızları ve FEC",
 "DVB-S QPSK 1/2…7/8 bei 6000 kS/s, DVB-S2 QPSK/8PSK mit Rolloff 0,20/0,35 – ⚠️ nur mit DC-Block.":"6000 kS/s'de DVB-S QPSK 1/2…7/8, roll-off 0,20/0,35 ile DVB-S2 QPSK/8PSK – ⚠️ yalnızca DC blokla.",
 "Receiver neu abstimmen (manueller Transponder), Lock und Bild prüfen.":"Alıcıyı yeniden ayarlayın (manuel transponder), kilidi ve görüntüyü kontrol edin.",
-"Lock, Bild/Ton fehlerfrei.":"Kilit, görüntü/ses hatasız."};
+"Lock, Bild/Ton fehlerfrei.":"Kilit, görüntü/ses hatasız.",
+"Pluto ist belegt":"Pluto meşgul",
+"Beenden und übernehmen":"Durdur ve devral",
+"Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):":"Pluto’da Muxwright’ın kendisinin başlatmadığı bir verici çalışıyor (ör. önceki bir oturumdan veya elle):",
+"Soll Muxwright ihn beenden und den Pluto übernehmen?":"Muxwright bunu durdurup Pluto’yu devralsın mı?",
+"Abgebrochen – der andere Sender läuft weiter.":"İptal edildi – diğer verici çalışmaya devam ediyor."
+};
 export const TXT = {
   "title": "Kurulum",
   "steps": [

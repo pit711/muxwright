@@ -459,6 +459,12 @@ const R = [
   ["Ensemble", "Ensemble", "Ensemble", "Ensemble", "Ensemble", "Ensemble", "Multipleks"],
   ["Firmware", "Firmware", "Micrologiciel", "Firmware", "Firmware", "Firmware", "Firmware"],
   ["Hardware", "Hardware", "Matériel", "Hardware", "Hardware", "Hardware", "Sprzęt"],
+  // ---------------------------------------------------------------- Pluto belegt (core.js apiTxStart)
+  ['Pluto ist belegt', 'Pluto is busy', 'Pluto occupé', 'El Pluto está ocupado', 'Pluto occupato', 'Pluto is bezet', 'Pluto jest zajęty'],
+  ['Beenden und übernehmen', 'Stop and take over', 'Arrêter et reprendre', 'Detener y tomar el control', 'Arresta e subentra', 'Stoppen en overnemen', 'Zatrzymaj i przejmij'],
+  ['Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):', 'A transmitter is running on the Pluto that Muxwright did not start itself (e.g. from an earlier session or by hand):', 'Un émetteur tourne sur le Pluto sans avoir été lancé par Muxwright (p. ex. d’une session précédente ou à la main) :', 'En el Pluto funciona un transmisor que Muxwright no ha iniciado (p. ej. de una sesión anterior o a mano):', 'Sul Pluto è attivo un trasmettitore non avviato da Muxwright (ad es. da una sessione precedente o a mano):', 'Op de Pluto draait een zender die Muxwright niet zelf heeft gestart (bijv. uit een eerdere sessie of handmatig):', 'Na Pluto działa nadajnik, którego Muxwright nie uruchomił (np. z wcześniejszej sesji lub ręcznie):'],
+  ['Soll Muxwright ihn beenden und den Pluto übernehmen?', 'Should Muxwright stop it and take over the Pluto?', 'Muxwright doit-il l’arrêter et reprendre le Pluto ?', '¿Debe Muxwright detenerlo y tomar el control del Pluto?', 'Muxwright deve arrestarlo e prendere il controllo del Pluto?', 'Moet Muxwright hem stoppen en de Pluto overnemen?', 'Czy Muxwright ma go zatrzymać i przejąć Pluto?'],
+  ['Abgebrochen – der andere Sender läuft weiter.', 'Cancelled – the other transmitter keeps running.', 'Annulé – l’autre émetteur continue.', 'Cancelado: el otro transmisor sigue funcionando.', 'Annullato – l’altro trasmettitore resta attivo.', 'Geannuleerd – de andere zender blijft draaien.', 'Anulowano – drugi nadajnik nadal działa.'],
 ];
 
 const D = Object.fromEntries(L.map(l => [l, {}]));

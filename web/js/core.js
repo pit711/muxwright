@@ -392,11 +392,25 @@ export async function setChannel(ch, freq) {
   return rfUpdate({ channel: ch, freq_hz: hz });
 }
 
+/** /api/tx/start; läuft auf dem Pluto ein Sender, den dieser Server nicht gestartet hat (409 foreign_mod),
+ *  fragt das Dashboard, ob er beendet und übernommen werden soll (sonst käme der Nutzer nicht weiter). */
+export async function apiTxStart() {
+  try { return await api('POST', '/api/tx/start'); }
+  catch (e) {
+    if (e.status !== 409 || e.data?.code !== 'foreign_mod') throw e;
+    const ok = await dialog({ title: T('Pluto ist belegt'), tid: 'confirm-takeover', ok: T('Beenden und übernehmen'), danger: true,
+      body: [h('p', null, T('Auf dem Pluto läuft ein Sender, den Muxwright nicht selbst gestartet hat (z. B. aus einer früheren Sitzung oder von Hand):')),
+        h('pre.small', null, e.data.cmd || ''), h('p', null, T('Soll Muxwright ihn beenden und den Pluto übernehmen?'))] });
+    if (!ok) throw new Error(T('Abgebrochen – der andere Sender läuft weiter.'));
+    return api('POST', '/api/tx/start', { force: true });
+  }
+}
+
 export async function txStart() {
   const ch = changes();
   if (S.errors.length) { toast(T('Konfiguration enthält Fehler – Start nicht möglich.'), 'error'); return; }
   if (ch.all.length) { if (!(await applyConfig({ quiet: true, noRestart: true }))) return; }
-  try { S.busy.start = true; S.liveUpdate(); await api('POST', '/api/tx/start'); toast(T('Kette wird gestartet (Pluto stumm)'), 'ok'); }
+  try { S.busy.start = true; S.liveUpdate(); await apiTxStart(); toast(T('Kette wird gestartet (Pluto stumm)'), 'ok'); }
   catch (e) { toast(T('Start fehlgeschlagen: {msg}', { msg: e.message }), 'error', 6000); }
   finally { S.busy.start = false; refreshState().then(() => S.liveUpdate()).catch(() => {}); }
 }
@@ -453,7 +467,7 @@ export async function applyConfig({ quiet = false, noRestart = false, auto = fal
     }
     if (running && !noRestart && (ch.structural.length || r?.restart_required)) {
       await api('POST', '/api/tx/stop');
-      await api('POST', '/api/tx/start');
+      await apiTxStart();
       toast(auto ? T('Automatisch übernommen – Kette neu gestartet') : T('Übernommen – Kette neu gestartet'), 'ok');
     } else {
       if (running) await pushLiveChanges(prev, cfg, ch.live);
