@@ -2,11 +2,11 @@
 UDP → Modulator auf dem Pluto, für die neuen Standards von Beta 0.3. Der Sender bleibt AUS (rf.enabled false, −89,75 dB):
 geprüft werden nur Kettenstart, Ankunft der TS-Pakete am Modulator (UDP-Zähler, aufgefüllte Nullpakete) und DAC-Unterläufe.
 
-  python test/e2e_device_world.py [--runtime H:\\temp\\mx_e2e_rt] [--port 8811] [--seconds 25] [nur STANDARD …]
+  python test/e2e_device_world.py [--runtime DIR] [--port 8811] [--seconds 25] [nur STANDARD …]
 
 Abbruch, sobald die Dämpfung am Pluto nicht −89,75 dB ist (Sicherheitsregel: nie ungefragt senden).
 """
-import argparse, json, os, subprocess, sys, time, urllib.request
+import argparse, json, os, subprocess, sys, tempfile, time, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -67,7 +67,7 @@ def gain():
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--runtime", default=r"H:\temp\mx_e2e_rt")
+    ap.add_argument("--runtime", default=os.path.join(tempfile.gettempdir(), "mx_e2e_rt"))
     ap.add_argument("--port", type=int, default=8811)
     ap.add_argument("--seconds", type=float, default=25)
     ap.add_argument("only", nargs="*")

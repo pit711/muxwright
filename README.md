@@ -147,8 +147,8 @@ The full list of adapters, attenuators and QO-100 gear is on the [hardware page]
 ## Installation
 
 1. Request the installer at https://muxwright.com/download.html. You confirm your e-mail address and that you use
-   Muxwright only in a shielded lab; the download link arrives by e-mail. Run `Muxwright-Setup-0.1-beta.exe`
-   (no administrator rights needed; ~81 MB) and compare the SHA-256 shown on the download page.
+   Muxwright only in a shielded lab; the download link arrives by e-mail. Run `Muxwright-Setup-0.3-beta.exe`
+   (no administrator rights needed; ~82 MB) and compare the SHA-256 shown on the download page.
 2. Start Muxwright – a console window (the server) opens and the dashboard appears in your browser at
    `http://127.0.0.1:8792/`. Closing the console mutes the Pluto and stops the server.
 3. The **guided setup** walks you through: device and firmware check → PC performance → operating mode (lab or
@@ -178,18 +178,19 @@ pc/            Windows server: HTTP API + SSE, Pluto control (pylibiio), monitor
   hwcheck.py     CPU/GPU/NVENC rating and benchmark
   libiio/        libiio 0.25 Windows binaries (LGPL)
   device_files/  statically linked ARM modulators deployed to the Pluto
-web/           Dashboard – vanilla JS ES modules, no build step, works offline
+web/           Dashboard – vanilla JS ES modules, no build step, works offline; flags/ from flag-icons (MIT)
   js/i18n/       translations (a/b/c.js for 7 languages, lang/<code>.js for 13 more; test/i18n_check.mjs)
 runner/        Signal generation in WSL: dablab_run.py (live/render/check/selftest), DAB, FM, DVB, PAL
   fm/            FM/RDS DSP (GPL-3.0, see NOTICE.md)
-  dvb/           TS muxing, SI tables, encoders (ffmpeg/NVENC), sources (files, playlists, YouTube)
-  pal/           PAL B/G/D/K/I modulator and test patterns
+  dvb/           TS muxing, SI tables (DVB, ISDB, ATSC PSIP), encoders (ffmpeg/NVENC), sources (files, playlists, YouTube)
+  pal/           analogue TV: PAL B/G/D/K/I/M/N and NTSC-M/J loops, test patterns, check demodulator
   patches/       patches for ODR-mmbTools and welle.io applied during component installation
 pluto_fw/      Firmware: build.sh (Buildroot external), br2ext/, agent/ (HTTP :8080), iqplay/, mod/ (modulators)
-  mod/           dvbt_mod, dvbc_mod, dvbs_mod, dvbs2_mod, rrc_fir_gen, libdvbmod; tests/ with gr-dtv comparisons
+  mod/           dvbt_mod, dvbc_mod (Annex A/B/C), dvbs_mod, dvbs2_mod, atsc_mod, isdbt_mod, dtmb_mod, rrc_fir_gen,
+                 libdvbmod; tests/ with gr-dtv, gr-isdbt and dtmb-sdr comparisons
 wsl/           setup_components.sh – idempotent component installer used by the setup
 launcher/      PyInstaller launcher (Muxwright.exe); Python, numpy, scipy and pylibiio are bundled, pc/ is loaded at run time
-test/          Playwright UI tests against the mock server, installer end-to-end test, i18n checks
+test/          Playwright UI tests against the mock server, installer end-to-end test, muted device-chain test, i18n checks
 ```
 
 The Windows installer itself (Inno Setup script, licence texts) lives in the separate `installer/` folder next to this
@@ -256,13 +257,28 @@ firmware agent.
 python test/test_ui_mock.py            :: Playwright run of the whole dashboard against test/mock_server.py (German UI)
 node test/i18n_check.mjs               :: every T('…') text present in all 20 languages, placeholders intact
 python pc/test_flasher_offline.py      :: flasher with fake dfu-util and fake SSH
-python test/installer_e2e.py --setup Muxwright-Setup-0.1-beta.exe
-                                       :: silent install, fresh WSL distro, full setup via Playwright,
-                                       :: self-test, DAB/DVB-T/FM renders, DAB monitoring – no real Pluto needed
+python pc/test_api_offline.py         :: server validation incl. every standard (channel plans, rates, output path)
+python test/installer_e2e.py --setup Muxwright-Setup-0.3-beta.exe
+                                       :: silent install, fresh WSL distro, full setup via Playwright, self-test,
+                                       :: DAB/DVB-T/FM renders, DAB monitoring, ATSC/ISDB-Tb/DTMB/J.83 B/NTSC checks
+python test/e2e_device_world.py        :: device chain with a real Pluto but MUTED (-89.75 dB, transmitter off):
+                                       :: server -> runner -> UDP -> modulator for ATSC, ISDB-T, DTMB, J.83 B,
+                                       :: DVB-C, DVB-T, DVB-S2; checks UDP delivery, DAC underflows, stuffing
 ```
 
-Modulator verification (`pluto_fw/mod/tests/`): DVB-T and DVB-S2 are compared bit-exactly against GNU Radio's gr-dtv,
-DVB-C against a numpy demodulator, PAL and FM against the project's own decoders.
+Modulator verification (`pluto_fw/mod/tests/`):
+
+| Modulator | Reference |
+|---|---|
+| DVB-T, DVB-S2 | bit-exact against GNU Radio gr-dtv |
+| ATSC 1.0 | symbols bit-exact against gr-dtv, loopback through gr-dtv `atsc_rx` |
+| ISDB-T / ISDB-Tb | loopback through the independent receiver [gr-isdbt](https://github.com/git-artes/gr-isdbt) |
+| DTMB | loopback through the independent receiver [dtmb-sdr](https://github.com/ningzichun/dtmb-sdr) |
+| J.83 B | QAM symbols identical to the gr-dtv J.83 B transmitter, own trellis/RS receiver |
+| DVB-C (Annex A/C), PAL, NTSC, FM | numpy demodulator and the project's own decoders |
+
+All modulators run in real time on the Pluto's two Cortex-A9 cores; the new ones were checked at the DAC with the
+transmitter muted (0 underflows). None of the Beta 0.3 additions has been verified with a consumer receiver yet.
 
 ## Licences and codecs
 

@@ -58,3 +58,4 @@ pluto_fw/mod/isdbt_mod
 pluto_fw/mod/rrc_fir_gen
 pluto_fw/mod/tests/dvbt2_proto/
 pluto_fw/mod/tools/*.o
+pc/device_files/rrc_dvbc_5*_0.1*_128.fir
