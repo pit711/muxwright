@@ -52,6 +52,7 @@ PRESETS = os.path.join(HERE, "presets")
 PLDIR = os.path.join(RUNTIME, "playlists")
 VIDEO_SUB = "video"
 CONFIG_FILE = os.path.join(RUNTIME, "pc_config.json")
+DEVICE_MOD_FILE = os.path.join(RUNTIME, "device_mod.json")   # PID des zuletzt von uns gestarteten Gerätemodulators
 ONBOARDING_FILE = os.path.join(RUNTIME, "onboarding.json")
 # Einrichtung beim ersten Start: Version erhöhen, wenn sich Rechtstexte/Bestätigungen ändern (dann erneut zustimmen)
 ONBOARDING_VERSION = 2      # 2: Bestätigung „codecs“ (Fremdkomponenten selbst installieren, § 11 Nr. 1 PatG)
@@ -850,11 +851,26 @@ class App:
         return bool((st.get("mod") or {}).get("running")) and self.device is None
 
     def orphan_mod(self):
-        """Command line if the device modulator was started by Muxwright itself (earlier session, server restarted or
-        closed while transmitting): it uses our upload folders. Such a leftover is taken over without force.
-        Modulators started by hand (e.g. /usr/bin/dvbt_mod for live TV) stay foreign."""
-        cmd = str(((self.agent_status or {}).get("mod") or {}).get("cmd") or "")
+        """Command line if the device modulator was started by Muxwright itself in an earlier session (server restarted
+        or closed while transmitting): same PID as remembered in DEVICE_MOD_FILE at start, or our upload folders.
+        Such a leftover is taken over without force; modulators started by hand stay foreign."""
+        m = (self.agent_status or {}).get("mod") or {}
+        cmd = str(m.get("cmd") or "")
+        try:
+            with open(DEVICE_MOD_FILE, encoding="utf-8") as f:
+                mine = json.load(f)
+        except (OSError, ValueError):
+            mine = {}
+        if m.get("pid") and m.get("pid") == mine.get("pid") and cmd.startswith(str(mine.get("cmd") or "\0")):
+            return cmd
         return cmd if ("/tmp/dablab_files/" in cmd or "/tmp/dablab_bin/" in cmd) else ""
+
+    def remember_device_mod(self, pid, cmd):
+        try:
+            with open(DEVICE_MOD_FILE, "w", encoding="utf-8") as f:
+                json.dump({"pid": pid, "cmd": cmd, "ts": int(time.time())}, f)
+        except OSError as e:
+            log("warn", f"Merkdatei Gerätemodulator nicht geschrieben: {e}")
 
     def public_cfg(self):
         return {k: v for k, v in self.cfg.items() if not k.startswith("_")}
@@ -1083,6 +1099,7 @@ class App:
             self.device = {"cmd": cmd, "args": margs, "port": int(self.args.device_udp_port), "pid": r.get("pid"),
                            "started": time.time(), "unf0": None, "host": self.args.device_host, "standard": std,
                            "fir": fir}
+            self.remember_device_mod(r.get("pid"), cmd)
             log("info", f"Gerät: {cmd} {' '.join(margs)} (pid {r.get('pid')})")
             self.save_config()
             argv, env = self.backend.live_argv(CONFIG_FILE)
@@ -1162,6 +1179,7 @@ class App:
                 log("info", f"PAL: FIR aus (iqplay ohne -N) – Rate {rr.get('rate_hz')} Hz, fir_en {rr.get('fir_en')}")
             except Exception as e:
                 log("warn", f"PAL: FIR aus: {e}")
+        self.remember_device_mod(r.get("pid"), "/usr/bin/iqplay")
         self.device = {"cmd": "pal", "args": [name], "file": name, "pid": r.get("pid"), "started": time.time(),
                        "unf0": None, "host": self.args.device_host, "standard": "pal", "loop": j.get("summary")}
         self.source = "runner"
@@ -2565,11 +2583,12 @@ def main():
         pass
     args.min_atten = max(0.0, min(89.75, args.min_atten))
     if args.runtime:
-        global RUNTIME, MEDIA, RXDIR, CONFIG_FILE, PLDIR, PLSTORE, ONBOARDING_FILE, LOGDIR
+        global RUNTIME, MEDIA, RXDIR, CONFIG_FILE, PLDIR, PLSTORE, ONBOARDING_FILE, LOGDIR, DEVICE_MOD_FILE
         RUNTIME = os.path.abspath(args.runtime)
         MEDIA, RXDIR, PLDIR = (os.path.join(RUNTIME, d) for d in ("media", "rx", "playlists"))
         CONFIG_FILE = os.path.join(RUNTIME, "pc_config.json")
         ONBOARDING_FILE = os.path.join(RUNTIME, "onboarding.json")
+        DEVICE_MOD_FILE = os.path.join(RUNTIME, "device_mod.json")
         LOGDIR = os.path.join(RUNTIME, "logs")
         PLSTORE = playlists.Store(PLDIR, MEDIA)
 
