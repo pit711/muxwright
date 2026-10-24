@@ -34,6 +34,10 @@ COMPONENTS = [
 WSL_KEYS = ("base", "ffmpeg", "tsduck", "odr", "welle", "modulators", "ytdlp")
 
 
+WSL2_HINT = ("WSL 2 nicht verfügbar: im BIOS/UEFI die Virtualisierung (Intel VT-x / AMD-V bzw. SVM) einschalten und in "
+             "Windows „Plattform für virtuelle Computer“ aktivieren (als Administrator: wsl --install --no-distribution), dann neu starten.")
+
+
 def win2wsl(p):
     p = os.path.abspath(p).replace("\\", "/")
     m = re.match(r"^([A-Za-z]):/(.*)$", p)
@@ -87,7 +91,19 @@ class Setup:
                 names = r.stdout.decode("utf-16-le", "ignore").replace("\x00", "").split()
             except Exception:
                 pass
-        return {"installed": ok, "distro": self.distro, "distro_ok": self.distro in names}
+        return {"installed": ok, "distro": self.distro, "distro_ok": self.distro in names, "version": self.distro_version()}
+
+    def distro_version(self):
+        """WSL-Version (1/2) der eigenen Distro aus „wsl -l -v“, None wenn nicht vorhanden."""
+        try:
+            r = subprocess.run(["wsl", "-l", "-v"], capture_output=True, timeout=20, creationflags=NOWIN)
+            for line in r.stdout.decode("utf-16-le", "ignore").replace("\x00", "").splitlines():
+                parts = line.replace("*", " ").split()
+                if len(parts) >= 3 and parts[0] == self.distro and parts[-1] in ("1", "2"):
+                    return int(parts[-1])
+        except Exception:
+            pass
+        return None
 
     def win_ffmpeg(self):
         for p in (os.environ.get("DABLAB_WIN_FFMPEG", ""), r"C:\ffmpeg\bin\ffmpeg.exe", os.path.join(WIN_FFMPEG_DIR, "bin", "ffmpeg.exe")):
@@ -208,10 +224,17 @@ class Setup:
         if not w["installed"]:
             return False, "WSL ist nicht installiert: als Administrator „wsl --install --no-distribution“ ausführen und neu starten"
         if w["distro_ok"]:
+            if w.get("version") == 1:                 # WSL 1 ist unter Last instabil → auf WSL 2 umstellen
+                self._line("@@STEP wsl --set-version " + self.distro + " 2")
+                r = subprocess.run(["wsl", "--set-version", self.distro, "2"], capture_output=True, timeout=3600, creationflags=NOWIN)
+                if self.distro_version() != 2:
+                    return False, WSL2_HINT
             self._line("@@OK wsl_distro (vorhanden)")
             return True, None
         os.makedirs(self.distro_dir, exist_ok=True)
-        cmd = ["wsl", "--install", "Ubuntu-24.04", "--name", self.distro, "--location", self.distro_dir, "--no-launch", "--web-download"]
+        # immer WSL 2 – nie still auf WSL 1 ausweichen (instabil unter Last, kein echtes Linux-Kernel-I/O)
+        cmd = ["wsl", "--install", "Ubuntu-24.04", "--name", self.distro, "--location", self.distro_dir, "--version", "2",
+               "--no-launch", "--web-download"]
         self._line("@@STEP " + " ".join(cmd))
         r = subprocess.run(cmd, capture_output=True, timeout=1800, creationflags=NOWIN)
         out = (r.stdout + r.stderr).decode("utf-16-le", "ignore").replace("\x00", "")
@@ -219,7 +242,11 @@ class Setup:
             if s.strip():
                 self._line(s)
         if not self.wsl_state()["distro_ok"]:
-            return False, f"wsl --install fehlgeschlagen ({r.returncode})"
+            low = out.lower()
+            hint = WSL2_HINT if any(k in low for k in ("virtual", "hyper-v", "hcs_", "0x80370102", "0x8007019e")) else ""
+            return False, f"wsl --install fehlgeschlagen ({r.returncode})" + (f" – {hint}" if hint else "")
+        if self.distro_version() != 2:
+            return False, WSL2_HINT
         r = subprocess.run(["wsl", "-d", self.distro, "-u", "root", "--", "true"], capture_output=True, timeout=300, creationflags=NOWIN)
         self._line("@@OK wsl_distro")
         return r.returncode == 0, None if r.returncode == 0 else "Erststart der Linux-Umgebung fehlgeschlagen"
