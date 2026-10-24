@@ -24,7 +24,7 @@ export function freqCardStd(std, rf) {
     fIn.value = (rf.freq_hz / 1e6).toFixed(1);
     const setF = async mhz => {
       mhz = Math.round(mhz * 10) / 10;
-      if (!(mhz >= STD.FM_MIN_MHZ && mhz <= STD.FM_MAX_MHZ)) return toast(T('UKW: 87,5–108,0 MHz'), 'error');
+      if (!(mhz >= STD.FM_MIN_MHZ && mhz <= STD.FM_MAX_MHZ)) return toast(T('UKW: 76–108 MHz'), 'error');
       if (Math.round(mhz * 1e6) === S.draft.rf.freq_hz && S.draft.rf.channel === 'fm') return;
       await rfUpdate({ channel: 'fm', freq_hz: Math.round(mhz * 1e6) }); S.render(true);
     };
@@ -63,7 +63,7 @@ export function freqCardStd(std, rf) {
     ], { tid: 'card-freq' });
   }
   // DVB-T / DVB-C / PAL
-  const list = STD.dvbChannels(std);
+  const list = STD.dvbChannels(std, S.draft);
   const isPal = std === 'pal';
   const bands = [...new Set(list.map(c => c.band))];
   const chSel = h('select', { tid: 'dvb-channel' },

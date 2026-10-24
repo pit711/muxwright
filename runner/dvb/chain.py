@@ -13,6 +13,7 @@ import threading
 import time
 
 from . import si, sources, nvenc
+from . import tables as T
 
 try:
     import numpy as np
@@ -174,6 +175,9 @@ class DvbChain:
     # ------------------------------------------------------------------ Aufbau
     def write_tables(self):
         c = self.cfg
+        if T.is_psip(c):
+            si.write_psip(self.host, self.sdir, c)
+            return
         self.host.atomic_write(os.path.join(self.sdir, "nit.xml"), si.nit_xml(c, self.versions["nit"]))
         self.host.atomic_write(os.path.join(self.sdir, "sdt.xml"), si.sdt_xml(c, self.versions["sdt"], self.names))
         self.host.atomic_write(os.path.join(self.sdir, "time.xml"), si.time_xml(c))
@@ -287,17 +291,46 @@ class DvbChain:
         cmd += ["-mpegts_transport_stream_id", str(ts["transport_stream_id"]),
                 "-mpegts_original_network_id", str(ts["original_network_id"]),
                 "-mpegts_pmt_start_pid", str(ts["pmt_start_pid"]), "-mpegts_start_pid", str(ts["start_pid"]),
-                "-mpegts_flags", "+nit+system_b" if small else "+nit+pat_pmt_at_frames+system_b", "-muxrate", str(c["_muxrate"]),
+                "-mpegts_flags", self._mpegts_flags(small), "-muxrate", str(c["_muxrate"]),
                 "-pcr_period", str(ts.get("pcr_period_ms", 30)), "-pat_period", "0.4" if small else "0.1",
                 "-sdt_period", "1" if small else "0.25", "-nit_period", "1" if small else "0.25", "-tables_version", str(ts.get("tables_version", 1) % 32),
                 "-max_delay", "500000", "-muxpreload", "0.5", "-muxdelay", "0.5",
                 "-f", "mpegts", "pipe:1"]
         return cmd
 
+    def _mpegts_flags(self, small):
+        c = self.cfg
+        if T.is_psip(c):                 # ATSC-Systemschicht: AC-3 als stream_type 0x81, keine NIT
+            return "+pat_pmt_at_frames"
+        f = "+nit+system_b" if small else "+nit+pat_pmt_at_frames+system_b"
+        if c["mode"] == "isdbt" and c["isdbt"].get("region") != "jp":
+            f += "+latm"                 # ISDB-Tb: AAC in LATM/LOAS (stream_type 0x11); Japan: ADTS
+        return f
+
+    def _stt_loop(self):
+        while not self.stop_evt.wait(1.0):
+            try:
+                si.write_stt(self.sdir)
+            except OSError:
+                pass
+
     def tsp_cmd(self, output, regulate):
         c, ts = self.cfg, self.cfg["ts"]
         tsp = self.host.tool("tsp")
         R = c["_rate_str"]
+        if T.is_psip(c):
+            # ffmpeg schreibt immer eine SDT: durch Nullpakete ersetzen; PSIP auf der Basis-PID 0x1FFB (A/65: MGT <= 150 ms,
+            # VCT <= 400 ms, STT 1 s)
+            cmd = [tsp, "--bitrate", R, "-I", "file", "-P", "filter", "--negate", "--pid", "17", "--stuffing",
+                   "-P", "inject", "--pid", "8187", "--bitrate", "40000", "--stuffing", "--poll-files",
+                   os.path.join(self.sdir, "mgt.bin") + "=100", os.path.join(self.sdir, "vct.bin") + "=300",
+                   os.path.join(self.sdir, "stt.bin") + "=1000",
+                   "-P", "pcradjust", "--bitrate", R]
+            if regulate:
+                cmd += ["-P", "regulate", "--bitrate", R, "--packet-burst", "16"]
+            if c["output"]["kind"] == "udp" and not self.render:
+                cmd += ["-P", "count", "--interval", str(max(1000, int(c["_rate_bps"] / 8 / 188 * 5)))]
+            return cmd + output
         cmd = [tsp, "--bitrate", R, "-I", "file",
                "-P", "inject", "--pid", "16", "--replace", "--stuffing", "--poll-files", os.path.join(self.sdir, "nit.xml"),
                "-P", "inject", "--pid", "17", "--replace", "--stuffing", "--poll-files", os.path.join(self.sdir, "sdt.xml")]
@@ -325,6 +358,10 @@ class DvbChain:
         c = self.cfg
         kind = c["output"]["kind"]
         self.write_tables()
+        if T.is_psip(c):
+            t = threading.Thread(target=self._stt_loop, daemon=True, name="stt")
+            t.start()
+            self.threads.append(t)
         ffcmd = self.ffmpeg_cmd(seconds)  # baut auch Quellen/Feeder
         for f in self.feeders.values():
             f.start()

@@ -14,9 +14,10 @@ import threading
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-STANDARDS = ("dab", "fm", "dvbt", "dvbc", "dvbs", "pal")
-DVB = ("dvbt", "dvbc", "dvbs")
-DEVICE_ONLY = ("dvbs", "pal")
+STANDARDS = ("dab", "fm", "dvbt", "dvbc", "dvbs", "pal", "atsc", "isdbt", "dtmb")
+DVB = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")  # alle TS-Standards (Runner runner/dvb)
+DEVICE_ONLY = ("dvbs", "pal", "atsc", "isdbt", "dtmb")
+UNTESTED = ("atsc", "isdbt", "dtmb")                     # dazu DVB-C Annex B/C, NTSC-M/-J, PAL-M/-N, RBDS
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 with open(os.path.join(HERE, "channels.json"), encoding="utf-8") as _f:
@@ -92,6 +93,11 @@ def validate_fm(c, errs, warns, validate_audio):
         errs.append("fm.freq_mhz fehlt")
     else:
         khz = round(f * 1000)
+        region = str(fm.get("region") or "eu").lower()
+        if region != "jp" and f < 87.5:
+            errs.append(f"fm.freq_mhz {f}: unter 87,5 MHz nur mit fm.region = jp (Japan 76–95 MHz)")
+        if region == "jp" and f > 95.0:
+            warns.append(f"fm.freq_mhz {f}: über dem japanischen UKW-Band 76–95 MHz")
         if khz % t["raster_khz"]:
             warns.append(f"fm.freq_mhz {f} liegt nicht im {t['raster_khz']}-kHz-Raster")
         rf = c.setdefault("rf", {})
@@ -201,6 +207,14 @@ def choose_path(c, std):
         return "device", "DVB-S: dvbs_mod auf dem Pluto (RRC im AD9361-FIR, Symbolrate × 2 am DAC)"
     if std == "pal":
         return "device", "PAL: zyklische Schleife auf dem Pluto (8 MS/s, iqplay)"
+    if std == "atsc":
+        return "device", "ATSC: atsc_mod auf dem Pluto (8-VSB, TS per UDP)"
+    if std == "isdbt":
+        return "device", "ISDB-T: isdbt_mod auf dem Pluto (OFDM 8,127 MS/s, TS per UDP)"
+    if std == "dtmb":
+        return "device", "DTMB: dtmb_mod auf dem Pluto (7,56 MS/s, TS per UDP)"
+    if std == "dvbc" and str((c.get("dvbc") or {}).get("annex", "a")).lower() == "b":
+        return "device", "J.83 B: dvbc_mod --annex b auf dem Pluto (TS per UDP)"
     sr = int(rf.get("sample_rate") or 0)
     fits = 0 < sr <= USB_MAX_SPS
     if std == "dvbc" and int((c.get("dvbc") or {}).get("sps", 2)) == 1:

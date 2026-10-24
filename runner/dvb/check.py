@@ -289,8 +289,11 @@ def compare(cfg, rep):
                 M.append("PAT: Programm %d fehlt" % s["service_id"])
         if pat.get("nit_pid") not in (16, None):
             M.append("PAT verweist auf NIT-PID %s" % pat.get("nit_pid"))
+    psip = T.is_psip(cfg)
     sdt = t.get("sdt")
-    if not sdt:
+    if psip:
+        pass                              # ATSC: virtuelle Kanaele in der TVCT/CVCT statt SDT
+    elif not sdt:
         M.append("SDT fehlt")
     else:
         if sdt["original_network_id"] != ts["original_network_id"]:
@@ -309,7 +312,9 @@ def compare(cfg, rep):
             if ts.get("eit", True) and e["eit_pf"] != "true":
                 M.append("SDT: EIT_present_following nicht gesetzt (%s)" % s["name"])
     nit = t.get("nit")
-    if not nit:
+    if psip:
+        pass
+    elif not nit:
         M.append("NIT fehlt")
     else:
         if nit["network_id"] != ts["network_id"]:
@@ -322,7 +327,7 @@ def compare(cfg, rep):
         else:
             x = tss[0]
             d = x.get("delivery")
-            if not d:
+            if not d and std not in ("isdbt", "dtmb"):       # ISDB_terrestrial_delivery_system_descriptor zerlegt die Analyse nicht
                 M.append("NIT: Delivery-System-Descriptor fehlt")
             elif std == "dvbt":
                 dd = cfg["dvbt"]
@@ -332,6 +337,8 @@ def compare(cfg, rep):
                 for k, v in want.items():
                     if d.get(k) != v:
                         M.append("NIT terrestrial %s = %r statt %r" % (k, d.get(k), v))
+            elif std in ("isdbt", "dtmb") or not d:
+                pass                      # ISDB-/DTMB-Delivery: von tsanalyze nicht zerlegt bzw. nicht vorhanden
             elif std == "dvbs":
                 dd = cfg["dvbs"]
                 want = {"kind": "satellite", "frequency": int(dd["frequency_hz"]), "symbol_rate": int(dd["symbol_rate"]),
@@ -459,7 +466,7 @@ def analyze_file(host, cfg, path, log=None, decode_seconds=4):
             want_a = {"mp2": "mp2", "aac": "aac", "ac3": "ac3"}[s["audio"]["codec"]]
             if not a:
                 d["stream_check"].append("Programm %d ohne Ton" % s["service_id"])
-            elif a[0]["codec"] != want_a:
+            elif a[0]["codec"].replace("aac_latm", "aac") != want_a:
                 d["stream_check"].append("Programm %d Audio %s statt %s" % (s["service_id"], a[0]["codec"], want_a))
             if log:
                 log("info", "Decodertest Dienst %d (%s)" % (s["service_id"], s["name"]))

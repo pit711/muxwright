@@ -26,7 +26,7 @@ import numpy as np
 from . import dsp
 from . import rds as rdsmod
 
-FM_MIN_MHZ, FM_MAX_MHZ = 87.5, 108.0
+FM_MIN_MHZ, FM_MAX_MHZ = 76.0, 108.0            # Japan 76–95 MHz, sonst 87,5–108 MHz (Server prüft je fm.region)
 SOURCE_KINDS = ("file", "tone", "silence", "noise", "pinknoise", "sweep", "lr_test", "polarity", "playlist")
 
 

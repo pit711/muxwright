@@ -309,6 +309,8 @@ class RdsEncoder:
         c.setdefault("af_regional", [])
         c.setdefault("tuned_mhz", None)
         c.setdefault("ecc", None)
+        if str(c.get("standard", "rds")).lower() == "rbds":
+            c["ecc"] = None                      # RBDS (NRSC-4-B): kein Extended Country Code
         c.setdefault("lic", None)
         c.setdefault("pin", 0)
         c.setdefault("ct", True)

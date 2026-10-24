@@ -14,7 +14,7 @@ import time
 import numpy as np
 
 from . import gen, demod
-from .systems import SYSTEMS, channel_lookup, channel_table, default_offset
+from .systems import FS_525, SYSTEMS, UNTESTED, channel_lookup, channel_table, default_offset, loop_s
 
 MAX_WORKERS = 3          # + Hauptprozess + ffmpeg <= 4 Kerne
 
@@ -24,17 +24,25 @@ def normalize(raw):
     E, W = [], []
     c = copy.deepcopy(raw)
     p = c.setdefault("pal", {})
-    p["system"] = str(p.get("system", "BG")).upper().replace("/", "")
+    p["system"] = str(p.get("system", "BG")).upper().replace("/", "").replace("-", "_")
+    p["system"] = {"M": "NTSC_M", "NTSC": "NTSC_M", "PALM": "PAL_M", "PALN": "PAL_N", "N": "PAL_N", "NTSCJ": "NTSC_J", "J": "NTSC_J"}.get(p["system"], p["system"])
     if p["system"] in ("B", "G"):
         p["system"] = "BG"
     if p["system"] in ("D", "K"):
         p["system"] = "DK"
     if p["system"] not in SYSTEMS:
-        E.append("pal.system: BG, DK oder I")
+        E.append("pal.system: BG, DK, I, NTSC_M, NTSC_J, PAL_M oder PAL_N")
         return c, E, W
+    sysd = SYSTEMS[p["system"]]
+    if p["system"] in UNTESTED:
+        W.append("Norm %s ist ungetestet (untested)" % p["system"])
     p["fs"] = int(p.get("fs") or 8000000)
     p["live_fs"] = int(p.get("live_fs") or 7000000)
-    if p["fs"] not in (7000000, 8000000):
+    if sysd["lines"] == 525:
+        p["fs"] = int(round(FS_525))       # 508 Abtastwerte je Zeile
+        if p.get("live"):
+            E.append("pal.live: %s nur als Standbild-Schleife (Live nur fuer 625-Zeilen-Normen)" % p["system"])
+    elif p["fs"] not in (7000000, 8000000):
         E.append("pal.fs: 7000000 oder 8000000")
     if p["live_fs"] < 7000000:
         E.append("pal.live_fs: mindestens 7 MS/s (Ton bei +3,4 MHz im Basisband)")
@@ -42,9 +50,10 @@ def normalize(raw):
     p["_offset_loop"] = default_offset(p["system"], p["fs"]) if off in (None, "auto") else float(off)
     p["_offset_live"] = default_offset(p["system"], p["live_fs"]) if off in (None, "auto") else float(off)
     for k in ("_offset_loop", "_offset_live"):
+        if sysd["lines"] == 525:
+            continue                       # default_offset rastet auf Zeilenfrequenz-Vielfache
         if abs(p[k] / 25.0 - round(p[k] / 25.0)) > 1e-9:
             E.append("pal.offset_hz muss ein Vielfaches von 25 Hz sein")
-    sysd = SYSTEMS[p["system"]]
     for fs, off_ in ((p["fs"], p["_offset_loop"]), (p["live_fs"], p["_offset_live"])):
         if sysd["sound_mhz"] * 1e6 - off_ + 80e3 > fs / 2 or -off_ - (sysd["vestige_mhz"] + 0.3) * 1e6 < -fs / 2:
             W.append("Norm %s passt bei %.1f MS/s und Versatz %.3f MHz nur knapp in das Basisband" % (p["system"], fs / 1e6, off_ / 1e6))
@@ -63,7 +72,7 @@ def normalize(raw):
     snd.setdefault("freq_hz", 1000)
     snd.setdefault("deviation_hz", sysd["deviation_hz"])
     snd.setdefault("level_db", -13)
-    snd.setdefault("preemphasis_us", 50)
+    snd.setdefault("preemphasis_us", sysd.get("preemphasis_us", 50))
     snd.setdefault("tone_level", 1.0)
     p["level"] = float(p.get("level", 0.9))
     if not (0.05 <= p["level"] <= 1.0):
@@ -96,7 +105,7 @@ def params(c, live=False):
 def summary(c):
     p, rf = c["pal"], c["rf"]
     return {"standard": "pal", "system": p["system"], "vision_hz": rf["freq_hz"], "channel": rf.get("channel"),
-            "loop": {"fs": p["fs"], "lo_hz": rf["lo_hz"], "offset_hz": p["_offset_loop"], "samples": int(p["fs"] * gen.LOOP_S)},
+            "loop": {"fs": p["fs"], "lo_hz": rf["lo_hz"], "offset_hz": p["_offset_loop"], "samples": int(round(p["fs"] * loop_s(p["system"])))},
             "live": {"fs": p["live_fs"], "lo_hz": rf["lo_hz_live"], "offset_hz": p["_offset_live"]},
             "sound_hz": rf["freq_hz"] + SYSTEMS[p["system"]]["sound_mhz"] * 1e6, "image": p["image"], "sound": p["sound"]}
 
@@ -110,7 +119,7 @@ def _still_rgb(host, c):
     img = dict(c["pal"]["image"])
     if img["kind"] in ("video", "youtube"):
         img["kind"] = "testpattern"          # Schleife = Standbild; erstes Bild eines Videos waere auch moeglich
-    return gen.ffmpeg_image(host, img)
+    return gen.ffmpeg_image(host, img, h=480 if SYSTEMS[c["pal"]["system"]]["lines"] == 525 else 576)
 
 
 def stream_loop(host, c, rgb):
@@ -196,13 +205,14 @@ def cmd_check(args, host):
         rep["methods"][mth] = d
         M = rep["mismatches"]
         tag = "[%s] " % mth
-        if abs(d["line_rate_hz"] - 15625) > 1:
-            M.append(tag + "Zeilenfrequenz %.1f Hz" % d["line_rate_hz"])
+        fh_soll = 1.0 / SYSTEMS[p["system"]]["line_s"]
+        if abs(d["line_rate_hz"] - fh_soll) > 1:
+            M.append(tag + "Zeilenfrequenz %.1f Hz (soll %.1f)" % (d["line_rate_hz"], fh_soll))
         if abs(d["blank_rel"] - 0.73) > 0.04:
             M.append(tag + "Austastpegel %.3f statt 0,73" % d["blank_rel"])
         if abs(d["white_rel"] - 0.10) > 0.05:
             M.append(tag + "Weisspegel %.3f statt 0,10" % d["white_rel"])
-        if d.get("luma_correlation", 0) < 0.95:
+        if SYSTEMS[p["system"]]["lines"] == 625 and d.get("luma_correlation", 0) < 0.95:
             M.append(tag + "Bild weicht ab (Korrelation %.3f)" % d.get("luma_correlation", 0))
         if p["sound"]["kind"] == "tone":
             if abs(d.get("audio_tone_hz", 0) - p["sound"]["freq_hz"]) > 15:

@@ -98,7 +98,20 @@ class Agent:
 
 
 MOD_PATHS = {"dvbt": "/usr/bin/dvbt_mod", "dvbc": "/usr/bin/dvbc_mod", "dvbs": "/tmp/dablab_bin/dvbs_mod",
-             "dvbs2": "/tmp/dablab_bin/dvbs2_mod"}
+             "dvbs2": "/tmp/dablab_bin/dvbs2_mod",
+             # neue Standards (untested): Modulatoren werden wie dvbs_mod nach /tmp/dablab_bin geladen (pc/device_files/<name>_iio)
+             "atsc": "/tmp/dablab_bin/atsc_mod", "isdbt": "/tmp/dablab_bin/isdbt_mod", "dtmb": "/tmp/dablab_bin/dtmb_mod",
+             "j83b": "/tmp/dablab_bin/dvbc_mod"}
+UPLOADED = ("dvbs", "dvbs2", "atsc", "isdbt", "dtmb", "j83b")   # nicht in der Firmware: vor dem Start hochladen
+
+
+def mod_key(std, cfg):
+    """Schlüssel in MOD_PATHS / pc/device_files (<key>_mod_iio)."""
+    if std == "dvbs" and is_dvbs2(cfg):
+        return "dvbs2"
+    if std == "dvbc" and str((cfg.get("dvbc") or {}).get("annex", "a")).lower() in ("b", "c"):
+        return "j83b"                                   # erweiterter dvbc_mod (--annex b|c), nicht in der Firmware
+    return std
 
 
 def is_dvbs2(cfg):
@@ -120,7 +133,7 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
     The modulator starts muted (--atten 89.75); the server raises the level via the agent once it runs.
     opts: cpu / rt_prio for /api/mod/start."""
     rf = cfg.get("rf") or {}
-    path = MOD_PATHS["dvbs2" if std == "dvbs" and is_dvbs2(cfg) else std]
+    path = MOD_PATHS[mod_key(std, cfg)]
     cmd = (mod_dir.rstrip("/") + "/" + path.rsplit("/", 1)[1]) if mod_dir else path
     buf = udp_buffer or (30000 if std == "dvbs" else 20000)
     args = ["-i", f"udp://0.0.0.0:{int(udp_port)}", "--udp-buffer", buf, "-o", "iio:"]
@@ -150,6 +163,9 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
         qam = "".join(ch for ch in str(d.get("constellation", "256-QAM")) if ch.isdigit()) or "256"
         sps = int(d.get("sps", 1))
         args += ["--qam", qam, "--sr", int(d.get("symbol_rate", 6900000)), "--sps", sps]
+        annex = str(d.get("annex", "a")).lower()
+        if annex in ("b", "c"):
+            args += ["--annex", annex]                    # J.83 B (US-Kabel) / J.83 C (Japan, RRC 0,13)
         if sps == 1:
             if not fir:
                 raise ValueError("dvbc_mod --sps 1 braucht eine RRC-FIR-Datei")
@@ -166,6 +182,24 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
             if not fir:
                 raise ValueError(f"{path.rsplit('/', 1)[1]} --sps 1 braucht eine RRC-FIR-Datei")
             args += ["--fir", fir]
+        opts = {"cpu": 1, "rt_prio": 50}
+    elif std == "atsc":
+        opts = {"cpu": 1, "rt_prio": 50}
+    elif std == "isdbt":
+        d = cfg.get("isdbt") or {}
+        two = int(d.get("layers", 1)) == 2
+        cst = lambda v: str(v or "64-QAM").lower().replace("-", "")
+        args += ["--mode", int(d.get("mode", 3)), "--guard", d.get("guard", "1/8"), "--layers", 2 if two else 1]
+        for L in ("a", "b") if two else ("a",):
+            ly = d.get("layer_" + L) or {}
+            args += [f"--{L}-mod", cst(ly.get("constellation")), f"--{L}-rate", ly.get("code_rate", "3/4"), f"--{L}-ti", int(ly.get("ti", 2))]
+        if two and d.get("_layer_a_pids"):
+            args += ["--layer-a-pids", ",".join(str(int(p)) for p in d["_layer_a_pids"])]
+        opts = {"cpu": 1, "rt_prio": 50}
+    elif std == "dtmb":
+        d = cfg.get("dtmb") or {}
+        args += ["--carriers", int(d.get("carriers", 3780)), "--const", str(d.get("constellation", "64-QAM")).lower().replace("-", ""),
+                 "--rate", d.get("code_rate", "0.6"), "--pn", int(d.get("header", 945)), "--ti", int(d.get("interleaver", 720))]
         opts = {"cpu": 1, "rt_prio": 50}
     else:
         raise ValueError(f"kein Gerätemodulator für {std}")

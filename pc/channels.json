@@ -72,10 +72,10 @@
   }
  },
  "fm": {
-  "min_mhz": 87.5,
+  "min_mhz": 76.0,
   "max_mhz": 108.0,
   "raster_khz": 100,
-  "note": "Warnung außerhalb des 100-kHz-Rasters, Fehler außerhalb 87,5–108 MHz"
+  "note": "Warnung außerhalb des 100-kHz-Rasters, Fehler außerhalb 76–108 MHz (Japan 76–95 MHz, sonst 87,5–108 MHz)"
  },
  "dvbt": {
   "channels": {

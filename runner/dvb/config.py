@@ -18,6 +18,9 @@ PATTERNS = ("testsrc2", "testsrc", "smptehdbars", "smptebars", "colorbars", "rgb
             "pal100bars", "mandelbrot", "life")
 AUDIO_GEN = ("sine", "speech", "sine+speech", "silence", "noise", "file")
 OUTPUT_KINDS = ("stdout", "udp", "modulator", "file")
+STANDARDS = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")
+UNTESTED = ("atsc", "isdbt", "dtmb")      # dazu DVB-C Annex B/C (J.83 B/C)
+ATSC_SAMPLE_RATE = 2 * 10762238           # atsc_mod: 2 Samples/Symbol (wird mit --print-rates abgeglichen)
 SERVICE_TYPES = {"tv": 0x01, "radio": 0x02, "hdtv": 0x19, "aac_radio": 0x0A}
 
 
@@ -112,9 +115,9 @@ def from_dashboard(raw):
             res = v.get("resolution", "sd")
             svcs.append({"key": p.get("key"), "service_id": p.get("sid"), "name": p.get("name"),
                          "provider": p.get("provider"), "lcn": p.get("lcn"), "type": p.get("type", "tv"),
-                         "visible": p.get("visible", True),
+                         "visible": p.get("visible", True), "oneseg": bool(p.get("oneseg")),
                          "video": {"codec": v.get("codec", "mpeg2"), "size": RES_ALIASES.get(res, res),
-                                   "bitrate_kbps": v.get("bitrate_kbps", "auto"), "fps": v.get("fps", 25),
+                                   "bitrate_kbps": v.get("bitrate_kbps", "auto"), "fps": v.get("fps"),
                                    "aspect": v.get("aspect", "16:9"), "interlaced": v.get("interlaced", False),
                                    # Dashboard: encoder "cpu"/"nvenc", hdr "sdr"/"hdr10"/"hlg" (hier String, im Runner {"mode": …})
                                    "encoder": v.get("encoder", "cpu"),
@@ -143,11 +146,13 @@ def normalize(raw):
     E, W = [], []
     cfg = from_dashboard(raw) if is_dashboard_format(raw) else copy.deepcopy(raw)
     std = str(cfg.get("mode", "")).lower()
-    if std not in ("dvbt", "dvbc", "dvbs"):
-        E.append("mode muss 'dvbt', 'dvbc' oder 'dvbs' sein")
+    if std not in STANDARDS:
+        E.append("mode muss %s sein" % ", ".join("'%s'" % s for s in STANDARDS))
         return cfg, E, W
     cfg["mode"] = std
-    cfg.setdefault("name", {"dvbt": "DVB-T", "dvbc": "DVB-C", "dvbs": "DVB-S"}[std])
+    cfg.setdefault("name", {"dvbt": "DVB-T", "dvbc": "DVB-C", "dvbs": "DVB-S", "atsc": "ATSC", "isdbt": "ISDB-T", "dtmb": "DTMB"}[std])
+    if std in UNTESTED:
+        W.append("%s ist ungetestet (untested)" % cfg["name"])
 
     # -- Modulation / Rate --
     if std == "dvbt":
@@ -208,11 +213,77 @@ def normalize(raw):
             E.append("dvbs.symbol_rate: 1..45 MBd")
         if d["polarization"] not in ("horizontal", "vertical", "left", "right"):
             E.append("dvbs.polarization: horizontal, vertical, left, right")
+    elif std == "atsc":
+        d = cfg.setdefault("atsc", {})
+        d["modulation"] = "8-VSB"
+        d["symbol_rate"] = float(T.ATSC_SYMBOL_RATE)
+    elif std == "dtmb":
+        d = cfg.setdefault("dtmb", {})
+        d["carriers"] = _int(d.get("carriers"), 3780)
+        d["constellation"] = str(d.get("constellation", "64-QAM")).upper().replace("QAM-", "QAM").replace("4QAM", "4-QAM").replace("16QAM", "16-QAM") \
+            .replace("32QAM", "32-QAM").replace("64QAM", "64-QAM")
+        d["code_rate"] = str(d.get("code_rate", "0.6"))
+        d["header"] = _int(d.get("header"), 945)
+        d["interleaver"] = _int(d.get("interleaver"), 720)
+        if d["carriers"] not in (1, 3780):
+            E.append("dtmb.carriers: 3780 (Mehrtraeger) oder 1 (Eintraeger)")
+        if d["constellation"] not in T.DTMB_BITS:
+            E.append("dtmb.constellation: %s" % ", ".join(T.DTMB_BITS))
+        elif d["code_rate"] not in T.DTMB_ALLOWED[d["constellation"]]:
+            E.append("dtmb.code_rate: %s erlaubt %s" % (d["constellation"], ", ".join(T.DTMB_ALLOWED[d["constellation"]])))
+        if d["header"] not in T.DTMB_HEADERS:
+            E.append("dtmb.header: PN 420, 595 oder 945")
+        if d["interleaver"] not in (240, 720):
+            E.append("dtmb.interleaver: 240 oder 720")
+    elif std == "isdbt":
+        d = cfg.setdefault("isdbt", {})
+        d["region"] = "jp" if str(d.get("region", "br")).lower() in ("jp", "japan") else "br"
+        d["mode"] = _int(str(d.get("mode", 3)).lower().replace("mode", ""), 3)
+        d["guard"] = _norm_frac(d.get("guard", "1/8"), T.DVBT_GUARDS)
+        d["layers"] = _int(d.get("layers"), 1)
+        d["area_code"] = _int(d.get("area_code"), 0)
+        d["remote_key"] = _int(d.get("remote_key"), 1)
+        if d["mode"] not in (1, 2, 3):
+            E.append("isdbt.mode: 1, 2 oder 3")
+        if not d["guard"]:
+            E.append("isdbt.guard: 1/4, 1/8, 1/16, 1/32")
+        if d["layers"] not in (1, 2):
+            E.append("isdbt.layers: 1 (13 Segmente) oder 2 (A = 1seg, B = 12 Segmente)")
+        if not 1 <= d["remote_key"] <= 12:
+            E.append("isdbt.remote_key: 1..12 (virtuelle Kanalnummer)")
+        for L, segs, dc, dr in (("a", 1 if d["layers"] == 2 else 13, "QPSK" if d["layers"] == 2 else "64-QAM", "2/3" if d["layers"] == 2 else "3/4"),
+                                ("b", 12, "64-QAM", "3/4")):
+            if L == "b" and d["layers"] == 1:
+                d.pop("layer_b", None)
+                continue
+            ly = d.setdefault("layer_" + L, {})
+            ly["segments"] = segs
+            ly["constellation"] = _norm_const(ly.get("constellation", dc), T.ISDBT_BITS)
+            ly["code_rate"] = _norm_frac(ly.get("code_rate", dr), T.DVBT_CODE_RATES)
+            ly["ti"] = _int(ly.get("ti"), 2)
+            if not ly["constellation"]:
+                E.append("isdbt.layer_%s.constellation: QPSK, 16-QAM, 64-QAM" % L)
+            if not ly["code_rate"]:
+                E.append("isdbt.layer_%s.code_rate: 1/2, 2/3, 3/4, 5/6, 7/8" % L)
+            if ly["ti"] not in T.ISDBT_TI:
+                E.append("isdbt.layer_%s.ti: 0, 1, 2, 4" % L)
     else:
         d = cfg.setdefault("dvbc", {})
-        d["constellation"] = _norm_const(d.get("constellation", "256-QAM"), T.DVBC_BITS)
-        d["symbol_rate"] = _int(d.get("symbol_rate"), 6900000)
-        d["sps"] = _int(d.get("sps"), 2)
+        an = str(d.get("annex", "a")).lower()
+        d["annex"] = "b" if an in ("b", "j83b", "us") else "c" if an in ("c", "j83c", "jp") else "a"
+        if d["annex"] == "c":
+            d.setdefault("symbol_rate", T.J83C_SR)
+        if d["annex"] == "b":                    # J.83 B: Symbolrate fest je QAM, RRC 0,18 (64) / 0,12 (256)
+            d["constellation"] = _norm_const(d.get("constellation", "256-QAM"), T.DVBC_BITS)
+            if d["constellation"] not in T.J83B:
+                E.append("dvbc.constellation: J.83 Annex B nur 64-QAM oder 256-QAM")
+                d["constellation"] = "256-QAM"
+            d["symbol_rate"] = T.J83B[d["constellation"]][0]
+            d["sps"] = _int(d.get("sps"), 2)
+        else:
+            d["constellation"] = _norm_const(d.get("constellation", "256-QAM"), T.DVBC_BITS)
+            d["symbol_rate"] = _int(d.get("symbol_rate"), 6900000)
+            d["sps"] = _int(d.get("sps"), 2)
         if d["sps"] not in (1, 2):
             E.append("dvbc.sps: 1 oder 2")
         if not d["constellation"]:
@@ -223,9 +294,12 @@ def normalize(raw):
     # -- HF / Kanal --
     rf = cfg.setdefault("rf", {})
     ch = rf.get("channel") or d.get("channel")
-    look = T.channel_lookup(std, ch) if ch and str(ch).lower() != "custom" and std != "dvbs" else None
+    tab = "j83b" if (std == "dvbc" and d.get("annex") == "b") else "isdbt_jp" if (std == "isdbt" and d.get("region") == "jp") else \
+        "dtmb" if (std == "dvbc" and str(ch or "").upper().startswith("DS")) else std
+    look = T.channel_lookup(tab, ch) if ch and str(ch).lower() != "custom" and std != "dvbs" else None
     if ch and str(ch).lower() != "custom" and not look and std != "dvbs":
-        E.append("rf.channel '%s' nicht in der %s-Kanaltabelle" % (ch, "DVB-T" if std == "dvbt" else "DVB-C"))
+        E.append("rf.channel '%s' nicht in der %s-Kanaltabelle" % (ch, {"dvbt": "DVB-T", "dvbc": "DVB-C", "atsc": "US-", "isdbt": "US-/Brasilien-",
+                                                                         "j83b": "US-Kabel-", "dtmb": "China-", "isdbt_jp": "Japan-"}.get(tab, tab)))
     if look:
         rf["channel"] = str(ch).upper()
         if not rf.get("freq_hz"):
@@ -252,7 +326,8 @@ def normalize(raw):
             if d.get("callsign") and d["callsign"].split("/")[0] not in names.upper():
                 E.append("services: Rufzeichen %s muss im Dienst- oder Anbieternamen stehen (Stationskennung)" % d["callsign"])
     if not rf["freq_hz"]:
-        rf["freq_hz"] = {"dvbt": 474000000, "dvbc": 113000000, "dvbs": 1288000000}[std]
+        rf["freq_hz"] = {"dvbt": 474000000, "dvbc": 113000000, "dvbs": 1288000000, "atsc": 473000000,
+                         "isdbt": 473142857, "dtmb": 474000000}[std]
         if std != "dvbs":
             W.append("rf.freq_hz fehlt, NIT bekommt %d Hz" % rf["freq_hz"])
     rf.setdefault("atten_db", 60)
@@ -271,6 +346,21 @@ def normalize(raw):
             rf["sample_rate"] = d["sps"] * d["symbol_rate"]   # DATV: Modulator am PC, IQ per USB (RRC im Programm)
         elif (cfg.get("output") or {}).get("kind") == "modulator":
             rf["sample_rate"] = 2 * d["symbol_rate"]  # lokaler Modulator am PC: --sps 2 (RRC im Programm)
+    elif std == "dtmb":
+        rate = T.dtmb_useful_bitrate(d["constellation"], d["code_rate"], d["header"])
+        rf["sample_rate"] = int(d.get("sample_rate") or 2 * T.DTMB_SR)
+    elif std == "atsc":
+        rate = T.atsc_useful_bitrate()
+        rf["sample_rate"] = int(d.get("sample_rate") or ATSC_SAMPLE_RATE)
+    elif std == "isdbt":
+        d["_rate_a"] = T.isdbt_layer_bitrate(d["layer_a"]["segments"], d["layer_a"]["constellation"], d["layer_a"]["code_rate"], d["guard"])
+        d["_rate_b"] = (T.isdbt_layer_bitrate(12, d["layer_b"]["constellation"], d["layer_b"]["code_rate"], d["guard"])
+                        if d["layers"] == 2 else 0)
+        rate = d["_rate_a"] + d["_rate_b"]
+        rf["sample_rate"] = int(round(T.ISDBT_SAMPLE_RATE))
+    elif d.get("annex") == "b":
+        rate = T.j83b_useful_bitrate(d["constellation"])
+        rf["sample_rate"] = d["sps"] * d["symbol_rate"]
     else:
         rate = T.dvbc_useful_bitrate(d["constellation"], d["symbol_rate"])
         rf["sample_rate"] = d["sps"] * d["symbol_rate"]
@@ -290,6 +380,17 @@ def normalize(raw):
     ts.setdefault("lcn", True)
     ts.setdefault("eit", True)
     ts.setdefault("tdt", True)
+    if std == "isdbt":
+        # SBTVD: network_id = ONID = TSID (eine Kennung je Sender), keine EACEM-LCN (Kanalnummer = remote_control_key_id)
+        ts["original_network_id"] = ts["network_id"] = ts["transport_stream_id"] = _int((raw.get("ts") or {}).get("network_id"), ts["transport_stream_id"]) & 0xFFFF
+        ts["lcn"] = False
+        ts.setdefault("country", "JPN" if d.get("region") == "jp" else "BRA")
+    if std == "dtmb":
+        ts["lcn"] = False
+        ts.setdefault("country", "CHN")
+    if T.is_psip(cfg):
+        ts["lcn"] = ts["eit"] = ts["tdt"] = False            # PSIP: TVCT/CVCT + STT statt NIT/SDT/EIT/TDT
+        ts.setdefault("major_channel", _int(re.sub(r"\D", "", str(rf.get("channel") or "")) or 0, 0) or 1)
     ts.setdefault("country", "DEU")
     ts.setdefault("utc_offset_min", "auto")
     small = cfg["_rate_bps"] < 2e6          # DATV mit kleinen Symbolraten: SI sparsam wiederholen
@@ -299,6 +400,7 @@ def normalize(raw):
     ts.setdefault("tables_version", 1)
 
     # -- Dienste --
+    region60 = std in ("atsc", "isdbt") or T.is_psip(cfg) or (std == "dvbc" and cfg["dvbc"].get("annex") == "c")
     svcs = cfg.get("services") or []
     if not svcs:
         E.append("services: mindestens ein Dienst")
@@ -352,7 +454,9 @@ def normalize(raw):
                 E.append("services[%d]: UHD mit CPU-Encoder nicht in Echtzeit (%d Threads) - video.encoder nvenc oder Aufloesung hd"
                          % (i, os.cpu_count() or 0))
             size = str(v.get("size", "sd")).lower()
-            if size in VIDEO_SIZES:
+            if size in ("sd", "576p") and region60:
+                v["_wh"] = (720, 480)
+            elif size in VIDEO_SIZES:
                 v["_wh"] = VIDEO_SIZES[size]
             elif re.match(r"^\d+x\d+$", size):
                 v["_wh"] = tuple(int(x) for x in size.split("x"))
@@ -360,14 +464,16 @@ def normalize(raw):
                 E.append("services[%d].video.size: sd, hd, 720p, uhd oder WxH" % i)
                 v["_wh"] = (720, 576)
             v["size"] = size
-            v["fps"] = v.get("fps") or 25
+            v["fps"] = v.get("fps") or (29.97 if region60 else 25)
+            if region60 and float(v["fps"]) == 25:
+                W.append("services[%d]: 25 fps in einer 60-Hz-Norm – Empfaenger erwarten 29,97/59,94 fps" % i)
             v.setdefault("aspect", "16:9")
             v.setdefault("gop", 12 if v["codec"] == "mpeg2" else 25)
             v.setdefault("preset", "veryfast")
             v.setdefault("bitrate_kbps", "auto")
             v.setdefault("interlaced", False)
             v["_hd"] = v["_wh"][1] > 576
-            if v["codec"] == "mpeg2" and v["_hd"]:
+            if v["codec"] == "mpeg2" and v["_hd"] and not region60:
                 W.append("services[%d]: MPEG-2 HD ist unueblich (MP@HL), Receiver koennen das meist, brauchen aber viel Bitrate" % i)
         # Audio
         a = s.setdefault("audio", {})
@@ -431,7 +537,23 @@ def normalize(raw):
         e.setdefault("language", "deu")
         e.setdefault("next_title", None)
         e.setdefault("next_text", "")
-        s["_service_type"] = (0x1F if (s["type"] == "tv" and v.get("codec") == "hevc") else
+        if std == "atsc" and s["type"] == "tv" and v.get("codec") != "mpeg2":
+            W.append("services[%d]: ATSC 1.0 sieht MPEG-2-Video vor (A/53); %s verstehen viele Empfaenger nicht" % (i, v.get("codec")))
+        if T.is_psip(cfg) and a["codec"] != "ac3":
+            W.append("services[%d]: ATSC/US-Kabel erwartet AC-3-Ton (A/52)" % i)
+        jp = std == "isdbt" and cfg["isdbt"]["region"] == "jp"
+        if std == "isdbt" and not jp and s["type"] == "tv" and v.get("codec") != "h264":
+            W.append("services[%d]: ISDB-Tb sieht H.264 vor (ABNT NBR 15602)" % i)
+        if jp and s["type"] == "tv" and v.get("codec") != "mpeg2" and not s.get("oneseg"):
+            W.append("services[%d]: ISDB-T Japan sieht MPEG-2-Video vor (ARIB STD-B32)" % i)
+        if std == "isdbt" and a["codec"] != "aac":
+            W.append("services[%d]: ISDB-Tb sieht AAC (LATM/LOAS) vor" % i)
+        s["oneseg"] = bool(s.get("oneseg")) and std == "isdbt" and cfg["isdbt"]["layers"] == 2
+        if std == "isdbt":
+            # ABNT NBR 15603: service_id = network_id(11 Bit) << 5 | Diensttyp << 3 | Nummer (0 TV, 3 1seg/partial reception)
+            s["service_id"] = ((ts["network_id"] & 0x7FF) << 5) | ((3 if s["oneseg"] else 0) << 3) | (i & 7)
+        s["_service_type"] = (0xC0 if s["oneseg"] else 0x01 if (std == "isdbt" and s["type"] == "tv") else
+                              0x1F if (s["type"] == "tv" and v.get("codec") == "hevc") else
                               0x19 if (s["type"] == "tv" and v.get("codec") == "h264" and v.get("_hd")) else
                               0x01 if s["type"] == "tv" else (0x0A if a["codec"] == "aac" else 0x02))
         if s.get("service_type") is not None:
@@ -488,6 +610,15 @@ def _budget(cfg, W):
             br = avail / 1.03 * w / tot if tot else 0
             br = max(min(br, cap), 300000)
             s["video"]["bitrate_kbps"] = int(br / 1000)
+    d = cfg.get("isdbt") or {}
+    if cfg["mode"] == "isdbt" and d.get("layers") == 2:
+        # Schicht A (1seg) traegt nur die oneseg-Dienste: deren Videorate aus der Schicht-A-Rate (PAT/PMT/NIT ~ 30 kb/s)
+        ra = float(d["_rate_a"]) * 0.92 - 30000
+        for s in cfg["services"]:
+            if s.get("oneseg") and s["type"] == "tv":
+                s["video"]["bitrate_kbps"] = int(max(100000, ra - s["audio"]["bitrate_kbps"] * 1080) / 1000)
+                s["video"]["_wh"] = (320, 240)
+                s["video"]["size"] = "320x240"
     total = si + audio + sum(float(s["video"]["bitrate_kbps"]) * 1000 * 1.03 for s in cfg["services"]
                              if s["type"] == "tv")
     cfg["_budget"] = {"rate_bps": R, "si_bps": si, "audio_bps": round(audio), "video_bps":
@@ -510,7 +641,12 @@ def summary(cfg):
                                                               (" α %s%s" % (d["roll_off"], " Pilots" if d.get("pilots") else ""))
                                                               if d.get("system") == "dvbs2" else "")
                                                              + (" · DATV %s" % d.get("callsign", "") if d.get("use") == "ham" else "")) if std == "dvbs"
-           else "%s %.3f MBd" % (d["constellation"], d["symbol_rate"] / 1e6))
+           else "8-VSB 10,762 MBd" if std == "atsc"
+           else ("%s %s %s PN%d TI %d" % ("C=3780" if d["carriers"] == 3780 else "C=1", d["constellation"], d["code_rate"], d["header"], d["interleaver"])) if std == "dtmb"
+           else ("Mode %d GI %s %s" % (d["mode"], d["guard"], " + ".join("%s: %d Seg. %s %s" % (L.upper(), d["layer_" + L]["segments"],
+                                                                                                d["layer_" + L]["constellation"], d["layer_" + L]["code_rate"])
+                                                                         for L in ("a", "b") if d.get("layer_" + L)))) if std == "isdbt"
+           else "%s%s %.3f MBd" % ("J.83 B " if d.get("annex") == "b" else "", d["constellation"], d["symbol_rate"] / 1e6))
     return {"standard": std, "modulation": mod, "useful_bitrate_bps": cfg["_rate_bps"], "muxrate": cfg["_muxrate"],
             "freq_hz": cfg["rf"]["freq_hz"], "channel": cfg["rf"].get("channel"),
             "sample_rate": cfg["rf"].get("sample_rate"), "budget": cfg.get("_budget"),

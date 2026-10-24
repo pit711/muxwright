@@ -24,6 +24,10 @@ export function pageModulation() {
     h('div', null, h('small', null, T('Abtastrate / Ausgabeweg')), h('span.big', null, spsEl, h('em', null, STD.requiredPath(S.draft).path === 'pluto' ? ' ' + T('Pluto-Modulator') : ' USB'))));
 
   if (std === 'dvbs') return pageDvbs(head);
+  if (std === 'atsc') return pageAtsc(head);
+  if (std === 'isdbt') return pageIsdbt(head);
+  if (std === 'dtmb') return pageDtmb(head);
+  if (std === 'dvbc' && STD.isJ83b(S.draft)) return pageJ83b(head);
   if (std === 'dvbt') {
     const p = S.draft.dvbt;
     const chan = STD.DVBT_CHANNELS.find(c => c.id === S.draft.rf.channel);
@@ -54,12 +58,103 @@ export function pageModulation() {
   return h('div.page-grid', null,
     h('div.col', null, card('DVB-C (EN 300 429, Annex A)', 'wave', [
       head,
+      annexSwitch(),
       field(T('Symbolrate (kBd)'), h('div.inrow.wrap', null, srIn, ...STD.DVBC.SR_PRESETS.map(sr => h('button.btn.sm', { type: 'button', class: p.symbol_rate === sr ? 'accent' : null, tid: `dvbc-sr-${sr}`, onclick: () => { S.draft.dvbc.symbol_rate = sr; edited('dvbc.symbol_rate', true); } }, `${(sr / 1e6).toLocaleString(LOC, { minimumFractionDigits: 3 })} MBd`))),
         { path: 'dvbc.symbol_rate', hint: T('6,900 MBd = deutsches Kabel (Auto-Suchlauf), 6,875 Pflicht in Suchlauflisten, 3,450 MBd läuft per USB (manuelle Eingabe am Receiver)') }),
       field(T('Konstellation'), segmented('dvbc.constellation', STD.DVBC.CONST.map(v => ({ v, label: v })), { tid: 'dvbc-constellation' }), { path: 'dvbc.constellation', hint: T('Deutschland: 256-QAM; RRC α = 0,15') }),
       h('p.hint', null, icon('info'), T('Nutzbitrate = SR · log2(M) · 188/204. Für 6,9 MBd sind 13,8 MS/s nötig – nur zyklischer Puffer/Modulator auf dem Pluto.')),
     ], { tid: 'card-dvbc' })),
     h('div.col', null, rateTable('dvbc')));
+}
+
+export const untestedBadge = () => h('span.badge-untested', { title: T('Noch nicht an einem Empfänger geprüft') }, 'untested');
+
+function annexSwitch() {
+  return field(T('Norm'), segmented('dvbc.annex', [{ v: 'a', label: T('Annex A (Europa/China)') }, { v: 'b', label: T('Annex B (USA, J.83 B)') }, { v: 'c', label: T('Annex C (Japan, J.83 C)') }], { tid: 'dvbc-annex', rerender: true,
+    onchange: v => {
+      const d = S.draft.dvbc, rf = S.draft.rf;
+      if (v === 'b') { if (!STD.DVBC.J83B[d.constellation]) d.constellation = '256-QAM'; d.symbol_rate = STD.DVBC.J83B[d.constellation].sr; rf.channel = 'C80'; rf.freq_hz = 561e6; STD.regionCodecs(S.draft, 'dvbc'); }
+      else if (v === 'c') { if (!['64-QAM', '256-QAM'].includes(d.constellation)) d.constellation = '64-QAM'; d.symbol_rate = STD.DVBC.J83C_SR; }
+      else { d.symbol_rate = 6900000; rf.channel = 'S21'; rf.freq_hz = 306e6; }
+      S.rfIntent.add('channel'); S.rfIntent.add('freq_hz');
+    } }), { path: 'dvbc.annex', hint: h('span', null, S.draft.dvbc.annex === 'c' ? T('Annex C: Codierung wie Annex A, RRC α 0,13, 6-MHz-Kanal; Japan 5,274 MBd') : T('Annex B: US-Kabel (SCTE 07), feste Symbolrate je QAM, PSIP statt DVB-SI'),
+      S.draft.dvbc.annex !== 'a' ? untestedBadge() : null) });
+}
+
+function pageJ83b(head) {
+  const d = S.draft.dvbc;
+  return h('div.page-grid', null,
+    h('div.col', null, card(h('span', null, 'DVB-C Annex B · ITU-T J.83 B (SCTE 07)', untestedBadge()), 'wave', [
+      head,
+      annexSwitch(),
+      field(T('Konstellation'), segmented('dvbc.constellation', Object.keys(STD.DVBC.J83B).map(v => ({ v, label: v })), { tid: 'j83b-constellation',
+        onchange: v => { S.draft.dvbc.symbol_rate = STD.DVBC.J83B[v].sr; } }), { path: 'dvbc.constellation',
+        hint: T('64-QAM: 5,057 MBd → 26,97 Mbit/s · 256-QAM: 5,361 MBd → 38,81 Mbit/s (RRC α 0,18 / 0,12)') }),
+      h('p.hint', null, icon('info'), T('Reed-Solomon (128,122) über GF(128), Faltungs-Interleaver, Trellis-codierte QAM. Programme: MPEG-2 oder H.264 mit AC-3; Kanaltabelle CVCT (PSIP). US-Kabelraster C2–C158 (EIA-542).')),
+    ], { tid: 'card-j83b' })),
+    h('div.col', null, null));
+}
+
+function pageAtsc(head) {
+  return h('div.page-grid', null,
+    h('div.col', null, card(h('span', null, 'ATSC 1.0 · 8-VSB (A/53)', untestedBadge()), 'wave', [
+      head,
+      h('div.rx-grid', { tid: 'atsc-info' },
+        h('div.rx-kv', null, h('small', null, T('Modulation')), h('b', null, '8-VSB')),
+        h('div.rx-kv', null, h('small', null, T('Symbolrate')), h('b', null, '10,762 MBd')),
+        h('div.rx-kv', null, h('small', null, T('Nutzbitrate')), h('b', null, '19,39 Mbit/s')),
+        h('div.rx-kv', null, h('small', null, T('Kanal')), h('b', null, '6 MHz'))),
+      h('p.hint', null, icon('info'), T('Feste Parameter: RS (207,187), Trellis 2/3, Pilot, Segment- und Feld-Sync. Programme: MPEG-2-Video mit AC-3-Ton (A/52); virtuelle Kanäle major.minor in der TVCT, Uhrzeit per STT. Kanalraster A2–A69 (USA, Kanada, Mexiko, Südkorea).')),
+    ], { tid: 'card-atsc' })),
+    h('div.col', null, null));
+}
+
+function pageDtmb(head) {
+  const d = S.draft.dtmb;
+  const crs = STD.DTMB.ONLY08.includes(d.constellation) ? ['0.8'] : STD.DTMB.CR;
+  return h('div.page-grid', null,
+    h('div.col', null, card(h('span', null, 'DTMB · GB 20600-2006', untestedBadge()), 'wave', [
+      head,
+      h('div.grid2', null,
+        field(T('Träger'), segmented('dtmb.carriers', [{ v: 3780, label: T('Mehrträger (C=3780)') }, { v: 1, label: T('Einträger (C=1)') }], { tid: 'dtmb-carriers' }), { path: 'dtmb.carriers', hint: T('C=3780: TDS-OFDM; C=1: Einträger mit 36 Systemsymbolen') }),
+        field(T('Rahmenkopf'), segmented('dtmb.header', STD.DTMB.PN.map(v => ({ v, label: `PN${v}` })), { tid: 'dtmb-header' }), { path: 'dtmb.header', hint: T('PN945 = längste Echos, PN420 = höchste Rate') })),
+      field(T('Konstellation'), segmented('dtmb.constellation', STD.DTMB.CONST.map(v => ({ v, label: v })), { tid: 'dtmb-constellation', rerender: true,
+        onchange: v => { if (STD.DTMB.ONLY08.includes(v)) S.draft.dtmb.code_rate = '0.8'; } }), { path: 'dtmb.constellation' }),
+      h('div.grid2', null,
+        field(T('LDPC-Coderate'), segmented('dtmb.code_rate', crs.map(v => ({ v, label: v.replace('.', ',') })), { tid: 'dtmb-coderate' }), { path: 'dtmb.code_rate' }),
+        field(T('Zeitverschachtelung'), segmented('dtmb.interleaver', STD.DTMB.TI.map(v => ({ v, label: `M=${v}` })), { tid: 'dtmb-ti' }), { path: 'dtmb.interleaver' })),
+      h('p.hint', null, icon('info'), T('Programme: H.264 oder MPEG-2 mit MPEG-1 Layer II oder AC-3; DVB-SI (GB/T 17975). Kanalraster DS6–DS68 (China, Hongkong, Macau, Kuba).')),
+    ], { tid: 'card-dtmb' })),
+    h('div.col', null, null));
+}
+
+function pageIsdbt(head) {
+  const p = S.draft.isdbt, two = Number(p.layers) === 2;
+  const layer = (L, segs) => h('div.isdb-layer', { tid: `isdbt-layer-${L}` },
+    h('h4', null, T('Schicht {l} · {n} Segment(e)', { l: L.toUpperCase(), n: segs }), h('span.muted.mono', null, ` · ${(STD.isdbtLayerRate(segs, p['layer_' + L], p.guard) / 1e6).toLocaleString(LOC, { maximumFractionDigits: 3 })} Mbit/s`)),
+    h('div.grid3', null,
+      field(T('Konstellation'), segmented(`isdbt.layer_${L}.constellation`, STD.ISDBT.CONST.map(v => ({ v, label: v })), { tid: `isdbt-${L}-const` }), { path: `isdbt.layer_${L}.constellation` }),
+      field(T('Coderate'), segmented(`isdbt.layer_${L}.code_rate`, STD.ISDBT.CR.map(v => ({ v, label: v })), { tid: `isdbt-${L}-cr` }), { path: `isdbt.layer_${L}.code_rate` }),
+      field(T('Zeitverschachtelung'), segmented(`isdbt.layer_${L}.ti`, STD.ISDBT.TI.map(v => ({ v, label: String(v) })), { tid: `isdbt-${L}-ti` }), { path: `isdbt.layer_${L}.ti` })));
+  return h('div.page-grid', null,
+    h('div.col', null, card(h('span', null, 'ISDB-T / ISDB-Tb (ARIB STD-B31, ABNT NBR 15601)', untestedBadge()), 'wave', [
+      head,
+      field(T('Region'), segmented('isdbt.region', [{ v: 'br', label: T('ISDB-Tb (Brasilien/Lateinamerika)') }, { v: 'jp', label: T('ISDB-T (Japan)') }], { tid: 'isdbt-region', rerender: true,
+        onchange: v => { const rf = S.draft.rf; if (v === 'jp') { rf.channel = 'J13'; rf.freq_hz = 473142857; } else { rf.channel = 'A14'; rf.freq_hz = 473142857; } STD.regionCodecs(S.draft, 'isdbt'); S.rfIntent.add('channel'); S.rfIntent.add('freq_hz'); } }),
+        { path: 'isdbt.region', hint: p.region === 'jp' ? T('Japan: MPEG-2-Video, AAC (ADTS), Kanäle J13–J62') : T('Brasilien: H.264, AAC (LATM), Kanäle A14–A69') }),
+      h('div.grid3', null,
+        field(T('Modus'), segmented('isdbt.mode', STD.ISDBT.MODES.map(v => ({ v, label: `Mode ${v}` })), { tid: 'isdbt-mode' }), { path: 'isdbt.mode', hint: T('Mode 3 = 8k (5617 Träger), üblich') }),
+        field(T('Guard-Intervall'), segmented('isdbt.guard', STD.ISDBT.GI.map(v => ({ v, label: v })), { tid: 'isdbt-guard' }), { path: 'isdbt.guard' }),
+        field(T('Schichten'), segmented('isdbt.layers', [{ v: 1, label: T('1 (13 Segmente)') }, { v: 2, label: T('2 (1seg + 12)') }], { tid: 'isdbt-layers', rerender: true }),
+          { path: 'isdbt.layers', hint: T('2 Schichten: Schicht A trägt das Handy-Programm (1seg, QPSK), Schicht B das HD-Programm') })),
+      layer('a', two ? 1 : 13),
+      two ? layer('b', 12) : null,
+      h('div.grid2', null,
+        field(T('Fernbedienungstaste'), input('isdbt.remote_key', { type: 'number', min: 1, max: 12, tid: 'isdbt-remote-key', mono: true }), { path: 'isdbt.remote_key', hint: T('virtuelle Kanalnummer (ts_information_descriptor)') }),
+        field(T('Area-Code'), input('isdbt.area_code', { type: 'number', min: 0, max: 4095, tid: 'isdbt-area', mono: true }), { path: 'isdbt.area_code' })),
+      h('p.hint', null, icon('info'), T('Programme: H.264 mit AAC (LATM). Bei 2 Schichten im Bereich „Programme“ ein Programm als 1seg markieren (320×240). Kanalraster A14–A69, Mitte + 1/7 MHz (Brasilien, Lateinamerika, Japan).')),
+    ], { tid: 'card-isdbt' })),
+    h('div.col', null, null));
 }
 
 export function lnbWarning() {
@@ -271,6 +366,9 @@ function prgGeneral(p, base) {
         field('LCN', input(`${base}.lcn`, { type: 'number', min: 1, max: 999, tid: 'prg-lcn', mono: true }), { path: `${base}.lcn`, hint: 'EACEM logical_channel_number' }),
         field(T('Schlüssel'), input(`${base}.key`, { tid: 'prg-key', mono: true, parse: v => v.toLowerCase() }), { path: `${base}.key` })),
       field(T('Typ'), segmented(`${base}.type`, [{ v: 'tv', label: T('Fernsehen') }, { v: 'radio', label: 'Radio' }], { tid: 'prg-type' }), { hint: T('service_type 0x01/0x19 (TV SD/HD) bzw. 0x02 (Radio)') }),
+      STD.standardOf(S.draft) === 'isdbt' && Number(S.draft.isdbt.layers) === 2
+        ? field('1seg', toggle(`${base}.oneseg`, T('Handy-Programm in Schicht A (320×240)'), { tid: 'prg-oneseg' }), { hint: T('Teilempfang (partial reception), service_type 0xC0') }) : null,
+      STD.standardOf(S.draft) === 'isdbt' ? h('p.hint', null, icon('info'), T('ISDB-Tb: SID wird aus Netzkennung, Diensttyp und Nummer gebildet (ABNT NBR 15603).')) : null,
     ]));
 }
 

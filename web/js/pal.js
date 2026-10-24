@@ -100,21 +100,27 @@ export function pagePAL() {
     h('div.grid3', null,
       field(T('Ton-Hub (kHz)'), input('pal.sound.deviation_hz', { type: 'number', min: 1, max: 75, step: 1, tid: 'pal-audio-dev', mono: true, fmt: v => v == null ? '' : v / 1000, parse: v => Math.round(Number(v) * 1000) }), { path: 'pal.sound.deviation_hz', hint: T('Spitze ±50 kHz') }),
       field(T('Ton/Bild (dB)'), input('pal.sound.level_db', { type: 'number', min: -30, max: -3, step: 0.5, tid: 'pal-sound-level', mono: true }), { path: 'pal.sound.level_db', hint: T('bezogen auf die Synchronspitze; B/G −13 dB') }),
-      field('Preemphasis', segmented('pal.sound.preemphasis_us', [{ v: 50, label: '50 µs' }, { v: 0, label: T('aus') }], { tid: 'pal-audio-preemph' }))),
+      field('Preemphasis', segmented('pal.sound.preemphasis_us', [{ v: 50, label: '50 µs' }, { v: 75, label: '75 µs' }, { v: 0, label: T('aus') }], { tid: 'pal-audio-preemph' }))),
   ], { tid: 'card-pal-audio' });
 
   const offAuto = p.offset_hz === 'auto';
   const system = card(T('System, Träger & Betrieb'), 'antenna', [
-    field(T('Norm'), segmented('pal.system', Object.entries(STD.PAL_SYSTEMS).map(([k, v]) => ({ v: k, label: k === 'BG' ? 'B/G' : k === 'DK' ? 'D/K' : k, title: v.name })), { tid: 'pal-system' }),
-      { path: 'pal.system', hint: T('{name}: Ton +{snd} MHz, Restseitenband {vsb} MHz, {lines} Zeilen', { name: sys.name, snd: D.fmtNum(sys.sound_mhz, 1), vsb: D.fmtNum(sys.vsb_mhz, 2), lines: sys.lines }) }),
+    field(T('Norm'), segmented('pal.system', Object.entries(STD.PAL_SYSTEMS).map(([k, v]) => ({ v: k, label: v.untested ? `${v.label} ·` : v.label, title: v.untested ? `${v.name} – untested` : v.name })), { tid: 'pal-system', rerender: true,
+        onchange: k => { const s = STD.PAL_SYSTEMS[k]; if (!s) return; p.sound.deviation_hz = s.dev; p.sound.preemphasis_us = s.pre; if (s.lines === 525) p.live = false;
+          const ch = STD.PAL_CHANNELS.find(c => c.id === S.draft.rf.channel); if (s.sound_mhz === 4.5 && (!ch || ch.bw !== 6)) { const j = k === 'NTSC_J'; S.draft.rf.channel = j ? 'J13' : 'A14'; S.draft.rf.freq_hz = 471250000; edited('rf.channel', true); }
+          if (k === 'DK' && ch && !String(ch.id).startsWith('DS') && ch.bw !== 8) { S.draft.rf.channel = 'DS13'; S.draft.rf.freq_hz = 471250000; edited('rf.channel', true); }
+          if (s.sound_mhz !== 4.5 && ch && ch.bw === 6) { S.draft.rf.channel = 'K21'; S.draft.rf.freq_hz = 471250000; edited('rf.channel', true); } } }),
+      { path: 'pal.system', hint: h('span', null, T('{name}: Ton +{snd} MHz, Restseitenband {vsb} MHz, {lines} Zeilen', { name: sys.name, snd: D.fmtNum(sys.sound_mhz, 1), vsb: D.fmtNum(sys.vsb_mhz, 2), lines: sys.lines }),
+        sys.untested ? h('span.badge-untested', { title: T('Noch nicht an einem Empfänger geprüft') }, 'untested') : null) }),
     h('div.rx-grid', { tid: 'pal-system-carriers' },
       h('div.rx-kv', null, h('small', null, T('Bildträger')), h('b', null, `${fmtMHz(car.vision)} MHz`)),
       h('div.rx-kv', null, h('small', null, T('Tonträger')), h('b', null, `${fmtMHz(car.sound)} MHz`)),
-      h('div.rx-kv', null, h('small', null, T('Farbträger')), h('b', null, `${fmtMHz(car.vision + 4433618.75)} MHz`)),
+      h('div.rx-kv', null, h('small', null, T('Farbträger')), h('b', null, `${fmtMHz(car.vision + (sys.fsc || 4433618.75))} MHz`)),
       h('div.rx-kv', null, h('small', null, 'Pluto-LO'), h('b', null, `${fmtMHz(car.vision + (offAuto ? STD.palAutoOffset(p) : Number(p.offset_hz)))} MHz`))),
     h('div.grid2', null,
-      field(T('Betrieb'), segmented('pal.live', [{ v: false, label: T('Schleife 160 ms (8 MS/s)') }, { v: true, label: T('Live (7 MS/s)') }], { tid: 'pal-live' }), { hint: T('Schleife: zyklischer Puffer auf dem Pluto; live: bewegtes Bild per USB') }),
-      field(T('Schleifen-Abtastrate'), segmented('pal.fs', [{ v: 8000000, label: '8 MS/s' }, { v: 7000000, label: '7 MS/s' }], { tid: 'pal-fs' }), { path: 'pal.fs' })),
+      field(T('Betrieb'), segmented('pal.live', [{ v: false, label: sys.lines === 525 ? T('Schleife (Standbild)') : T('Schleife 160 ms (8 MS/s)') }, { v: true, label: T('Live (7 MS/s)'), disabled: sys.lines === 525 }], { tid: 'pal-live' }),
+        { hint: sys.lines === 525 ? T('525-Zeilen-Normen: nur Standbild-Schleife (7,993 MS/s, 508 Abtastwerte je Zeile)') : T('Schleife: zyklischer Puffer auf dem Pluto; live: bewegtes Bild per USB') }),
+      sys.lines === 525 ? field(T('Schleifen-Abtastrate'), h('span.mono', null, '7,993 MS/s')) : field(T('Schleifen-Abtastrate'), segmented('pal.fs', [{ v: 8000000, label: '8 MS/s' }, { v: 7000000, label: '7 MS/s' }], { tid: 'pal-fs' }), { path: 'pal.fs' })),
     h('div.grid2', null,
       field(T('Basisband-Versatz'), h('div.inrow', null,
         (() => { const cb = h('input', { type: 'checkbox', role: 'switch', tid: 'pal-offset-auto' }); cb.checked = offAuto;

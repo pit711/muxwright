@@ -30,11 +30,66 @@ for _n in range(21, 70):
     DVBC_CHANNELS["K%d" % _n] = (474.0 + 8.0 * (_n - 21), 8)
 
 
+# ---------------------------------------------------------------------------------------------
+# Amerika, 6-MHz-Raster (Mittenfrequenz = Unterkante + 3 MHz):
+#   Antenne (FCC/Anatel): A2-A6, A7-A13 VHF, A14-A69 UHF. ISDB-Tb (Brasilien): Mitte + 1/7 MHz (ABNT NBR 15601).
+#   Kabel (EIA-542 STD, J.83 Annex B): C2-C158.
+# ---------------------------------------------------------------------------------------------
+US_CHANNELS = {}
+for _n, _e in ((2, 54), (3, 60), (4, 66), (5, 76), (6, 82)):
+    US_CHANNELS["A%d" % _n] = (_e + 3.0, 6)
+for _n in range(7, 14):
+    US_CHANNELS["A%d" % _n] = (177.0 + 6.0 * (_n - 7), 6)
+for _n in range(14, 70):
+    US_CHANNELS["A%d" % _n] = (473.0 + 6.0 * (_n - 14), 6)
+ISDBT_OFFSET_MHZ = 1.0 / 7.0
+CATV_CHANNELS = {}
+for _n, _e in ((2, 54), (3, 60), (4, 66), (5, 76), (6, 82)):
+    CATV_CHANNELS["C%d" % _n] = (_e + 3.0, 6)
+for _n in range(7, 14):
+    CATV_CHANNELS["C%d" % _n] = (177.0 + 6.0 * (_n - 7), 6)
+for _n in range(14, 23):
+    CATV_CHANNELS["C%d" % _n] = (123.0 + 6.0 * (_n - 14), 6)
+for _n in range(23, 95):
+    CATV_CHANNELS["C%d" % _n] = (219.0 + 6.0 * (_n - 23), 6)
+for _n in range(95, 100):
+    CATV_CHANNELS["C%d" % _n] = (93.0 + 6.0 * (_n - 95), 6)
+for _n in range(100, 159):
+    CATV_CHANNELS["C%d" % _n] = (651.0 + 6.0 * (_n - 100), 6)
+
+
+# China (GY/T 106, DTMB/DVB-C): DS13-DS24 474-562 MHz, DS25-DS68 610-954 MHz (Mitte), dazu VHF DS6-DS12
+CN_CHANNELS = {}
+for _n in range(6, 13):
+    CN_CHANNELS["DS%d" % _n] = (171.0 + 8.0 * (_n - 6), 8)
+for _n in range(13, 25):
+    CN_CHANNELS["DS%d" % _n] = (474.0 + 8.0 * (_n - 13), 8)
+for _n in range(25, 69):
+    CN_CHANNELS["DS%d" % _n] = (610.0 + 8.0 * (_n - 25), 8)
+# Japan (ISDB-T): J13-J62, Mitte = 473 + 6 (n-13) + 1/7 MHz
+JP_CHANNELS = {}
+for _n in range(13, 63):
+    JP_CHANNELS["J%d" % _n] = (473.0 + 6.0 * (_n - 13), 6)
+
+
+def _table(standard):
+    if standard == "dtmb":
+        return CN_CHANNELS
+    if standard == "isdbt_jp":
+        return JP_CHANNELS
+    if standard in ("atsc", "isdbt"):
+        return US_CHANNELS
+    if standard == "j83b":
+        return CATV_CHANNELS
+    return DVBT_CHANNELS if standard == "dvbt" else DVBC_CHANNELS
+
+
 def channel_lookup(standard, name):
-    """-> (freq_hz, bandwidth_mhz) oder None. Namen tolerant: 'k21', 'K05', 'K5', 'S2', 's02'."""
+    """-> (freq_hz, bandwidth_mhz) oder None. Namen tolerant: 'k21', 'K05', 'K5', 'S2', 's02'.
+    standard: dvbt, dvbc, atsc, isdbt (Mitte + 1/7 MHz), j83b (Kabelraster EIA-542)."""
     if not name:
         return None
-    tab = DVBT_CHANNELS if standard == "dvbt" else DVBC_CHANNELS
+    tab = _table(standard)
     n = str(name).strip().upper()
     cands = [n]
     if len(n) >= 2 and n[1:].isdigit():
@@ -42,12 +97,14 @@ def channel_lookup(standard, name):
     for c in cands:
         if c in tab:
             mhz, bw = tab[c]
+            if standard in ("isdbt", "isdbt_jp"):
+                mhz += ISDBT_OFFSET_MHZ
             return int(round(mhz * 1e6)), bw
     return None
 
 
 def channel_table(standard):
-    tab = DVBT_CHANNELS if standard == "dvbt" else DVBC_CHANNELS
+    tab = _table(standard)
     return [{"channel": k, "freq_mhz": v[0], "bandwidth_mhz": v[1]} for k, v in tab.items()]
 
 
@@ -161,6 +218,70 @@ def dvbs2_useful_bitrate(modulation, code_rate, symbol_rate, pilots):
 
 def dvbc_useful_bitrate(constellation, symbol_rate):
     return Fraction(int(symbol_rate)) * DVBC_BITS[constellation] * Fraction(188, 204)
+
+
+# ---------------------------------------------------------------------------------------------
+# ATSC 1.0 (A/53 Teil 2): 8-VSB, Symbolrate 684/286 * 4,5 MHz; je Halbbild 313 Segmente a 832 Symbole,
+# davon 312 Datensegmente mit je einem 188-Byte-Paket -> 19 392 658,46 b/s.
+# ---------------------------------------------------------------------------------------------
+ATSC_SYMBOL_RATE = Fraction(4500000 * 684, 286)
+
+
+def atsc_useful_bitrate():
+    return ATSC_SYMBOL_RATE * Fraction(312 * 188 * 8, 313 * 832)
+
+
+# ---------------------------------------------------------------------------------------------
+# J.83 Annex B (SCTE 07, US-Kabel): RS(128,122) ueber GF(128), Trellis 14/15 (64-QAM) bzw. 19/20 (256-QAM),
+# Rahmen 60 bzw. 88 RS-Bloecke + 42/40 Bit Sync. 64-QAM 26,970 Mb/s, 256-QAM 38,811 Mb/s.
+# ---------------------------------------------------------------------------------------------
+J83B = {"64-QAM": (5056941, 6, Fraction(14, 15), 60, 42), "256-QAM": (5360537, 8, Fraction(19, 20), 88, 40)}
+
+
+def j83b_useful_bitrate(constellation):
+    sr, b, tr, n, sync = J83B[constellation]
+    return Fraction(sr) * b * tr * Fraction(n * 122 * 7, n * 128 * 7 + sync)
+
+
+# ---------------------------------------------------------------------------------------------
+# ISDB-T(b) 6 MHz (ARIB STD-B31 / ABNT NBR 15601): 13 Segmente; je Segment 96 * 2^(m-1) Datentraeger in
+# Tu = 252 * 2^(m-1) us -> modusunabhaengig 96/252 MHz * b * CR * 188/204 / (1 + GI) je Segment.
+# Beispiel 13 Segmente 64-QAM 3/4 GI 1/8: 18,25 Mb/s. Abtastrate 512/63 MHz.
+# ---------------------------------------------------------------------------------------------
+ISDBT_BITS = {"DQPSK": 2, "QPSK": 2, "16-QAM": 4, "64-QAM": 6}
+ISDBT_SAMPLE_RATE = Fraction(512000000, 63)
+ISDBT_TI = (0, 1, 2, 4)                 # Zeitverschachtelung I (Mode 3: 0, 1, 2, 4)
+
+
+def isdbt_layer_bitrate(segments, constellation, code_rate, guard):
+    return (Fraction(96000000, 252) * int(segments) * ISDBT_BITS[constellation] * DVBT_CODE_RATES[code_rate]
+            * Fraction(188, 204) / (1 + DVBT_GUARDS[guard]))
+
+
+# ---------------------------------------------------------------------------------------------
+# DTMB (GB 20600-2006): 7,56 MS/s, Signalrahmen = Rahmenkopf (PN 420/595/945) + Rahmenkoerper 3780 Symbole
+# (36 System- + 3744 Datensymbole). LDPC (7488, 3048/4572/6096) = 4/6/8 BCH(762,752)-Bloecke.
+# Beispiel 64-QAM 0,8 PN420: 32,486 Mb/s; 16-QAM 0,6 PN945: 14,438 Mb/s.
+# ---------------------------------------------------------------------------------------------
+DTMB_SR = 7560000
+DTMB_BITS = {"4-QAM-NR": 1, "4-QAM": 2, "16-QAM": 4, "32-QAM": 5, "64-QAM": 6}
+DTMB_RATES = {"0.4": 3008, "0.6": 4512, "0.8": 6016}
+DTMB_HEADERS = (420, 595, 945)
+DTMB_ALLOWED = {"4-QAM-NR": ("0.8",), "4-QAM": ("0.4", "0.6", "0.8"), "16-QAM": ("0.4", "0.6", "0.8"), "32-QAM": ("0.8",),
+                "64-QAM": ("0.4", "0.6", "0.8")}
+
+
+def dtmb_useful_bitrate(constellation, code_rate, header):
+    return Fraction(DTMB_SR, 3780 + int(header)) * Fraction(3744 * DTMB_BITS[constellation], 7488) * DTMB_RATES[code_rate]
+
+
+# J.83 Annex C (Japan, ISDB-C): Codierung wie Annex A, RRC 0,13; ueblich 64-QAM 5,274 MBd
+J83C_SR = 5274000
+
+
+def is_psip(cfg):
+    """ATSC-Systemschicht (PSIP statt DVB-SI): ATSC und US-Kabel (J.83 B)."""
+    return cfg.get("mode") == "atsc" or (cfg.get("mode") == "dvbc" and (cfg.get("dvbc") or {}).get("annex") == "b")
 
 
 def bitrate_str(fr, decimals=1):

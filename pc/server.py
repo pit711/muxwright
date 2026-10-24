@@ -287,7 +287,8 @@ def validate_rf(rf, errs, base=None, std="dab", freq_ok=True):
         ch = standards.dvb_channel_norm(std, ch) or ch
     if not freq_ok:
         pass
-    elif std in ("dvbs", "pal"):                          # channel/frequency checked by the standard's own validator
+    elif std in ("dvbs", "pal", "atsc", "isdbt", "dtmb") or (std == "dvbc" and ch not in table and ch[:1] == "C" and ch[1:].isdigit()):
+        # channel/frequency checked by the standard's own validator (US-Kanalraster A…/C… kommt aus runner/dvb)
         try:
             f = int(out.get("freq_hz"))
             if not 70e6 <= f <= 6e9:
@@ -1077,9 +1078,12 @@ class App:
                 rfbw = int((self.cfg.get("dvbt") or {}).get("bandwidth_mhz") or 8) * 1000000
             elif std == "dvbc":
                 d = self.cfg.get("dvbc") or {}
-                rfbw = 8000000
+                annex = str(d.get("annex", "a")).lower()
+                rfbw = 6000000 if annex in ("b", "c") else 8000000
                 if int(d.get("sps", 1)) == 1:
-                    fir = dev.ensure_fir("dvbc", int(d.get("symbol_rate", 6900000)), 0.15, 128, self.args.wsl_distro)
+                    # RRC: Annex A 0,15; J.83 C (Japan) 0,13; J.83 B 0,18 (64-QAM) / 0,12 (256-QAM)
+                    alpha = 0.13 if annex == "c" else (0.18 if "64" in str(d.get("constellation")) else 0.12) if annex == "b" else 0.15
+                    fir = dev.ensure_fir("dvbc", int(d.get("symbol_rate", 6900000)), alpha, 128, self.args.wsl_distro)
             elif std == "dvbs":
                 d = self.cfg.get("dvbs") or {}
                 sr = int(d.get("symbol_rate", 22000000))
@@ -1087,9 +1091,14 @@ class App:
                 rfbw = int(min(40e6, max(2e6, sr * (1 + alpha))))
                 if int(d.get("sps", 1)) == 1:
                     fir = dev.ensure_fir("dvbs", sr, alpha, 64, self.args.wsl_distro)
-                if not self.args.device_mod_dir:
-                    key = "dvbs2" if agentmod.is_dvbs2(self.cfg) else "dvbs"
-                    dev.ensure(os.path.join(devicemod.FILES, f"{key}_mod_iio"), agentmod.MOD_PATHS[key], "0755")
+            elif std in ("atsc", "isdbt", "dtmb"):
+                rfbw = 6000000 if std != "dtmb" else 8000000
+            key = agentmod.mod_key(std, self.cfg)
+            if key in agentmod.UPLOADED and not self.args.device_mod_dir:
+                src = os.path.join(devicemod.FILES, f"{key}_mod_iio")
+                if not os.path.exists(src):
+                    raise RuntimeError(f"Modulator für {std} fehlt ({os.path.basename(src)}) – Standard noch nicht fertig")
+                dev.ensure(src, agentmod.MOD_PATHS[key], "0755")
             cmd, margs, opts = agentmod.modulator_command(std, self.runner_config(), self.args.device_udp_port,
                                                          self.args.device_mod_dir, lo_hz=lo, window=self.args.device_window,
                                                          fir=fir, rfbw_hz=rfbw)

@@ -601,7 +601,7 @@ def functional(page: Page, base: str):
     c = api(base, "/api/state")["config"]
     assert c["mode"] == "pal" and c["rf"]["channel"] == "K36" and c["rf"]["freq_hz"] == 591250000, (c["mode"], c["rf"])
     assert c["pal"]["image"]["text"] == "E2E PAL" and c["pal"]["image"]["pattern"] == "grey" and c["pal"]["sound"]["deviation_hz"] == 50000, c["pal"]
-    expect(page.locator(T("hdr-std"))).to_have_text("PAL")
+    expect(page.locator(T("hdr-std"))).to_have_text("Analog-TV")
     expect(page.locator(T("tx-state"))).to_have_text("BEREIT", timeout=8000)
     page.locator(T("rf-enable")).check(force=True)
     expect(page.locator(T("tx-state"))).to_have_text("ON AIR", timeout=5000)
@@ -701,7 +701,9 @@ def functional(page: Page, base: str):
     page.click(T("confirm-restart-ok"))
     expect(page.locator(T("applybar"))).to_be_hidden()
     goto(page, "regie")
-    expect(page.locator(".tile")).to_have_count(6)
+    expect(page.locator(".tile")).to_have_count(9)
+    expect(page.locator(T("flags-atsc") + " img.flag")).to_have_count(4)
+    expect(page.locator(T("regie-tile-dtmb") + " .badge-untested")).to_have_count(1)
     expect(page.locator(T("regie-tile-dab"))).to_have_class(re.compile(r"\bactive\b"))
     page.click(T("regie-onair-fm"))
     page.click(T("confirm-onair-ok"))

@@ -9,10 +9,16 @@ import { estDbm } from './pages.js';
 import { APP_NAME } from './brand.js';
 import { T } from './i18n.js';
 
-const ICON = { dab: 'radio', fm: 'wave', dvbt: 'antenna', dvbc: 'layers', dvbs: 'star', pal: 'tv' };
-const FIRST_PAGE = { dab: 'dienste', fm: 'sender', dvbt: 'modulation', dvbc: 'modulation', dvbs: 'modulation', pal: 'pal' };
+const ICON = { dab: 'radio', fm: 'wave', dvbt: 'antenna', dvbc: 'layers', dvbs: 'star', pal: 'tv', atsc: 'antenna', isdbt: 'antenna', dtmb: 'antenna' };
+const FIRST_PAGE = { dab: 'dienste', fm: 'sender', dvbt: 'modulation', dvbc: 'modulation', dvbs: 'modulation', pal: 'pal', atsc: 'modulation', isdbt: 'modulation', dtmb: 'modulation' };
 
-const RANGE = { dab: [170e6, 1500e6], fm: [87.5e6, 108e6], dvbt: [40e6, 1000e6], dvbc: [40e6, 1000e6], dvbs: [430e6, 5850e6], pal: [45e6, 870e6] };
+const RANGE = { dab: [170e6, 1500e6], fm: [76e6, 108e6], dvbt: [40e6, 1000e6], dvbc: [40e6, 1000e6], dvbs: [430e6, 5850e6], pal: [45e6, 870e6], atsc: [54e6, 806e6], isdbt: [54e6, 806e6], dtmb: [160e6, 960e6] };
+
+/** Kleine Länderflaggen je Standard (web/flags, flag-icons MIT) */
+export function stdFlags(st, max = 6) {
+  return h('span.std-flags', { tid: `flags-${st.id}` }, (st.flags || []).slice(0, max).map(cc => h('img.flag', { src: `flags/${cc}.svg`, alt: cc.toUpperCase(), title: STD.countryName(cc), loading: 'lazy' })),
+    st.untested ? h('span.badge-untested', { title: T('Noch nicht an einem Empfänger geprüft') }, 'untested') : null);
+}
 const plausible = (std, rf) => rf && rf.freq_hz >= RANGE[std][0] && rf.freq_hz <= RANGE[std][1] && !(std === 'fm' && rf.channel !== 'fm') && !(std === 'dvbs' && !['sat', 'ham'].includes(rf.channel));
 
 /** Letzte HF-Einstellung je Standard merken (für inaktive Kacheln und den Wechsel); nur plausible Werte (kein Zwischenstand beim Umschalten) */
@@ -55,6 +61,10 @@ function tileInfo(std, cfg) {
   const prgs = cfg.dvb.programs.map(p => p.name).join(' · ');
   if (std === 'dvbs' && cfg.dvbs?.use === 'ham') { const d = cfg.dvbs; return { ch: `DATV ${d.callsign || '–'}`, freq: f(Math.round(d.ham_freq_mhz * 1e6)), params: `${d.system === 'dvbs2' ? 'DVB-S2' : 'DVB-S'} ${d.modulation} ${d.fec} · ${d.symbol_rate / 1000} kS/s · ${(STD.netRate(c2) / 1e3).toFixed(0)} kbit/s · ${STD.DATV.BANDS[d.ham_band]?.label || ''}`, prog: prgs }; }
   if (std === 'dvbs') { const d = cfg.dvbs; return { ch: `${D.fmtNum(d.transponder_mhz, 0)} ${d.polarization}`, freq: T('ZF {f}', { f: f(STD.satIfHz(d)) }), params: `${d.system === 'dvbs2' ? 'DVB-S2' : 'DVB-S'} ${d.modulation} ${d.fec} · ${d.symbol_rate / 1000} kS/s · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
+  if (std === 'dtmb') { const m = cfg.dtmb; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${m.carriers === 1 ? 'C=1' : 'C=3780'} ${m.constellation} ${m.code_rate} PN${m.header} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
+  if (std === 'atsc') return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `8-VSB · 19,39 Mbit/s`, prog: prgs };
+  if (std === 'isdbt') { const m = cfg.isdbt; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `Mode ${m.mode} GI ${m.guard} · ${Number(m.layers) === 2 ? '1seg + 12' : '13 Seg.'} ${m.layer_a.constellation} ${m.layer_a.code_rate} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
+  if (std === 'dvbc' && STD.isJ83b(cfg)) { const m = cfg.dvbc; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `J.83 B ${m.constellation} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   if (std === 'dvbt') { const m = cfg.dvbt; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${m.bandwidth_mhz} MHz ${m.fft} ${m.constellation} ${m.code_rate} GI ${m.guard} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   const m = cfg.dvbc; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${m.constellation} · ${(m.symbol_rate / 1e6).toFixed(3)} MBd · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs };
 }
@@ -125,7 +135,7 @@ export function pageRegie() {
     return h('section.tile.' + status + (isActive ? '.active' : ''), { tid: `regie-tile-${st.id}` },
       h('header', null,
         h('span.tile-ic', null, icon(ICON[st.id])),
-        h('div.tile-name', null, h('b', null, st.name), h('small', null, st.long)),
+        h('div.tile-name', null, h('b', null, st.name, stdFlags(st)), h('small', null, st.long)),
         h('span.tile-status', { tid: `regie-status-${st.id}` }, h('i'), statusText)),
       h('div.tile-freq', null, h('b.mono', null, info.ch), h('span.mono', null, info.freq)),
       h('div.tile-params.mono', null, info.params),
@@ -148,7 +158,7 @@ export function pageRegie() {
   return h('div.page-stack.regie', null,
     firmwareNotice(),
     h('div.regie-head', null,
-      h('div', null, h('h2', null, APP_NAME), h('p.muted', null, T('Ein Sender, sechs Standards. Kachel wählen, „Auf Sendung“ – die Kette startet, der Pluto schaltet nach der Sicherheitsabfrage ein.'))),
+      h('div', null, h('h2', null, APP_NAME), h('p.muted', null, T('Ein Sender, viele Standards. Kachel wählen, „Auf Sendung“ – die Kette startet, der Pluto schaltet nach der Sicherheitsabfrage ein.'))),
       h('span.grow')),   // Not-Aus steht einmal fest in der Kopfzeile (auf allen Seiten und Bildschirmgrößen)
     h('div.tiles', { tid: 'regie-tiles' }, tiles));
 }

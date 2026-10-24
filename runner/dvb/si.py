@@ -2,6 +2,7 @@
 """SI-Tabellen als TSDuck-XML: NIT (Delivery-Descriptor, service_list, EACEM-LCN), SDT, EIT p/f, TDT/TOT."""
 import os
 import struct
+import subprocess
 import time
 from xml.sax.saxutils import escape, quoteattr
 
@@ -25,7 +26,20 @@ def nit_xml(cfg, version=1):
          '  <network_name_descriptor network_name=%s/>' % _a(ts["network_name"]),
          '  <transport_stream transport_stream_id=%s original_network_id=%s>'
          % (_hex(ts["transport_stream_id"]), _hex(ts["original_network_id"]))]
-    if std == "dvbt":
+    if std == "isdbt":
+        L.append('   <ISDB_terrestrial_delivery_system_descriptor area_code=%s guard_interval=%s transmission_mode=%s>'
+                 % (_a(d["area_code"]), _a(d["guard"]), _a("mode%d" % d["mode"])))
+        L.append('    <frequency value=%s/>' % _a(int(rf["freq_hz"])))
+        L.append('   </ISDB_terrestrial_delivery_system_descriptor>')
+        L.append('   <generic_descriptor tag="0xCD">%s</generic_descriptor>' % isdb_ts_information(cfg).hex().upper())
+        one = [s for s in cfg["services"] if s.get("oneseg")]
+        if one:
+            L.append("   <partial_reception_descriptor>")
+            L += ['    <service id=%s/>' % _hex(s["service_id"]) for s in one]
+            L.append("   </partial_reception_descriptor>")
+    elif std == "dtmb":
+        pass                              # GB/T 17975: kein eigener Delivery-Descriptor in TSDuck; Suchlauf ueber die Frequenz
+    elif std == "dvbt":
         L.append('   <terrestrial_delivery_system_descriptor centre_frequency=%s bandwidth=%s priority="HP" '
                  'no_time_slicing="true" no_MPE_FEC="true" constellation=%s hierarchy_information="0" '
                  'code_rate_HP_stream=%s code_rate_LP_stream=%s guard_interval=%s transmission_mode=%s '
@@ -73,6 +87,94 @@ def sdt_xml(cfg, version=1, names=None):
         L.append("  </service>")
     L += [" </SDT>", "</tsduck>", ""]
     return "\n".join(L)
+
+
+def isdb_ts_information(cfg):
+    """ts_information_descriptor (ARIB STD-B10 6.2.42, ABNT NBR 15603): remote_control_key_id = virtuelle Kanalnummer,
+    TS-Name, Dienste je Uebertragungsart (wie im Sendebetrieb: 0x0F = Vollsegment, 0xAF = 1seg/Teilempfang)."""
+    ts, d = cfg["ts"], cfg["isdbt"]
+    name = str(ts.get("network_name") or "LAB").encode("latin-1", "replace")[:20]
+    groups = []
+    if d.get("layers") == 2:
+        groups = [(0x0F, [s for s in cfg["services"] if not s.get("oneseg")]), (0xAF, [s for s in cfg["services"] if s.get("oneseg")])]
+    else:
+        groups = [(0x0F, list(cfg["services"]))]
+    groups = [(t, ss) for t, ss in groups if ss]
+    b = bytes([d.get("remote_key", 1) & 0xFF, (len(name) << 2) | len(groups)]) + name
+    for t, ss in groups:
+        b += bytes([t, len(ss)]) + b"".join(struct.pack(">H", s["service_id"]) for s in ss)
+    return b
+
+
+# --------------------------------------------------------------------------------------------- ATSC PSIP (A/65)
+ST_VIDEO = {"mpeg2": 0x02, "h264": 0x1B, "hevc": 0x24}
+ST_AUDIO = {"ac3": 0x81, "aac": 0x0F, "mp2": 0x04}
+GPS_EPOCH = 315964800                 # 1980-01-06 00:00:00 UTC
+GPS_UTC_OFFSET = 18                   # Schaltsekunden seit 1980 (Stand 2017, unveraendert)
+
+
+def tvct_xml(cfg, version=1):
+    """TVCT (Antenne) bzw. CVCT (Kabel): virtuelle Kanaele major.minor mit service_location_descriptor."""
+    ts = cfg["ts"]
+    cable = cfg["mode"] == "dvbc"
+    tag = "CVCT" if cable else "TVCT"
+    mod = ("%s" % cfg["dvbc"]["constellation"]) if cable else "8-VSB"
+    L = ['<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>",
+         ' <%s version=%s current="true" protocol_version="0" transport_stream_id=%s>' % (tag, _a(version & 31), _hex(ts["transport_stream_id"]))]
+    for i, s in enumerate(cfg["services"]):
+        short = "".join(ch for ch in str(s["name"]) if 32 <= ord(ch) < 127)[:7] or "LAB%d" % (i + 1)
+        L.append('  <channel short_name=%s major_channel_number=%s minor_channel_number=%s modulation_mode=%s channel_TSID=%s '
+                 'program_number=%s ETM_location="0" access_controlled="false" hidden=%s hide_guide="true" service_type=%s source_id=%s>'
+                 % (_a(short), _a(int(ts.get("major_channel", 1))), _a(int(s.get("minor") or s["lcn"] or i + 1)), _a(mod),
+                    _hex(ts["transport_stream_id"]), _a(s["service_id"]), _a("false" if s.get("visible", True) else "true"),
+                    _a("dtv" if s["type"] == "tv" else "audio"), _a(i + 1)))
+        L.append('   <service_location_descriptor PCR_PID=%s>' % _hex(s["_pcr_pid"]))
+        if s["type"] == "tv":
+            L.append('    <component stream_type=%s elementary_PID=%s/>' % (_a("0x%02X" % ST_VIDEO[s["video"]["codec"]]), _hex(s["_vpid"])))
+        L.append('    <component stream_type=%s elementary_PID=%s ISO_639_language_code=%s/>'
+                 % (_a("0x%02X" % ST_AUDIO[s["audio"]["codec"]]), _hex(s["_apid"]), _a(s["audio"].get("language", "eng")[:3])))
+        L.append("   </service_location_descriptor>")
+        L.append('   <extended_channel_name_descriptor><long_channel_name_text><string language="eng" text=%s/></long_channel_name_text>'
+                 '</extended_channel_name_descriptor>' % _a(s["name"]))
+        L.append("  </channel>")
+    L += [" </%s>" % tag, "</tsduck>", ""]
+    return "\n".join(L)
+
+
+def mgt_xml(cfg, vct_bytes, vct_version=1, version=1):
+    tag = "CVCT-current" if cfg["mode"] == "dvbc" else "TVCT-current"
+    return "\n".join(['<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>",
+                      ' <MGT version=%s protocol_version="0">' % _a(version & 31),
+                      '  <table type=%s PID="0x1FFB" version_number=%s number_bytes=%s/>' % (_a(tag), _a(vct_version & 31), _a(int(vct_bytes))),
+                      " </MGT>", "</tsduck>", ""])
+
+
+def stt_section(now=None):
+    """System Time Table (A/65 6.1) als fertiger Abschnitt; GPS-Sekunden, keine Sommerzeit-Angabe."""
+    t = int(time.time() if now is None else now)
+    body = struct.pack(">HBBBBIBBB", 0x0000, 0xC1, 0, 0, 0, t - GPS_EPOCH + GPS_UTC_OFFSET, GPS_UTC_OFFSET, 0x60, 0)
+    head = struct.pack(">BH", 0xCD, 0xF000 | (len(body) + 4))
+    sec = head + body
+    return sec + struct.pack(">I", _crc32_mpeg(sec))
+
+
+def write_psip(host, sdir, cfg, version=1):
+    """TVCT/CVCT und MGT als .bin (tstabcomp), STT schreibt die Kette sekuendlich nach."""
+    vx = os.path.join(sdir, "vct.xml")
+    host.atomic_write(vx, tvct_xml(cfg, version))
+    subprocess.run([host.tool("tstabcomp"), "-o", os.path.join(sdir, "vct.bin"), vx], check=True, capture_output=True)
+    n = os.path.getsize(os.path.join(sdir, "vct.bin"))
+    mx = os.path.join(sdir, "mgt.xml")
+    host.atomic_write(mx, mgt_xml(cfg, n, version, version))
+    subprocess.run([host.tool("tstabcomp"), "-o", os.path.join(sdir, "mgt.bin"), mx], check=True, capture_output=True)
+    write_stt(sdir)
+
+
+def write_stt(sdir, now=None):
+    p = os.path.join(sdir, "stt.bin")
+    with open(p + ".tmp", "wb") as f:
+        f.write(stt_section(now))
+    os.replace(p + ".tmp", p)
 
 
 def _utc(t):

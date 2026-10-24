@@ -35,6 +35,15 @@ export function pageFM() {
     h('p.hint', null, icon('info'), T('Hub, Pilot, MPX-Leistung und Gain sind live (ctl „fm“); Preemphasis, Stereo und Limiter brauchen „Übernehmen (Neustart)“.')),
   ], { tid: 'card-fm-mpx', badge: h('span.pill.live', null, T('Hub/Pilot/Gain live')) });
 
+  const region = card(T('Region'), 'globe', [
+    field(T('UKW-Band'), segmented('fm.region', Object.entries(STD.FM_REGIONS).map(([k, v]) => ({ v: k, label: v.label })), { tid: 'fm-region', rerender: true,
+      onchange: k => { const b = STD.FM_REGIONS[k]; f.preemphasis_us = b.pre; f.rds.standard = b.rds; const mhz = S.draft.rf.freq_hz / 1e6;
+        if (!(mhz >= b.lo && mhz <= b.hi)) { const m = k === 'jp' ? 80.0 : k === 'us' ? 99.1 : 100.0; S.draft.rf.freq_hz = Math.round(m * 1e6); f.freq_mhz = m; S.rfIntent.add('freq_hz'); }
+        edited('fm.preemphasis_us', true); } }),
+      { path: 'fm.region', hint: h('span', null, T('{lo}–{hi} MHz, Preemphasis {pre} µs', { lo: STD.fmBand(f).lo, hi: STD.fmBand(f).hi, pre: STD.fmBand(f).pre }), ' ',
+        h('span.std-flags', null, STD.fmBand(f).flags.map(cc => h('img.flag', { src: `flags/${cc}.svg`, alt: cc, title: STD.countryName(cc) })), STD.fmBand(f).untested ? h('span.badge-untested', null, 'untested') : null)) }),
+  ], { tid: 'card-fm-region' });
+
   const audio = audioSourceCard(f.audio.source, 'fm.audio.source', { key: 'fm', title: T('Audioquelle (48 kHz Stereo)'), tid: 'card-fm-source' });
 
   const sc = f.second_carrier;
@@ -58,7 +67,7 @@ export function pageFM() {
     ] : h('p.muted.small', null, T('Aus. Für Nachbarkanalselektion, Fangverhältnis und AF-/EON-Umschaltung einschalten – beide Träger liegen im selben 4,096-MS/s-Strom.')),
   ], { tid: 'card-fm-second' });
 
-  return h('div.page-grid', null, h('div.col', null, mpx, second), h('div.col', null, audio));
+  return h('div.page-grid', null, h('div.col', null, region, mpx, second), h('div.col', null, audio));
 }
 
 // ---------------------------------------------------------------- RDS
@@ -72,18 +81,28 @@ export function pageRDS() {
     if (await sendLive({ rds: payload }, T('{label} gesendet', { label }))) { if (S.server) Object.assign(S.server.fm.rds, structuredClone(payload)); edited('fm.rds'); }
   } }, icon('send'), label);
 
+  const rbds = r.standard === 'rbds';
+  const ptyList = rbds ? STD.RBDS_PTY : STD.RDS_PTY;
   const ctry = h('span.hint-inline');
-  const updC = () => { const c = STD.rdsCountry(r.pi, r.ecc); ctry.textContent = c.length ? T('Länderkennung passt: {names}', { names: c.map(x => x.name).join(' / ') }) : T('Länderkennung (1. Ziffer) passt nicht zur ECC'); ctry.classList.toggle('warn', !c.length); };
+  const updC = () => { if (rbds) { ctry.textContent = T('RBDS: PI aus dem Rufzeichen, kein ECC (USA/Kanada)'); ctry.classList.remove('warn'); return; } const c = STD.rdsCountry(r.pi, r.ecc); ctry.textContent = c.length ? T('Länderkennung passt: {names}', { names: c.map(x => x.name).join(' / ') }) : T('Länderkennung (1. Ziffer) passt nicht zur ECC'); ctry.classList.toggle('warn', !c.length); };
   S.watchers.push(updC); updC();
 
+  const callIn = input('fm.rds.callsign', { tid: 'rds-callsign', mono: true, ph: 'WXYZ', maxlength: 9 });
   const ident = card(T('Kennung (Gruppe 1A)'), 'id', [
     h('div.grid3', null,
+      field(T('Norm'), segmented('fm.rds.standard', [{ v: 'rds', label: T('RDS (Europa)') }, { v: 'rbds', label: T('RBDS (USA/Kanada)') }], { tid: 'rds-standard', rerender: true,
+        onchange: v => { const fm = S.draft.fm; if (v === 'rbds' && fm.preemphasis_us === 50) { fm.preemphasis_us = 75; edited('fm.preemphasis_us', true); toast(T('Preemphasis auf 75 µs (Nordamerika) gestellt'), 'info'); } } }),
+        { hint: rbds ? h('span.badge-untested', null, 'untested') : null }),
+      rbds ? field(T('Rufzeichen'), h('div.inrow', null, callIn,
+        h('button.btn.sm', { type: 'button', tid: 'rds-pi-from-call', onclick: () => { const pi = STD.rbdsPiFromCall(r.callsign); if (!pi) return toast(T('Nur vierstellige US-Rufzeichen (K…/W…); sonst PI von Hand eintragen'), 'error'); r.pi = pi; edited('fm.rds.pi', true); S.render(true); } }, T('→ PI'))),
+        { path: 'fm.rds.callsign', hint: T('K…/W… → PI nach NRSC-4-B') }) : null),
+    h('div.grid3', null,
       field('PI (hex)', input('fm.rds.pi', { tid: 'rds-pi', mono: true, hex: 4, ph: '0xD3C4' }), { path: 'fm.rds.pi', hint: T('1. Ziffer Land (D/1 = DE), 2. Ziffer Bereich, 3.–4. Programm') }),
-      field('ECC (hex)', input('fm.rds.ecc', { tid: 'rds-ecc', mono: true, hex: 2, ph: '0xE0' }), { path: 'fm.rds.ecc' }),
+      rbds ? null : field('ECC (hex)', input('fm.rds.ecc', { tid: 'rds-ecc', mono: true, hex: 2, ph: '0xE0' }), { path: 'fm.rds.ecc' }),
       field(T('RDS senden'), toggle('fm.rds.enable', T('RDS aktiv'), { tid: 'rds-enable', rerender: true }))),
     h('p.ctry', null, icon('info'), ctry),
     h('div.grid3', null,
-      field(T('PTY (RDS Europa)'), select('fm.rds.pty', STD.RDS_PTY.map((n, i) => ({ v: i, label: `${i} · ${n}` })), { num: true, tid: 'rds-pty', rerender: false }), { path: 'fm.rds.pty', hint: 'live' }),
+      field(rbds ? T('PTY (RBDS)') : T('PTY (RDS Europa)'), select('fm.rds.pty', ptyList.map((n, i) => ({ v: i, label: `${i} · ${n}` })), { num: true, tid: 'rds-pty', rerender: false }), { path: 'fm.rds.pty', hint: 'live' }),
       field('PTYN (8)', input('fm.rds.ptyn', { tid: 'rds-ptyn', maxlength: 8 }), { path: 'fm.rds.ptyn', extra: counter(() => [...(r.ptyn || '')].length, 8), hint: T('Gruppe 10A · live') }),
       field(T('PIN (TT:HH:MM)'), input('fm.rds.pin', { tid: 'rds-pin', mono: true, ph: T('leer = aus'), parse: v => v.trim() || null }), { path: 'fm.rds.pin', hint: T('Programmkennung Gruppe 1A') })),
     h('div.grid3', null,
@@ -163,7 +182,7 @@ export function pageRDS() {
       h('tbody', null, r.eon.map((e, i) => h('tr', null,
         h('td', null, input(`fm.rds.eon.${i}.pi`, { mono: true, hex: 4, tid: `eon-pi-${i}` })),
         h('td', null, input(`fm.rds.eon.${i}.ps`, { maxlength: 8, tid: `eon-ps-${i}` })),
-        h('td', null, select(`fm.rds.eon.${i}.pty`, STD.RDS_PTY.map((n, k) => ({ v: k, label: `${k} · ${n}` })), { num: true, rerender: false })),
+        h('td', null, select(`fm.rds.eon.${i}.pty`, ptyList.map((n, k) => ({ v: k, label: `${k} · ${n}` })), { num: true, rerender: false })),
         h('td', null, input(`fm.rds.eon.${i}.af`, { mono: true, ph: '93,3; 95,0', fmt: v => (v || []).map(x => String(x).replace('.', ',')).join('; '), parse: v => v.split(/[;\s]+/).map(x => Number(x.replace(',', '.'))).filter(x => x > 0) })),
         h('td', null, toggle(`fm.rds.eon.${i}.tp`, '')), h('td', null, toggle(`fm.rds.eon.${i}.ta`, '', { tid: `eon-ta-${i}` })),
         h('td', null, input(`fm.rds.eon.${i}.linkage`, { type: 'number', min: 0, max: 4095, mono: true })),

@@ -14,7 +14,7 @@ from .chain import DvbChain
 
 
 def is_dvb_config(raw):
-    return str((raw or {}).get("mode", "")).lower() in ("dvbt", "dvbc", "dvbs")
+    return str((raw or {}).get("mode", "")).lower() in C.STANDARDS
 
 
 def prepare(host, path):

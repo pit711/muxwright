@@ -64,12 +64,13 @@ def analyze(x, fs, carrier_hz, system="BG", png=None, ref_luma=None, ffmpeg="ffm
         rep["deviation_peak_hz"] = round(float(np.percentile(np.abs(aud), 99.5)), 0)
         rep["deviation_rms_hz"] = round(float(np.sqrt(np.mean(aud ** 2))), 0)
     # Farbburst/Farbtraeger: Pegel bei +4,43 MHz relativ zum Bildtraeger
-    if abs(carrier_hz + FSC) < fs / 2:
-        rep["chroma_rel_db"] = round(lvl(FSC, 300e3) - lvl(0, 20e3), 2)
+    fsc = sysd.get("fsc", FSC)
+    if abs(carrier_hz + fsc) < fs / 2:
+        rep["chroma_rel_db"] = round(lvl(fsc, 300e3) - lvl(0, 20e3), 2)
     X2 = X.copy()
     X2[np.abs(f) > 1.0e6] = 0
     env = np.abs(np.fft.ifft(X2))
-    spl = int(round(64e-6 * fs))
+    spl = int(round(sysd.get("line_s", 64e-6) * fs))
     nl = n // spl
     prof = env[: nl * spl].reshape(-1, spl)
     phase = int(np.argmax(np.convolve(prof.mean(0), np.ones(int(4.7e-6 * fs)), "same")))
@@ -91,7 +92,7 @@ def analyze(x, fs, carrier_hz, system="BG", png=None, ref_luma=None, ffmpeg="ffm
     rep["vsync_lines"] = starts[:6]
     # Bild: 625 Zeilen ab dem ersten Vollbild-Anfang, Halbbilder verschraenkt
     img = None
-    if len(starts) >= 2 and starts[0] + 625 <= nl:
+    if sysd.get("lines", 625) == 625 and len(starts) >= 2 and starts[0] + 625 <= nl:   # Bild nur fuer 625er Normen
         f1 = starts[0]
         # erstes Halbbild beginnt mit breiten Impulsen in Zeile 1 (Index f1); aktive Zeilen 24..310 bzw. 336..622
         a0, a1 = int(10.5e-6 * fs), int(62.5e-6 * fs)

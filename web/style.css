@@ -962,3 +962,13 @@ dialog.modal.onb .modal-actions { padding: 14px 24px; border-top: 1px solid var(
 /* CJK/Devanagari/Arabisch: keine Sperrung und keine Großschreibung bei Kopf-Labels */
 :lang(ja) small, :lang(zh) small, :lang(ko) small, :lang(hi) small, :lang(ar) small,
 :lang(ja) .eyebrow, :lang(zh) .eyebrow, :lang(ko) .eyebrow { letter-spacing: 0; text-transform: none; }
+
+/* Neue Standards, noch nicht an einem echten Empfänger geprüft */
+.badge-untested { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 700 10.5px/1.6 var(--mono, ui-monospace, monospace); letter-spacing: .04em; text-transform: uppercase; color: #fff; background: #b45309; border: 1px solid #f59e0b; vertical-align: middle; }
+
+/* Länderflaggen je Standard */
+.std-flags { display: inline-flex; gap: 3px; align-items: center; margin-left: 8px; vertical-align: middle; flex-wrap: wrap; }
+.std-flags .flag { width: 18px; height: 13.5px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0,0,0,.18); object-fit: cover; }
+.std-flags .badge-untested { margin-left: 4px; }
+.isdb-layer { border: 1px solid var(--line, rgba(127,127,127,.25)); border-radius: 8px; padding: 8px 10px; margin: 8px 0; }
+.isdb-layer h4 { margin: 0 0 6px; font-size: 13px; }

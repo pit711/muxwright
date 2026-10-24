@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""PAL-Erzeugung (CCIR 625/50, negative AM mit Restseitenband, FM-Ton).
+"""PAL-Erzeugung (CCIR 625/50, negative AM mit Restseitenband, FM-Ton); Standbild-Schleife auch fuer NTSC-M, PAL-M (525/59,94)
+und PAL-N – je Norm Zeilenzahl, Zeilendauer, Farbtraeger und Farbcodierung aus systems.SYSTEMS.
 
 1. loop_iq(): Standbild-Schleife aus 4 Vollbildern (PAL-8-Halbbild-Sequenz, 160 ms). Verfahren 1:1 aus
    pluto_fw/mod/tools/pal_bg_gen.py (Modulator-Agent, am LG-Fernseher erfolgreich): Composite bei 4·fs, Huellkurve,
@@ -15,7 +16,7 @@ import subprocess
 
 import numpy as np
 
-from .systems import FSC, LINE_S, LINES, SYSTEMS
+from .systems import FSC, LINE_S, LINES, SYSTEMS, loop_s
 
 FRAMES = 4                 # 4 Vollbilder = 8 Halbbilder: Farbtraegerphase wiederholt sich exakt (FSC * 0,16 s ganzzahlig)
 LOOP_S = FRAMES / 25.0
@@ -59,8 +60,19 @@ def _esc(s):
 
 
 # --------------------------------------------------------------------------------------------- Zeilenaufbau
-def _kind(p):
+def _kind525(p):
+    """525er Norm (BT.470 System M): Halbzeilen-Position p -> Impulsart (je 6 Vor-/Haupt-/Nachausgleich-Halbzeilen)."""
+    if 1.0 <= p < 4.0 or 7.0 <= p < 10.0 or 263.5 <= p < 266.5 or 269.5 <= p < 272.5:
+        return "eq"
+    if 4.0 <= p < 7.0 or 266.5 <= p < 269.5:
+        return "broad"
+    return None
+
+
+def _kind(p, lines=625):
     """Halbzeilen-Position p (1.0 ... 625.5) -> Impulsart nach BT.470 (Vor-/Nachausgleich, Hauptimpulse)."""
+    if lines == 525:
+        return _kind525(p)
     if p >= 623.5:
         return "eq"
     if 1.0 <= p < 3.5:
@@ -76,13 +88,16 @@ def _kind(p):
     return None
 
 
-def line_pulses(L, spl):
+def line_pulses(L, spl, lines=625, line_s=64e-6):
     half = spl // 2
-    us = spl / 64.0
-    sync, eq, broad = int(round(4.7 * us)), int(round(2.35 * us)), int(round(27.3 * us))
+    us = spl / (line_s * 1e6)
+    if lines == 525:
+        sync, eq, broad = int(round(4.7 * us)), int(round(2.3 * us)), int(round((line_s * 1e6 / 2 - 4.7) * us))
+    else:
+        sync, eq, broad = int(round(4.7 * us)), int(round(2.35 * us)), int(round(27.3 * us))
     out = []
     for h2 in (0, 1):
-        k = _kind((2 * (L - 1) + h2) / 2 + 1)
+        k = _kind((2 * (L - 1) + h2) / 2 + 1, lines)
         if k == "eq":
             out.append((h2 * half, eq))
         elif k == "broad":
@@ -92,12 +107,21 @@ def line_pulses(L, spl):
     return out
 
 
-def in_vsync(L):
+def in_vsync(L, lines=625):
+    if lines == 525:
+        return (L <= 9) or (263 <= L <= 272)
     return (L <= 6) or (310 <= L <= 318) or (L >= 623)
 
 
-def active_row(L):
-    """Bildzeile (0..575) einer Zeilennummer L oder None (Halbbild 1: 24..310 gerade, Halbbild 2: 336..622 ungerade)."""
+def active_row(L, lines=625):
+    """Bildzeile (0..575) einer Zeilennummer L oder None (Halbbild 1: 24..310 gerade, Halbbild 2: 336..622 ungerade).
+    525: 0..479 (Halbbild 1: 22..261 gerade, Halbbild 2: 285..524 ungerade)."""
+    if lines == 525:
+        if 22 <= L <= 261:
+            return 2 * (L - 22)
+        if 285 <= L <= 524:
+            return 2 * (L - 285) + 1
+        return None
     if 24 <= L <= 310:
         r = 2 * (L - 24)
     elif 336 <= L <= 622:
@@ -112,23 +136,29 @@ def loop_iq(p, rgb):
     """p: Parameter (system, fs, offset_hz, level, sound{...}). rgb: (576, 720, 3) 0..1.
     -> (komplexes Signal (np.complex128, Laenge fs*0,16), Bericht)."""
     sysd = SYSTEMS[p["system"]]
+    LN, LS, FSCX, FR = sysd["lines"], sysd["line_s"], sysd["fsc"], sysd["frames"]
+    ntsc = sysd["color"] == "ntsc"
     FS = float(p["fs"])
     FS_HI = 4 * FS
-    spl = int(round(LINE_S * FS_HI))
+    spl = int(round(LS * FS_HI))
     half = spl // 2
     us = FS_HI * 1e-6
-    N = FRAMES * LINES * spl
+    N = FR * LN * spl
     t = np.arange(N) / FS_HI
     h, w = rgb.shape[:2]
     R, G, B = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     Y = 0.299 * R + 0.587 * G + 0.114 * B
     U = 0.493 * (B - Y)
     V = 0.877 * (R - Y)
-    act0, act_len = int(round(10.5 * us)), int(round(52.0 * us))
+    if LN == 525:
+        act0, act_len = int(round(9.4 * us)), int(round(52.6 * us))
+        burst0, burst_len = int(round(5.3 * us)), int(round(2.5 * us))
+    else:
+        act0, act_len = int(round(10.5 * us)), int(round(52.0 * us))
+        burst0, burst_len = int(round(5.6 * us)), int(round(2.25 * us))
     xs = np.linspace(0, w - 1, act_len)
 
     v = np.zeros(N)
-    burst0, burst_len = int(round(5.6 * us)), int(round(2.25 * us))
     vswitch = np.zeros(N)
     burst_mask = np.zeros(N)
     active_mask = np.zeros(N)
@@ -136,16 +166,16 @@ def loop_iq(p, rgb):
     Ub = np.zeros(N)
     Vb = np.zeros(N)
     rows = {}
-    for f in range(FRAMES):
-        for L in range(1, LINES + 1):
-            base = (f * LINES + L - 1) * spl
-            for s0, ln in line_pulses(L, spl):
+    for f in range(FR):
+        for L in range(1, LN + 1):
+            base = (f * LN + L - 1) * spl
+            for s0, ln in line_pulses(L, spl, LN, LS):
                 v[base + s0: base + s0 + ln] = -0.3
-            sw = 1.0 if ((f * LINES + L) % 2) else -1.0
-            vswitch[base: base + spl] = sw
-            if not in_vsync(L):
+            sw = 1.0 if ((f * LN + L) % 2) else -1.0
+            vswitch[base: base + spl] = 1.0 if ntsc else sw          # NTSC: keine V-Umschaltung
+            if not in_vsync(L, LN):
                 burst_mask[base + burst0: base + burst0 + burst_len] = 1.0
-            r = active_row(L)
+            r = active_row(L, LN)
             if r is not None:
                 if r not in rows:
                     rows[r] = (np.interp(xs, np.arange(w), Y[r]), np.interp(xs, np.arange(w), U[r]),
@@ -165,10 +195,14 @@ def loop_iq(p, rgb):
     Ub = lp(Ub, 1.3e6, 0.6e6)
     Vb = lp(Vb, 1.3e6, 0.6e6)
     am = lp(active_mask, 2.5e6, 1e6)
-    ph = 2 * np.pi * FSC * t
+    ph = 2 * np.pi * FSCX * t
     chroma = Ub * np.sin(ph) + vswitch * Vb * np.cos(ph)
-    burst = 0.15 * (-np.sin(ph) + vswitch * np.cos(ph)) / np.sqrt(2) * lp(burst_mask, 2e6, 1e6)
-    v = v + (Yb * 0.7 + chroma * 0.7) * am + burst
+    if ntsc:                                                         # NTSC: Burst bei 180° (−U), ohne Wechsel
+        burst = -0.15 * np.sin(ph) * lp(burst_mask, 2e6, 1e6)
+    else:
+        burst = 0.15 * (-np.sin(ph) + vswitch * np.cos(ph)) / np.sqrt(2) * lp(burst_mask, 2e6, 1e6)
+    setup = float(sysd.get("setup", 0.0))
+    v = v + (setup + Yb * (0.7 - setup) + chroma * 0.7) * am + burst
     env = np.clip(0.73 - 0.9 * v, 0.05, 1.0)
     del Yb, Ub, Vb, chroma, burst, am, active_mask, burst_mask, vswitch, v, t, ph
 
@@ -207,8 +241,9 @@ def sound_loop(p, n, fs):
     amp = 10 ** (float(sd.get("level_db", -13)) / 20)
     if sd.get("kind") == "silence":
         return amp * np.exp(2j * np.pi * fsnd * to)
-    tone = round(float(sd.get("freq_hz", 1000)) / (1 / LOOP_S)) * (1 / LOOP_S)
-    tau = float(sd.get("preemphasis_us", 50)) * 1e-6
+    ls = loop_s(p["system"])
+    tone = round(float(sd.get("freq_hz", 1000)) / (1 / ls)) * (1 / ls)
+    tau = float(sd.get("preemphasis_us", sysd.get("preemphasis_us", 50))) * 1e-6
     pre = abs(1 + 1j * 2 * np.pi * tone * tau)
     beta = float(sd.get("deviation_hz", 50000)) * float(sd.get("tone_level", 1.0)) * pre / tone
     return amp * np.exp(1j * (2 * np.pi * fsnd * to + beta * np.sin(2 * np.pi * tone * to)))
@@ -230,7 +265,7 @@ def spectrum_report(s, p, fs):
     return {"samples": n, "rate": fs, "loop_s": n / fs, "vision_carrier_bb_hz": -off, "sound_carrier_bb_hz": fsnd,
             "rms_dbfs": round(float(10 * np.log10(np.mean(np.abs(s) ** 2))), 2),
             "peak_dbfs": round(float(20 * np.log10(np.max(np.abs(s)))), 2),
-            "rel_db": {"sound": round(lvl(fsnd, 150e3) - ref, 2), "chroma_+4.43": round(lvl(-off + FSC, 300e3) - ref, 2),
+            "rel_db": {"sound": round(lvl(fsnd, 150e3) - ref, 2), "chroma": round(lvl(-off + sysd["fsc"], 300e3) - ref, 2),
                        "lower_vestige_-1.0MHz": round(lvl(-off - 1.0e6, 100e3) - ref, 2),
                        "lower_-2.0MHz": round(lvl(-off - 2.0e6, 100e3) - ref, 2) if off + 2.0e6 < fs / 2 else None,
                        "upper_+2MHz": round(lvl(-off + 2.0e6, 100e3) - ref, 2)}}
@@ -258,6 +293,9 @@ class StreamEncoder:
         from scipy import signal  # noqa: F401  (Pruefung, dass scipy da ist)
         self.p = p
         sysd = SYSTEMS[p["system"]]
+        if sysd["lines"] != 625:
+            raise ValueError("Live-Betrieb nur fuer 625-Zeilen-Normen; %s laeuft als Standbild-Schleife" % p["system"])
+        FSC = sysd["fsc"]
         self.fs = float(p["fs"])
         self.fh = 2 * self.fs
         self.spl = int(round(LINE_S * self.fh))

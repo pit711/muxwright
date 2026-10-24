@@ -7,25 +7,39 @@ import { parseHex, hex, PTY, COUNTRIES, newService, normalizeConfig as normDab, 
   ATTEN_MAX, FREQ_MIN_HZ, FREQ_MAX_HZ } from './dab.js';
 import { T } from './i18n.js';
 
+// flags: Länder (ISO 3166, web/flags/<cc>.svg), in denen der Standard im Einsatz ist bzw. war; untested = noch nicht an einem Empfänger geprüft
 export const STANDARDS = [
-  { id: 'dab', name: 'DAB+', long: 'DAB / DAB+ (EN 300 401)' },
-  { id: 'fm', name: T('UKW'), long: T('UKW FM-Stereo + RDS (BS.450 / IEC 62106)') },
-  { id: 'dvbt', name: 'DVB-T', long: 'DVB-T (EN 300 744)' },
-  { id: 'dvbc', name: 'DVB-C', long: 'DVB-C (EN 300 429)' },
-  { id: 'dvbs', name: 'DVB-S', long: 'DVB-S / DVB-S2 (EN 300 421 / EN 302 307)' },
-  { id: 'pal', name: 'PAL', long: T('Analog-TV PAL B/G (ITU-R BT.470 / BT.1700)') },
+  { id: 'dab', name: 'DAB+', long: 'DAB / DAB+ (EN 300 401)', flags: ['eu', 'de', 'gb', 'no', 'ch', 'au'] },
+  { id: 'fm', name: T('UKW'), long: T('UKW FM-Stereo + RDS/RBDS (BS.450 / IEC 62106 / NRSC-4)'), flags: ['eu', 'us', 'ca', 'cn', 'jp'] },
+  { id: 'dvbt', name: 'DVB-T', long: 'DVB-T (EN 300 744)', flags: ['eu', 'tw', 'au', 'co', 'in'] },
+  { id: 'dvbc', name: 'DVB-C', long: 'DVB-C (EN 300 429) · J.83 B', flags: ['eu', 'cn', 'us', 'ca'] },
+  { id: 'dvbs', name: 'DVB-S', long: 'DVB-S / DVB-S2 (EN 300 421 / EN 302 307)', flags: ['eu', 'us', 'in', 'br', 'au'] },
+  { id: 'pal', name: T('Analog-TV'), long: T('PAL B/G, D/K, I · NTSC-M/J · PAL-M/N (ITU-R BT.470 / BT.1700)'), flags: ['de', 'gb', 'cn', 'us', 'br', 'ar'] },
+  { id: 'atsc', name: 'ATSC', long: 'ATSC 1.0 8-VSB (A/53, PSIP A/65)', flags: ['us', 'ca', 'mx', 'kr'], untested: true },
+  { id: 'isdbt', name: 'ISDB-T', long: 'ISDB-Tb / ISDB-T (ABNT NBR 15601, ARIB STD-B31)', flags: ['br', 'jp', 'ar', 'cl', 'pe', 'ph'], untested: true },
+  { id: 'dtmb', name: 'DTMB', long: 'DTMB (GB 20600-2006)', flags: ['cn', 'hk', 'mo', 'cu'], untested: true },
 ];
 export const stdName = id => (STANDARDS.find(s => s.id === id) || STANDARDS[0]).name;
 export function standardOf(cfg) {
   const m = cfg?.mode;
-  return typeof m === 'string' && ['fm', 'dvbt', 'dvbc', 'dvbs', 'pal'].includes(m) ? m : 'dab';
+  return typeof m === 'string' && ['fm', 'dvbt', 'dvbc', 'dvbs', 'pal', 'atsc', 'isdbt', 'dtmb'].includes(m) ? m : 'dab';
 }
-export const isDvb = std => std === 'dvbt' || std === 'dvbc' || std === 'dvbs';
+export const isDvb = std => ['dvbt', 'dvbc', 'dvbs', 'atsc', 'isdbt', 'dtmb'].includes(std);
+/** Länderkennung (ISO 3166) → Name in der Bediensprache */
+export const countryName = cc => { try { return cc === 'eu' ? T('Europa') : new Intl.DisplayNames([document.documentElement.lang || 'de'], { type: 'region' }).of(cc.toUpperCase()); } catch { return cc.toUpperCase(); } };
 /** Ausgabeweg vom Server normalisieren: "usb" | "device"/"pluto" (plus path_label) → 'usb' | 'pluto' */
 export function normPath(rf) { if (!rf) return null; const p = rf.path_label || rf.path; if (p == null) return null; return /^(pluto|device)$/i.test(p) ? 'pluto' : /^usb$/i.test(p) ? 'usb' : String(p); }
 
 // ---------------------------------------------------------------- Kanaltabellen
-export const FM_MIN_MHZ = 87.5, FM_MAX_MHZ = 108.0, FM_STEP_MHZ = 0.1;
+export const FM_MIN_MHZ = 76.0, FM_MAX_MHZ = 108.0, FM_STEP_MHZ = 0.1;
+/** UKW-Regionen: Band, Preemphasis, RDS-Variante */
+export const FM_REGIONS = {
+  eu: { label: T('Europa/Welt'), lo: 87.5, hi: 108, pre: 50, rds: 'rds', flags: ['eu'] },
+  us: { label: T('Nordamerika'), lo: 87.9, hi: 107.9, pre: 75, rds: 'rbds', flags: ['us', 'ca'], untested: true },
+  jp: { label: T('Japan'), lo: 76, hi: 95, pre: 50, rds: 'rds', flags: ['jp'], untested: true },
+  cn: { label: T('China'), lo: 87, hi: 108, pre: 50, rds: 'rds', flags: ['cn'] },
+};
+export const fmBand = f => FM_REGIONS[f?.region] || FM_REGIONS.eu;
 
 function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
 // DVB-T: VHF Band III E5–E12 (7 MHz), UHF K21–K69 (8 MHz)
@@ -52,22 +66,65 @@ export const PAL_CHANNELS = [
   ...range(2, 10).map(n => ({ id: `S${String(n).padStart(2, '0')}`, mhz: 112.25 + 7 * (n - 2), band: T('Kabel S (USB)'), bw: 7, sys: 'B' })),
   ...range(11, 20).map(n => ({ id: `S${n}`, mhz: 231.25 + 7 * (n - 11), band: T('Kabel S (OSB)'), bw: 7, sys: 'B' })),
   ...range(21, 41).map(n => ({ id: `S${n}`, mhz: 303.25 + 8 * (n - 21), band: T('Kabel Hyperband'), bw: 8, sys: 'G' })),
+  // Amerika, 6-MHz-Raster (Bildträger = Unterkante + 1,25 MHz): A2–A6, A7–A13 VHF, A14–A69 UHF
+  ...[[2, 55.25], [3, 61.25], [4, 67.25], [5, 77.25], [6, 83.25]].map(([n, m]) => ({ id: `A${n}`, mhz: m, band: T('Amerika VHF'), bw: 6, sys: 'M' })),
+  ...range(7, 13).map(n => ({ id: `A${n}`, mhz: 175.25 + 6 * (n - 7), band: T('Amerika VHF'), bw: 6, sys: 'M' })),
+  ...range(14, 69).map(n => ({ id: `A${n}`, mhz: 471.25 + 6 * (n - 14), band: T('Amerika UHF'), bw: 6, sys: 'M' })),
+  // China (PAL-D/K): DS1–DS68, 8-MHz-Raster
+  ...[[1, 49.75], [2, 57.75], [3, 65.75], [4, 77.25], [5, 85.25]].map(([n, m]) => ({ id: `DS${n}`, mhz: m, band: T('China VHF'), bw: 8, sys: 'D' })),
+  ...range(6, 12).map(n => ({ id: `DS${n}`, mhz: 168.25 + 8 * (n - 6), band: T('China VHF'), bw: 8, sys: 'D' })),
+  ...range(13, 68).map(n => ({ id: `DS${n}`, mhz: (n <= 24 ? 471.25 + 8 * (n - 13) : 607.25 + 8 * (n - 25)), band: T('China UHF'), bw: 8, sys: 'K' })),
+  // Japan (NTSC-J): J1–J62
+  ...[91.25, 97.25, 103.25, 171.25, 177.25, 183.25, 189.25, 193.25, 199.25, 205.25, 211.25, 217.25].map((m, i) => ({ id: `J${i + 1}`, mhz: m, band: T('Japan VHF'), bw: 6, sys: 'M' })),
+  ...range(13, 62).map(n => ({ id: `J${n}`, mhz: 471.25 + 6 * (n - 13), band: T('Japan UHF'), bw: 6, sys: 'M' })),
 ].map(c => ({ ...c, mhz: Math.round(c.mhz * 1000) / 1000, edge: Math.round((c.mhz - 1.25) * 1000) / 1000 }));
+export const FH_525 = 4.5e6 / 286;
 export const PAL_SYSTEMS = {
-  BG: { name: T('B/G (Westeuropa)'), sound_mhz: 5.5, lines: 625, video_bw_mhz: 5.0, vsb_mhz: 0.75 },
-  DK: { name: T('D/K (Osteuropa)'), sound_mhz: 6.5, lines: 625, video_bw_mhz: 6.0, vsb_mhz: 0.75 },
-  I: { name: T('I (UK/Irland)'), sound_mhz: 6.0, lines: 625, video_bw_mhz: 5.5, vsb_mhz: 1.25 },
+  BG: { name: T('B/G (Westeuropa)'), label: 'B/G', sound_mhz: 5.5, lines: 625, video_bw_mhz: 5.0, vsb_mhz: 0.75, fsc: 4433618.75, dev: 50000, pre: 50 },
+  DK: { name: T('D/K (Osteuropa)'), label: 'D/K', sound_mhz: 6.5, lines: 625, video_bw_mhz: 6.0, vsb_mhz: 0.75, fsc: 4433618.75, dev: 50000, pre: 50 },
+  I: { name: T('I (UK/Irland)'), label: 'I', sound_mhz: 6.0, lines: 625, video_bw_mhz: 5.5, vsb_mhz: 1.25, fsc: 4433618.75, dev: 50000, pre: 50 },
+  // Amerika – noch nicht an einem Empfänger geprüft
+  NTSC_M: { name: T('NTSC-M (USA, Kanada, Mexiko, Südkorea)'), label: 'NTSC-M', sound_mhz: 4.5, lines: 525, video_bw_mhz: 4.2, vsb_mhz: 0.75, fsc: 227.5 * FH_525, dev: 25000, pre: 75, untested: true },
+  PAL_M: { name: T('PAL-M (Brasilien)'), label: 'PAL-M', sound_mhz: 4.5, lines: 525, video_bw_mhz: 4.2, vsb_mhz: 0.75, fsc: 227.25 * FH_525, dev: 25000, pre: 75, untested: true },
+  NTSC_J: { name: T('NTSC-J (Japan, ohne Schwarzabhebung)'), label: 'NTSC-J', sound_mhz: 4.5, lines: 525, video_bw_mhz: 4.2, vsb_mhz: 0.75, fsc: 227.5 * FH_525, dev: 25000, pre: 75, untested: true },
+  PAL_N: { name: T('PAL-N (Argentinien, Paraguay, Uruguay)'), label: 'PAL-N', sound_mhz: 4.5, lines: 625, video_bw_mhz: 4.2, vsb_mhz: 0.75, fsc: 3582056.25, dev: 25000, pre: 75, untested: true },
 };
+export const FS_525 = Math.round(508 * FH_525);   // 525er Schleife: ganze Abtastwerte je Zeile
 export const PAL_PATTERNS = { pal75bars: T('PAL-Farbbalken 75 %'), pal100bars: T('PAL-Farbbalken 100 %'), smptebars: T('SMPTE-Farbbalken'), testsrc2: T('ffmpeg testsrc2 (Zähler)'), rgbtestsrc: T('RGB-Testbild'), grey: T('Graustufentreppe'), black: T('Schwarzbild'), white: T('Weißbild') };
-export const dvbChannels = std => std === 'dvbc' ? DVBC_CHANNELS : std === 'pal' ? PAL_CHANNELS : DVBT_CHANNELS;
-export const dvbChannelHz = (std, id) => { const c = dvbChannels(std).find(x => x.id === id); return c ? Math.round(c.mhz * 1e6) : null; };
+// Amerika, 6-MHz-Raster (Mitte = Unterkante + 3 MHz) wie runner/dvb/tables.py; ISDB-Tb: Mitte + 1/7 MHz; US-Kabel EIA-542
+const usEdge = n => n <= 4 ? 54 + 6 * (n - 2) : n <= 6 ? 76 + 6 * (n - 5) : n <= 13 ? 174 + 6 * (n - 7) : 470 + 6 * (n - 14);
+export const US_CHANNELS = [...range(2, 13), ...range(14, 69)].map(n => ({ id: `A${n}`, mhz: usEdge(n) + 3, band: n <= 13 ? 'VHF' : 'UHF', bw: 6 }));
+export const ISDBT_CHANNELS = US_CHANNELS.filter(c => c.mhz > 170).map(c => ({ ...c, mhz: Math.round((c.mhz + 1 / 7) * 1e6) / 1e6 }));
+const catvEdge = n => n <= 13 ? usEdge(n) : n <= 22 ? 120 + 6 * (n - 14) : n <= 94 ? 216 + 6 * (n - 23) : n <= 99 ? 90 + 6 * (n - 95) : 648 + 6 * (n - 100);
+export const CATV_CHANNELS = range(2, 158).map(n => ({ id: `C${n}`, mhz: catvEdge(n) + 3, band: T('US-Kabel (EIA-542)'), bw: 6 })).sort((a, b) => a.mhz - b.mhz);
+export const isJ83b = c => c?.dvbc?.annex === 'b';
+// China DS6–DS12, DS13–DS68 (Mitte), Japan J13–J62 (ISDB-T, Mitte + 1/7 MHz)
+export const CN_CHANNELS = [...range(6, 12).map(n => ({ id: `DS${n}`, mhz: 171 + 8 * (n - 6), band: 'VHF', bw: 8 })),
+  ...range(13, 68).map(n => ({ id: `DS${n}`, mhz: n <= 24 ? 474 + 8 * (n - 13) : 610 + 8 * (n - 25), band: 'UHF', bw: 8 }))];
+export const JP_CHANNELS = range(13, 62).map(n => ({ id: `J${n}`, mhz: Math.round((473 + 6 * (n - 13) + 1 / 7) * 1e6) / 1e6, band: 'UHF', bw: 6 }));
+export const dvbChannels = (std, c = null) => std === 'dvbc' ? (isJ83b(c) ? CATV_CHANNELS : DVBC_CHANNELS) : std === 'pal' ? PAL_CHANNELS
+  : std === 'atsc' ? US_CHANNELS : std === 'isdbt' ? (c?.isdbt?.region === 'jp' ? JP_CHANNELS : ISDBT_CHANNELS) : std === 'dtmb' ? CN_CHANNELS : DVBT_CHANNELS;
+export const dvbChannelHz = (std, id, c = null) => { const ch = dvbChannels(std, c).find(x => x.id === id); return ch ? Math.round(ch.mhz * 1e6) : null; };
 
 // ---------------------------------------------------------------- Modulationsparameter
 export const DVBT = {
   BW: [5, 6, 7, 8], FFT: ['2k', '8k'], CONST: ['QPSK', '16-QAM', '64-QAM'],
   CR: ['1/2', '2/3', '3/4', '5/6', '7/8'], GI: ['1/4', '1/8', '1/16', '1/32'],
 };
-export const DVBC = { CONST: ['16-QAM', '32-QAM', '64-QAM', '128-QAM', '256-QAM'], SR_PRESETS: [6875000, 6900000, 3450000] };
+export const DVBC = { CONST: ['16-QAM', '32-QAM', '64-QAM', '128-QAM', '256-QAM'], SR_PRESETS: [6875000, 6900000, 3450000],
+  J83B: { '64-QAM': { sr: 5056941, rate: 26970350 }, '256-QAM': { sr: 5360537, rate: 38810701 } }, J83C_SR: 5274000 };
+/** DTMB (GB 20600): 7,56 MS/s, Rahmenkopf PN420/595/945, LDPC 0,4/0,6/0,8 */
+export const DTMB = { SR: 7560000, CONST: ['4-QAM-NR', '4-QAM', '16-QAM', '32-QAM', '64-QAM'], CR: ['0.4', '0.6', '0.8'], PN: [420, 595, 945], TI: [240, 720],
+  BITS: { '4-QAM-NR': 1, '4-QAM': 2, '16-QAM': 4, '32-QAM': 5, '64-QAM': 6 }, K: { '0.4': 3008, '0.6': 4512, '0.8': 6016 },
+  ONLY08: ['4-QAM-NR', '32-QAM'] };
+export const dtmbNetRate = p => DTMB.SR / (3780 + Number(p.header)) * 3744 * (DTMB.BITS[p.constellation] || 0) / 7488 * (DTMB.K[p.code_rate] || 0);
+/** ATSC 1.0: feste Nutzrate 19,39 Mbit/s (312 · 188 Byte je 313 · 832 Symbole bei 10,762 MBd) */
+export const ATSC = { SR: 4.5e6 / 286 * 684, RATE: 4.5e6 / 286 * 684 * 312 * 188 * 8 / (313 * 832) };
+/** ISDB-T: 13 Segmente, Mode 1–3, je Schicht Konstellation/Coderate/Zeitverschachtelung */
+export const ISDBT = { MODES: [1, 2, 3], GI: ['1/4', '1/8', '1/16', '1/32'], CONST: ['QPSK', '16-QAM', '64-QAM'], CR: ['1/2', '2/3', '3/4', '5/6', '7/8'], TI: [0, 1, 2, 4],
+  SAMPLE_RATE: 512e6 / 63 };
+export const isdbtLayerRate = (segs, l, gi) => 96e6 / 252 * segs * BITS[l.constellation] * frac(l.code_rate) * 188 / 204 / (1 + frac(gi));
+export function isdbtNetRate(p) { const two = Number(p.layers) === 2; return isdbtLayerRate(two ? 1 : 13, p.layer_a, p.guard) + (two ? isdbtLayerRate(12, p.layer_b, p.guard) : 0); }
 const BITS = { QPSK: 2, '16-QAM': 4, '32-QAM': 5, '64-QAM': 6, '128-QAM': 7, '256-QAM': 8 };
 const frac = s => { const [a, b] = s.split('/').map(Number); return a / b; };
 
@@ -133,7 +190,11 @@ export function dvbsNetRate(p) {
   }
   return Number(p.symbol_rate) * 2 * fec * 188 / 204;
 }
-export function netRate(cfg) { const s = standardOf(cfg); return s === 'dvbt' ? dvbtNetRate(cfg.dvbt) : s === 'dvbc' ? dvbcNetRate(cfg.dvbc) : s === 'dvbs' ? dvbsNetRate(cfg.dvbs) : 0; }
+export function netRate(cfg) {
+  const s = standardOf(cfg);
+  if (s === 'dvbc' && isJ83b(cfg)) return DVBC.J83B[cfg.dvbc.constellation]?.rate || 0;
+  return s === 'dvbt' ? dvbtNetRate(cfg.dvbt) : s === 'dvbc' ? dvbcNetRate(cfg.dvbc) : s === 'dvbs' ? dvbsNetRate(cfg.dvbs) : s === 'atsc' ? ATSC.RATE : s === 'isdbt' ? isdbtNetRate(cfg.isdbt) : s === 'dtmb' ? dtmbNetRate(cfg.dtmb) : 0;
+}
 
 /** DATV am PC: kleinste Samples/Symbol ≥ 2, damit der Pluto ≥ 2,1 MS/s bekommt (wie runner/dvb/tables.py ham_sps) */
 export const hamSps = sr => Math.max(2, Math.ceil(2100000 / sr));
@@ -144,7 +205,10 @@ export function requiredSampleRate(cfg) {
   if (s === 'dvbt') return Math.round((Number(cfg.dvbt.bandwidth_mhz) || 8) * 8e6 / 7);
   if (s === 'dvbc') return (Number(cfg.dvbc.sps) || 2) * Number(cfg.dvbc.symbol_rate);
   if (s === 'dvbs') { const sr = Number(cfg.dvbs.symbol_rate); return cfg.dvbs.use === 'ham' ? hamSps(sr) * sr : 2 * sr; }
-  if (s === 'pal') return cfg.pal?.live ? (Number(cfg.pal?.live_fs) || 7000000) : (Number(cfg.pal?.fs) || 8000000);
+  if (s === 'atsc') return Math.round(2 * ATSC.SR);
+  if (s === 'isdbt') return Math.round(ISDBT.SAMPLE_RATE);
+  if (s === 'dtmb') return 2 * DTMB.SR;
+  if (s === 'pal') return PAL_SYSTEMS[cfg.pal?.system]?.lines === 525 ? FS_525 : cfg.pal?.live ? (Number(cfg.pal?.live_fs) || 7000000) : (Number(cfg.pal?.fs) || 8000000);
   return Number(cfg.rf.sample_rate) || 4096000;
 }
 export const USB_MAX_SPS = 7150000;
@@ -152,6 +216,10 @@ export const USB_MAX_SPS = 7150000;
 export function requiredPath(cfg) {
   const s = standardOf(cfg);
   const sps = requiredSampleRate(cfg);
+  if (s === 'atsc') return { path: 'pluto', sps, reason: T('ATSC 8-VSB: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
+  if (s === 'isdbt') return { path: 'pluto', sps, reason: T('ISDB-T: OFDM-Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
+  if (s === 'dtmb') return { path: 'pluto', sps, reason: T('DTMB: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
+  if (s === 'dvbc' && isJ83b(cfg)) return { path: 'pluto', sps, reason: T('J.83 B: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbt' && Number(cfg.dvbt.bandwidth_mhz) >= 7) return { path: 'pluto', sps, reason: T('DVB-T {bw} MHz braucht {sps} MS/s – nur Modulator/Loop auf dem Pluto (USB max. 7,15 MS/s)', { bw: cfg.dvbt.bandwidth_mhz, sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbs') return sps > USB_MAX_SPS ? { path: 'pluto', sps, reason: T('{sr} MS/s Symbolrate × 2 = {sps} MS/s – Modulator auf dem Pluto (USB max. 7,15 MS/s)', { sr: (cfg.dvbs.symbol_rate / 1e6).toFixed(3), sps: (sps / 1e6).toFixed(2) }) }
     : { path: 'usb', sps, reason: T('{sps} MS/s – USB-Streaming möglich', { sps: (sps / 1e6).toFixed(2) }) };
@@ -203,7 +271,7 @@ const audioSrc = (o = {}) => ({ kind: 'tone', file: '', freq_hz: 1000, level_dbf
 
 export function defaultFM() {
   return {
-    freq_mhz: 100.0, deviation_khz: 75, pilot_khz: 6.75, preemphasis_us: 50, stereo: true,
+    region: 'eu', freq_mhz: 100.0, deviation_khz: 75, pilot_khz: 6.75, preemphasis_us: 50, stereo: true,
     limiter: { enable: true, threshold: 1.0, release_db_s: 3, clip: true }, mpx_power_dbr: null, audio_gain_db: 0,
     audio: { source: audioSrc() },
     rds: { enable: true, pi: '0xD3C4', ps: 'DABLAB', rt: 'DAB-Lab UKW-Testsender – RDS aktiv', rtplus: [], pty: 10, tp: true, ta: false, ms: true,
@@ -225,7 +293,21 @@ export function rtplusSet(r, type, text) {
 /** Audiohub nach SPEC: Gesamthub − Pilot − RDS */
 export function fmAudioDeviation(f) { return Number(f.deviation_khz) - (f.stereo ? Number(f.pilot_khz) : 0) - (f.rds.enable ? Number(f.rds.level_khz) : 0); }
 export const defaultDvbt = () => ({ bandwidth_mhz: 8, fft: '8k', constellation: '64-QAM', code_rate: '2/3', guard: '1/32', cell_id: 0, hierarchy: 'none' });
-export const defaultDvbc = () => ({ symbol_rate: 6900000, constellation: '256-QAM', sps: 2 });
+export const defaultDvbc = () => ({ symbol_rate: 6900000, constellation: '256-QAM', sps: 2, annex: 'a' });
+export const defaultAtsc = () => ({});
+export const defaultDtmb = () => ({ carriers: 3780, constellation: '64-QAM', code_rate: '0.6', header: 945, interleaver: 720 });
+export const defaultIsdbt = () => ({ region: 'br', mode: 3, guard: '1/8', layers: 1, area_code: 0, remote_key: 1,
+  layer_a: { constellation: '64-QAM', code_rate: '3/4', ti: 2 }, layer_b: { constellation: '64-QAM', code_rate: '3/4', ti: 2 } });
+/** Programme auf die regionalen Codecs bringen: ATSC/US-Kabel MPEG-2 + AC-3, ISDB-Tb H.264 + AAC */
+export function regionCodecs(c, std) {
+  for (const p of c.dvb?.programs || []) {
+    if (std === 'atsc' || (std === 'dvbc' && isJ83b(c))) { if (p.type === 'tv' && p.video.codec !== 'mpeg2' && std === 'atsc') p.video.codec = 'mpeg2'; p.audio.codec = 'ac3'; if (!VIDEO.AUDIO_BR.ac3.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 384; }
+    if (std === 'dtmb') { if (p.type === 'tv' && p.video.codec === 'hevc') p.video.codec = 'h264'; if (p.audio.codec === 'aac') p.audio.codec = 'mp2'; }
+    if (std === 'isdbt' && c.isdbt?.region === 'jp') { if (p.type === 'tv' && !p.oneseg) p.video.codec = 'mpeg2'; p.audio.codec = 'aac'; continue; }
+    if (std === 'isdbt') { if (p.type === 'tv') p.video.codec = 'h264'; if (p.video.hdr && p.video.hdr !== 'sdr') p.video.hdr = 'sdr'; p.audio.codec = 'aac'; if (!VIDEO.AUDIO_BR.aac.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 128; }
+  }
+  return c;
+}
 export const defaultDvbs = () => ({ use: 'sat', system: 'dvbs', transponder_mhz: 11300, polarization: 'H', lof_mhz: 9750, tone_22khz: false, symbol_rate: 6000000, fec: '3/4', modulation: 'QPSK', rolloff: 0.35, pilots: false,
   ham_band: 'qo100', ham_freq_mhz: 2406.0, callsign: '' });
 export const defaultPal = () => ({
@@ -250,7 +332,14 @@ function migratePal(p0) {
 /** Bildträger und Tonträger in Hz */
 export function palCarriers(cfg) { const v = Number(cfg.rf.freq_hz); return { vision: v, sound: v + (PAL_SYSTEMS[cfg.pal.system]?.sound_mhz || 5.5) * 1e6 }; }
 /** Automatischer Basisband-Versatz laut SPEC (Bildträger bei −offset) */
-export function palAutoOffset(p) { const fs = p.live ? p.live_fs : p.fs; return p.system === 'DK' ? 2675000 : p.system === 'I' ? 2175000 : (Number(fs) === 7000000 ? 2100000 : 2250000); }
+export function palAutoOffset(p) {
+  const s = PAL_SYSTEMS[p.system];
+  if (s && s.sound_mhz === 4.5) {                 // M/N: mittig zwischen Restseitenband (−1,25) und Ton (+4,6 MHz) wie runner/pal/systems.py
+    const off = ((-(s.vsb_mhz + 0.5)) + (s.sound_mhz + 0.1)) / 2 * 1e6;
+    return s.lines === 525 ? Math.round(off / FH_525) * FH_525 : Math.round(off / 25000) * 25000;
+  }
+  const fs = p.live ? p.live_fs : p.fs; return p.system === 'DK' ? 2675000 : p.system === 'I' ? 2175000 : (Number(fs) === 7000000 ? 2100000 : 2250000);
+}
 export function newProgram(key, n = 1) {
   return {
     key, name: `DAB-Lab TV ${n}`, provider: 'DAB-Lab', sid: hex(0x1000 + n, 4), lcn: n, type: 'tv',
@@ -303,6 +392,10 @@ export function normalizeStd(c) {
   c.dvbt = { ...defaultDvbt(), ...(c.dvbt || {}) };
   c.dvbc = { ...defaultDvbc(), ...(c.dvbc || {}) };
   c.dvbs = { ...defaultDvbs(), ...(c.dvbs || {}) };
+  c.atsc = { ...defaultAtsc(), ...(c.atsc || {}) };
+  c.dtmb = { ...defaultDtmb(), ...(c.dtmb || {}) };
+  const di = defaultIsdbt(), i0 = c.isdbt || {};
+  c.isdbt = { ...di, ...i0, layer_a: { ...di.layer_a, ...(i0.layer_a || {}) }, layer_b: { ...di.layer_b, ...(i0.layer_b || {}) } };
   // Der Server speichert für den Runner „horizontal“/„vertical“ – das Dashboard arbeitet mit H/V
   c.dvbs.polarization = { horizontal: 'H', vertical: 'V', h: 'H', v: 'V' }[String(c.dvbs.polarization).toLowerCase()] || c.dvbs.polarization;
   const dp = defaultPal(), p0 = migratePal(c.pal || {});
@@ -323,7 +416,7 @@ export function normalizeStd(c) {
 }
 
 /** Backoff je Standard: Standardwert und Untergrenze (OFDM/QAM brauchen Abstand für die Spitzen, FM hat konstante Hüllkurve) */
-export const BACKOFF = { dab: [12, 10], dvbt: [12, 10], dvbc: [10, 9], dvbs: [6, 4], pal: [6, 6], fm: [3, 0] };
+export const BACKOFF = { dab: [12, 10], dvbt: [12, 10], dvbc: [10, 9], dvbs: [6, 4], pal: [6, 6], fm: [3, 0], atsc: [8, 6], isdbt: [12, 10], dtmb: [12, 10] };
 
 /** Standard umschalten: mode setzen, HF-Kanal auf einen sinnvollen Startwert, falls der alte nicht passt */
 export function setStandard(cfg, std) {
@@ -338,6 +431,9 @@ export function setStandard(cfg, std) {
     else if (std === 'dvbc') { rf.channel = 'S21'; rf.freq_hz = 306e6; }
     else if (std === 'dvbs') { const d = cfg.dvbs || defaultDvbs(); if (d.use === 'ham') { rf.channel = 'ham'; rf.freq_hz = Math.round(d.ham_freq_mhz * 1e6); } else { rf.channel = 'sat'; rf.freq_hz = satIfHz(d); } }
     else if (std === 'pal') { rf.channel = 'K21'; rf.freq_hz = 471.25e6; }
+    else if (std === 'atsc') { rf.channel = 'A14'; rf.freq_hz = 473e6; regionCodecs(cfg, std); }
+    else if (std === 'isdbt') { const jp = cfg.isdbt?.region === 'jp'; rf.channel = jp ? 'J13' : 'A14'; rf.freq_hz = 473142857; regionCodecs(cfg, std); }
+    else if (std === 'dtmb') { rf.channel = 'DS13'; rf.freq_hz = 474e6; regionCodecs(cfg, std); }
     else { rf.channel = '6C'; rf.freq_hz = 185360000; }
     // Abtastrate: DAB+/UKW laufen per USB mit 2,1–7 MS/s (PAL nimmt 8 MS/s mit, DVB rechnet der Server selbst)
     if (std === 'fm' || (std === 'dab' && !(rf.sample_rate >= 2.1e6 && rf.sample_rate <= 7e6))) rf.sample_rate = 4096000;   // UKW fest 4,096 MS/s
@@ -355,6 +451,19 @@ export function rdsCountry(pi, ecc) {
   const nib = n.toString(16).toUpperCase().padStart(4, '0')[0];
   return COUNTRIES.filter(c => c.cids.includes(nib) && (!ecc || c.ecc.toUpperCase() === String(ecc).toUpperCase()));
 }
+/** RBDS (NRSC-4-B, USA/Kanada): andere Bedeutung der PTY-Nummern; Bitstrom identisch zu RDS */
+export const RBDS_PTY = ['None', 'News', 'Information', 'Sports', 'Talk', 'Rock', 'Classic Rock', 'Adult Hits', 'Soft Rock', 'Top 40', 'Country',
+  'Oldies', 'Soft', 'Nostalgia', 'Jazz', 'Classical', 'Rhythm and Blues', 'Soft Rhythm and Blues', 'Foreign Language', 'Religious Music',
+  'Religious Talk', 'Personality', 'Public', 'College', 'Spanish Talk', 'Spanish Music', 'Hip Hop', '(unassigned)', '(unassigned)', 'Weather',
+  'Emergency Test', 'Emergency'];
+/** PI aus vierstelligem US-Rufzeichen (NRSC-4-B Annex D): K → 4096 + …, W → 21672 + …; sonst null (3-stellige/kanadische: PI von Hand) */
+export function rbdsPiFromCall(call) {
+  const c = String(call || '').trim().toUpperCase().split('-')[0];
+  if (!/^[KW][A-Z]{3}$/.test(c)) return null;
+  const v = ch => ch.charCodeAt(0) - 65;
+  const pi = (c[0] === 'K' ? 4096 : 21672) + 676 * v(c[1]) + 26 * v(c[2]) + v(c[3]);
+  return '0x' + pi.toString(16).toUpperCase().padStart(4, '0');
+}
 export const RDS_CHARS_OK = /^[\x20-\x7E -ÿ€]*$/;   // Annex-E-Zeichensatz näherungsweise (Latin-1 + Euro)
 
 // ---------------------------------------------------------------- Validierung
@@ -363,7 +472,8 @@ export function validateStd(c, add) {
   if (std === 'fm') {
     const f = c.fm, rf = c.rf;
     const mhz = rf.freq_hz / 1e6;
-    if (!(mhz >= FM_MIN_MHZ && mhz <= FM_MAX_MHZ)) add('rf.freq_hz', T('UKW: Frequenz {mhz} MHz außerhalb 87,5–108 MHz', { mhz: mhz.toFixed(3) }));
+    const band = fmBand(f);
+    if (!(mhz >= Math.min(band.lo, 87.5) && mhz <= band.hi)) add('rf.freq_hz', T('UKW: Frequenz {mhz} MHz außerhalb {lo}–{hi} MHz ({region})', { mhz: mhz.toFixed(3), lo: band.lo, hi: band.hi, region: band.label }));
     if (!(f.deviation_khz >= 5 && f.deviation_khz <= 150)) add('fm.deviation_khz', T('Gesamthub 5–150 kHz (Nennwert 75)'));
     if (!(f.pilot_khz >= 0 && f.pilot_khz <= 10)) add('fm.pilot_khz', T('Pilothub 0–10 kHz (Nennwert 6,75)'));
     if (![0, 50, 75].includes(Number(f.preemphasis_us))) add('fm.preemphasis_us', T('Preemphasis 50 µs, 75 µs oder aus'));
@@ -453,7 +563,7 @@ export function validateStd(c, add) {
     if (!DVBS.ROLLOFF.includes(Number(d.rolloff)) || (d.system === 'dvbs' && Number(d.rolloff) !== 0.35)) add('dvbs.rolloff', d.system === 'dvbs' ? T('DVB-S: Rolloff 0,35') : T('Rolloff 0,35/0,25/0,20'));
   }
   if (isDvb(std)) {
-    const m = std === 'dvbt' ? c.dvbt : std === 'dvbs' ? c.dvbs : c.dvbc;
+    const m = std === 'dvbt' ? c.dvbt : std === 'dvbs' ? c.dvbs : std === 'atsc' ? c.atsc : std === 'isdbt' ? c.isdbt : std === 'dtmb' ? c.dtmb : c.dvbc;
     if (std === 'dvbt') {
       if (!DVBT.BW.includes(Number(m.bandwidth_mhz))) add('dvbt.bandwidth_mhz', T('Bandbreite 5/6/7/8 MHz'));
       if (!DVBT.FFT.includes(m.fft)) add('dvbt.fft', T('Modus 2k oder 8k'));
@@ -461,6 +571,22 @@ export function validateStd(c, add) {
       if (!DVBT.CR.includes(m.code_rate)) add('dvbt.code_rate', T('Coderate 1/2…7/8'));
       if (!DVBT.GI.includes(m.guard)) add('dvbt.guard', 'Guard 1/4…1/32');
       if (!(m.cell_id >= 0 && m.cell_id <= 65535)) add('dvbt.cell_id', T('Zellen-ID 0–65535'));
+    } else if (std === 'isdbt') {
+      if (!ISDBT.MODES.includes(Number(c.isdbt.mode))) add('isdbt.mode', T('Modus 1, 2 oder 3'));
+      if (!ISDBT.GI.includes(c.isdbt.guard)) add('isdbt.guard', 'Guard 1/4…1/32');
+      for (const L of Number(c.isdbt.layers) === 2 ? ['a', 'b'] : ['a']) {
+        const l = c.isdbt['layer_' + L];
+        if (!ISDBT.CONST.includes(l.constellation)) add(`isdbt.layer_${L}.constellation`, T('Konstellation QPSK/16-QAM/64-QAM'));
+        if (!ISDBT.CR.includes(l.code_rate)) add(`isdbt.layer_${L}.code_rate`, T('Coderate 1/2…7/8'));
+      }
+      if (!(c.isdbt.remote_key >= 1 && c.isdbt.remote_key <= 12)) add('isdbt.remote_key', T('Fernbedienungstaste 1–12'));
+    } else if (std === 'dtmb') {
+      const d = c.dtmb;
+      if (!DTMB.CONST.includes(d.constellation)) add('dtmb.constellation', T('Konstellation wählen'));
+      if (!DTMB.CR.includes(d.code_rate) || (DTMB.ONLY08.includes(d.constellation) && d.code_rate !== '0.8')) add('dtmb.code_rate', T('{c} nur mit Coderate 0,8', { c: d.constellation }));
+      if (!DTMB.PN.includes(Number(d.header))) add('dtmb.header', T('Rahmenkopf PN420/595/945'));
+    } else if (std === 'dvbc' && isJ83b(c)) {
+      if (!DVBC.J83B[m.constellation]) add('dvbc.constellation', T('J.83 B: 64-QAM oder 256-QAM'));
     } else if (std === 'dvbc') {
       if (!(m.symbol_rate >= 1e6 && m.symbol_rate <= 7.2e6)) add('dvbc.symbol_rate', T('Symbolrate 1,0–7,2 MBd'));
       if (!DVBC.CONST.includes(m.constellation)) add('dvbc.constellation', T('Konstellation 16…256-QAM'));
