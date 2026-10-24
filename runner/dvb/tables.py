@@ -275,6 +275,89 @@ def dtmb_useful_bitrate(constellation, code_rate, header):
     return Fraction(DTMB_SR, 3780 + int(header)) * Fraction(3744 * DTMB_BITS[constellation], 7488) * DTMB_RATES[code_rate]
 
 
+# ---------------------------------------------------------------------------------------------
+# DVB-T2 (EN 302 755, T2-base, SISO, 1 PLP, HEM, 64800er FEC, L1-post BPSK) wie dvbt2_mod --print-rates:
+# Ldata = groesste Datensymbolzahl bis 250 ms, N_FEC = so viele FEC-Bloecke wie in den Rahmen passen (max. 1023).
+# TS-Rate = N_FEC * (Kbch - 80) * 188/187 / T_F. DE (32K ext 64-QAM 2/3 GI 19/256 PP4): 27,319 Mb/s.
+# ---------------------------------------------------------------------------------------------
+DVBT2_T = {"1.7": Fraction(71, 131), "5": Fraction(7, 40), "6": Fraction(7, 48), "7": Fraction(1, 8), "8": Fraction(7, 64),
+           "10": Fraction(7, 80)}                                                  # Elementarperiode in µs (Tab. 65)
+DVBT2_BANDWIDTHS = (5, 6, 7, 8)                  # 1,7/10 MHz kann dvbt2_mod, im Dashboard/Pluto nicht angeboten
+DVBT2_FFT = ("1k", "2k", "4k", "8k", "16k", "32k")
+DVBT2_BITS = {"QPSK": 2, "16-QAM": 4, "64-QAM": 6, "256-QAM": 8}
+DVBT2_CODE_RATES = ("1/2", "3/5", "2/3", "3/4", "4/5", "5/6")
+DVBT2_GUARDS = ("1/128", "1/32", "1/16", "19/256", "1/8", "19/128", "1/4")
+DVBT2_KBCH = {"1/2": 32208, "3/5": 38688, "2/3": 43040, "3/4": 48408, "4/5": 51648, "5/6": 53840}   # Tab. 6 (64800)
+DVBT2_PRESETS = {"de": {"bandwidth_mhz": 8, "fft": "32k", "ext": True, "constellation": "64-QAM", "code_rate": "2/3",
+                        "guard": "19/256", "pp": 4, "rotation": True},
+                 "leicht": {"bandwidth_mhz": 8, "fft": "8k", "ext": True, "constellation": "64-QAM", "code_rate": "3/5",
+                            "guard": "1/8", "pp": 2, "rotation": True}}
+_T2_NP2 = {1: 16, 2: 8, 4: 4, 8: 2, 16: 1, 32: 1}
+_T2_CP2 = {1: 558, 2: 1118, 4: 2236, 8: 4472, 16: 8944, 32: 22432}                  # Tab. 51, 47
+_T2_CDATA = {(1, 0): [764, 768, 798, 804, 818, 0, 0, 0], (2, 0): [1522, 1532, 1596, 1602, 1632, 0, 1646, 0],
+             (4, 0): [3084, 3092, 3228, 3234, 3298, 0, 3328, 0],
+             (8, 0): [6208, 6214, 6494, 6498, 6634, 0, 6698, 6698], (8, 1): [6296, 6298, 6584, 6588, 6728, 0, 6788, 6788],
+             (16, 0): [12418, 12436, 12988, 13002, 13272, 13288, 13416, 13406],
+             (16, 1): [12678, 12698, 13262, 13276, 13552, 13568, 13698, 13688],
+             (32, 0): [0, 24886, 0, 26022, 0, 26592, 26836, 26812], (32, 1): [0, 25412, 0, 26572, 0, 27152, 27404, 27376]}   # Tab. 48
+_T2_CFC = {(1, 0): [402, 654, 490, 707, 544, 0, 0, 0], (2, 0): [804, 1309, 980, 1415, 1088, 0, 1396, 0],
+           (4, 0): [1609, 2619, 1961, 2831, 2177, 0, 2792, 0],
+           (8, 0): [3218, 5238, 3922, 5662, 4354, 0, 5585, 0], (8, 1): [3264, 5312, 3978, 5742, 4416, 0, 5664, 0],
+           (16, 0): [6437, 10476, 7845, 11324, 8709, 11801, 11170, 0], (16, 1): [6573, 10697, 8011, 11563, 8893, 12051, 11406, 0],
+           (32, 0): [0, 20952, 0, 22649, 0, 23603, 0, 0], (32, 1): [0, 21395, 0, 23127, 0, 24102, 0, 0]}                   # Tab. 50
+_T2_FC = {32: {"1/32": [6], "1/16": [4], "19/256": [4], "1/8": [2], "19/128": [2]},
+          16: {"1/32": [7, 6], "1/16": [4, 5], "19/256": [4, 5], "1/8": [2, 3], "19/128": [2, 3], "1/4": [1]},
+          8: {"1/32": [7], "1/16": [4, 5], "19/256": [4, 5], "1/8": [2, 3], "19/128": [2, 3], "1/4": [1]},
+          4: {"1/32": [7], "1/16": [4, 5], "1/8": [2, 3], "1/4": [1]}, 2: {"1/32": [7], "1/16": [4, 5], "1/8": [2, 3], "1/4": [1]},
+          1: {"1/16": [4, 5], "1/8": [2, 3], "1/4": [1]}}                                # Tab. 64: Frame-Closing-Symbol
+_T2_PP = {1: {"1/16": (4, 5), "1/8": (2, 3), "1/4": (1,)},                              # Tab. 58 (SISO)
+          2: {"1/32": (7, 4), "1/16": (4, 5), "1/8": (2, 3), "1/4": (1,)},
+          4: {"1/32": (7, 4), "1/16": (4, 5), "1/8": (2, 3), "1/4": (1,)},
+          8: {"1/128": (7,), "1/32": (7, 4), "1/16": (8, 4, 5), "19/256": (8, 4, 5), "1/8": (2, 3, 8), "19/128": (2, 3, 8), "1/4": (1, 8)},
+          16: {"1/128": (7,), "1/32": (7, 4, 6), "1/16": (2, 8, 4, 5), "19/256": (2, 8, 4, 5), "1/8": (2, 3, 8), "19/128": (2, 3, 8),
+               "1/4": (1, 8)},
+          32: {"1/128": (7,), "1/32": (4, 6), "1/16": (2, 8, 4), "19/256": (2, 8, 4), "1/8": (2, 8), "19/128": (2, 8)}}
+
+
+def dvbt2_pp_allowed(fft, guard):
+    """Zulaessige Pilotmuster (Tab. 58) fuer FFT ('32k') und Guard-Intervall."""
+    return tuple(sorted(_T2_PP.get(int(str(fft).lower().rstrip("k")), {}).get(guard, ())))
+
+
+def dvbt2_sample_rate(bandwidth_mhz):
+    return 1 / DVBT2_T[("%g" % bandwidth_mhz)] * 1000000
+
+
+def dvbt2_frame(bandwidth_mhz, fft, ext, guard, pp):
+    """-> (Ldata, Datenzellen je Rahmen ohne L1, T_F in s als Fraction)."""
+    fk = int(str(fft).lower().rstrip("k"))
+    n = fk * 1024
+    a, b = map(int, guard.split("/"))
+    tu = DVBT2_T["%g" % bandwidth_mhz]
+    ts = (n + n * a // b) * tu
+    lfmax = int((250000 - 2048 * tu) // ts)
+    if fk == 32 and lfmax % 2:
+        lfmax -= 1
+    np2 = _T2_NP2[fk]
+    ld = lfmax - np2
+    key = (fk, 1 if ext and fk >= 8 else 0)
+    cd = _T2_CDATA[key][pp - 1]
+    ctot = np2 * _T2_CP2[fk] + ((ld - 1) * cd + _T2_CFC[key][pp - 1] if pp in _T2_FC[fk].get(guard, []) else ld * cd)
+    return ld, ctot, (2048 + (np2 + ld) * (n + n * a // b)) * tu / 1000000
+
+
+def dvbt2_useful_bitrate(bandwidth_mhz, fft, ext, constellation, code_rate, guard, pp):
+    fk = int(str(fft).lower().rstrip("k"))
+    ld, ctot, tf = dvbt2_frame(bandwidth_mhz, fft, ext, guard, pp)
+    np2 = _T2_NP2[fk]
+    ks = 318 + 32                                       # L1-post (7.3.1.2), BPSK: eta 1, ein Block
+    npt = max((np2 if np2 > 1 else 2) - 1, 6 * (7032 - ks) // 5)
+    m = 2 if np2 == 1 else np2
+    npost = -(-(ks + 168 + 9000 - npt) // m) * m
+    nfec = min((ctot - 1840 - npost) // (64800 // DVBT2_BITS[constellation]), 1023)
+    return Fraction(nfec * (DVBT2_KBCH[code_rate] - 80) * 188, 187) / tf
+
+
 # J.83 Annex C (Japan, ISDB-C): Codierung wie Annex A, RRC 0,13; ueblich 64-QAM 5,274 MBd
 J83C_SR = 5274000
 

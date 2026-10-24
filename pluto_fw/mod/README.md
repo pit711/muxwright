@@ -12,6 +12,7 @@ sind Festkomma; `double` nur bei der Initialisierung von Tabellen).
 | `isdbt_mod` | ARIB STD-B31 / ABNT NBR 15601-1 (ISDB-Tb) | 6 MHz, Modus 1/2/3, 1 Schicht (13 Seg.) oder 1seg + 12 Seg., QPSK/16/64-QAM, GI 1/4…1/32 |
 | `atsc_mod` | ATSC A/53 Part 2 (8-VSB) | 6-MHz-Kanal, 19,39 Mbit/s, 1 Sample/Symbol = 10,762 MS/s komplex |
 | `dtmb_mod` | GB 20600-2006 (DTMB, China) | 8 MHz, C = 3780 (TDS-OFDM) oder C = 1, 4QAM-NR…64QAM, LDPC 0,4/0,6/0,8, PN420/595/945, 4,8…32,5 Mbit/s, 7,56 MS/s + SRRC im AD9361-FIR |
+| `dvbt2_mod` | ETSI EN 302 755 (DVB-T2, T2-base, SISO, 1 PLP, TS/HEM) | 1K…32K (normal/extended), QPSK…256-QAM rotiert, CR 1/2…5/6, FEC 64800/16200, GI 1/128…1/4, PP1…PP8, 1,7/5/6/7/8/10 MHz; Profil DE 27,3 Mbit/s, Leicht 22,3 Mbit/s |
 | `rrc_fir_gen` | AD9361 `filter_fir_config` | RRC-α-0,15-Koeffizienten, 2×-Interpolation im TX-FIR (für `dvbc_mod --sps 1`) |
 | `dvbmod_selftest` | – | Bausteintest + Mikrobenchmark (`dvbmod_selftest micro`) |
 
@@ -685,6 +686,127 @@ Labels/Zeitverschachtelung.
 kein Test mit Handelsempfänger; C = 1 ohne Doppelpilot (optional nach Norm) und für 16/32/64QAM/PN420/945 ohne
 Empfängerprüfung; kein SIP-Paket (GB/T 28434) und keine Gleichwellen-Funktionen; 32QAM-Labelextraktion noch generisch
 (≈ 87 µs je Rahmen).
+
+## dvbt2_mod – DVB-T2 (EN 302 755, T2-base, SISO, ein PLP)
+
+Labor-Prüfsender für DVB-T2, läuft auf dem Pluto selbst (TS per UDP). Umfang: Input Mode A (ein PLP, Typ 1), TS in
+High Efficiency Mode (HEM, ohne ISSY, ohne Null-Packet-Deletion), keine FEF, kein T2-Lite, PAPR aus, T2_VERSION 1.1.1
+(damit weder L1-ACE noch Bias-Balancing). Dateien: `dvbt2_mod.c`, `lib/dvbt2.c`, `lib/dvbt2.h`, `lib/dvbt2_fft.c`,
+`lib/dvbt2_fft.h`, `lib/dvbt2_tables.h` (aus der Norm erzeugt: `tests/dvbt2_gen_tables.py`). ARM: `tests/pluto/build_dvbt2.sh`
+→ `pc/device_files/dvbt2_mod_iio`; x86 ohne restlichen Baum: `tests/dvbt2_build.sh` (oder `make dvbt2_mod`).
+
+```
+dvbt2_mod [-i SPEC] [-o PFAD] [--preset de|leicht] [--bw 1.7|5|6|7|8|10] [--fft 1k|2k|4k|8k|16k|32k] [--ext 0|1]
+          [--const qpsk|16qam|64qam|256qam] [--rate 1/2|3/5|2/3|3/4|4/5|5/6]
+          [--guard 1/128|1/32|1/16|19/256|1/8|19/128|1/4] [--pp 1..8] [--rotation 0|1] [--fec 64800|16200]
+          [--ldata N] [--nfec N] [--nti N] [--t2frames N] [--l1-const bpsk|qpsk|16qam|64qam]
+          [--cell-id N] [--network-id N] [--t2-system-id N] [--frequency HZ] [--backoff dB]
+          [--frames N | --seconds S] [--loop] [--realtime] [--udp-buffer N] [--threads 1|2] [--affinity] [--rt]
+          [--quiet] [--profile] [--print-rates] [--selftest] [--dump PREFIX] [--bench-ifft 8|16|32]
+          IIO: -o iio: --lo HZ (= Kanalmitte) --atten DB --rfbw HZ (Standard = Kanalbandbreite) [--iio-buf N]
+               [--iio-kbufs N] [--enable] [--fir DATEI]
+```
+Server-Aufruf (Vorschlag aus der Aufgabe, passt so):
+`dvbt2_mod -i udp://0.0.0.0:<port> --udp-buffer N -o iio: --lo HZ --rfbw 8000000 --bw 8 --fft 32k --ext 1 --const 64qam
+--rate 2/3 --guard 19/256 --pp 4 --rotation 1 [--backoff dB] --atten dB` (zusätzlich empfohlen: `--affinity --rt`).
+Standard ohne Angaben = Profil „DE“. `--preset leicht` = 8 MHz, 8K ext, 64-QAM, CR 3/5, GI 1/8, PP2, rotiert.
+Einzelne Optionen nach `--preset` überschreiben das Profil; bei 1K/2K/4K wird `--ext` automatisch 0.
+Zulässigkeit nach Tab. 58 (FFT/GI/PP) und Tab. 67 wird geprüft (sonst Abbruch mit Meldung).
+
+* **Abtastrate** = Elementartakt 1/T (Tab. 65): 8 MHz 9,142857 MS/s, 7 MHz 8 MS/s, 6 MHz 6,857 MS/s, 5 MHz 5,714 MS/s,
+  10 MHz 11,43 MS/s, 1,7 MHz 1,845 MS/s (nur Datei; für IIO unter dem AD9361-Minimum ohne FIR). IQ int16 LE, kein TX-FIR
+  (wie `dvbt_mod`: ein fremdes FIR wird abgeschaltet, `--fir` lädt ein eigenes).
+* **LO** = Kanalmitte: Träger k = (Kmin+Kmax)/2 liegt auf 0 Hz (32K ext: ±3,885 MHz, P1 ±3,41 MHz).
+* **Pegel**: RMS der Datensymbole = −`backoff` dBFS (Normierung 5/√(27·Ktotal) nach 9.5); P1 im Normverhältnis dazu.
+* **Rahmen** automatisch: Ldata = größte Zahl mit T_F ≤ 250 ms (32K: N_P2+Ldata gerade), N_FEC = so viele FEC-Blöcke wie in
+  D_PLP passen (Rest Dummy-Zellen, 8.3.8), N_TI = kleinste Zahl TI-Blöcke mit N_FEC_TI·N_cells ≤ 2^19+2^15, 2 T2-Rahmen je
+  Superrahmen; Frame-Closing-Symbol nach Tab. 64. Alles per `--ldata/--nfec/--nti/--t2frames` übersteuerbar.
+* **L1**: L1-pre BPSK (1840 Zellen), L1-post wählbar (Standard BPSK; ändert die Nutzrate bei DE/Leicht nicht). Feste Felder:
+  TYPE TS, S1 T2_SISO, S2 nach Tab. 19a (32K/8K mit GI 1/128, 19/256, 19/128 → 111/110), NUM_RF 1, FREQUENCY = `--lo`,
+  NETWORK_ID 0x3085, T2_SYSTEM_ID 0x8001, CELL_ID 0, PLP_ID 0, PLP_GROUP_ID 1, PLP_START 0, PLP_NUM_BLOCKS = N_FEC.
+* `--print-rates` → eine JSON-Zeile: `ts_bps`, `sample_rate`, `bandwidth_hz`, `fft`, `ext`, `guard`, `pp`, `const`, `rate`,
+  `fec_len`, `rotation`, `ldata`, `np2`, `frame_s`, `nfec`, `nti`, `t2frames`, `ncells`, `cdata`, `cp2`, `fc`, `nfc`, `cfc`,
+  `ctot`, `l1_const`, `l1post_cells`, `dummy_cells`, `kbch`, `s2`, `lo`.
+* **TS-Eingang** über `lib/ts_input.c` (Vorfüllung 50 %, Nullpakete bei Unterlauf, Verwerfen von Nullpaketen über 75 %).
+  Der Kodier-Thread holt einen ganzen T2-Rahmen Pakete am Stück (DE 4480) und läuft bis zu 2 Rahmen voraus; `--udp-buffer`
+  wird deshalb auf mindestens 4 Rahmen angehoben (DE 17 920 Pakete, Wert in der Startzeile `udp_buffer`). Datei/stdin: bei
+  Dateiende wird der laufende Rahmen mit Nullpaketen aufgefüllt.
+* Statuszeilen (stderr, JSON, 1/s) wie bei den Nachbarn: `t, frames, signal_s, rt_factor, cpu_coder, cpu_out, ts_in,
+  stuffed, dropped, fill`; am Ende eine `done`-Zeile (mit `--profile` Zeiten je Stufe).
+
+**Nutzraten** (HEM: N_FEC·(Kbch−80)·188/187 / T_F, `tests/dvbt2_rates.py` rechnet unabhängig aus den Normtabellen nach – alle gleich):
+
+| Konfiguration | Ldata | N_FEC | N_TI | T_F (ms) | TS-Rate (Mbit/s) |
+|---|---|---|---|---|---|
+| **DE** 8 MHz, 32K ext, 64-QAM, 2/3, GI 19/256, PP4 | 63 | 156 | 4 | 246,624 | **27,319** |
+| **Leicht** 8 MHz, 8K ext, 64-QAM, 3/5, GI 1/8, PP2 | 245 | 143 | 3 | 249,200 | **22,273** |
+| UK-Profil 32K ext, 256-QAM, 2/3, GI 1/128, PP7 (Vergleich: veröffentlicht 40,2) | 67 | 229 | 4 | 245,840 | 40,231 |
+| 16K ext, 256-QAM, 3/4, GI 1/8, PP2, L1 64-QAM | 122 | 191 | 3 | 248,192 | 37,390 |
+| 8K, 16-QAM, 1/2, GI 1/16, PP4, FEC 16200 | 260 | 418 | 4 | 249,648 | 11,702 |
+| 7 MHz, 8K ext, 64-QAM, 2/3, GI 19/128, PP8 | 210 | 132 | 3 | 249,568 | 22,844 |
+| 6 MHz, 32K ext, 64-QAM, 3/4, GI 1/16, PP4 | 47 | 117 | 3 | 244,011 | 23,297 |
+
+**Kette (`lib/dvbt2.c`):** BBFRAME HEM (MATYPE TS/SIS/CCM, UPL/SYNC = ISSY = 0, SYNCD auf das erste Byte nach dem Sync,
+CRC-8 ⊕ MODE 1, BB-Verwürfelung) → BCH (Tab. 7, kompakte 2-Byte-Tabellen) → LDPC quasizyklisch (T2-Tabellen A.3/B.3, sonst
+S2-identisch; Paritätsverschachtelung direkt im Kodierer; Zeilen-XOR mit NEON) → Bit-Interleaver + Demux (Tab. 10/13, Spalten
+per NEON gelesen und bittransponiert) → Mapping + Rotation + zyklische Q-Verzögerung → Zell-Interleaver (6.4, schreibt 2-Byte-
+Codes in den TI-Speicher) → Zeit-Interleaver (N_TI Blöcke, kleinere zuerst) → Rahmen (L1-pre/L1-post mit Verkürzung nach
+Tab. 40/41, Punktierung Tab. 42/43, L1-Bit-Interleaver Tab. 44, Zickzack über die P2-Symbole 8.3.5; Dummy-Zellen aus der
+BB-PRBS; FC-Restzellen 0) → Frequenz-Interleaver (Tab. 53, 32K: H bzw. H⁻¹ je Symbolparität) als Gather in Trägerreihenfolge
+→ Piloten (SP/CP Tab. G.1/G.2/Edge/P2 inkl. reservierter P2-Träger Tab. H.1/FC, Referenzfolge w_k ⊕ pn_l) direkt in die
+IFFT-Bins → IFFT int16 (2K/8K/32K: `fft16.c`, 1K/4K/16K: eigene Radix-8-IFFT `lib/dvbt2_fft.c`) + Guard. P1 (Tab. 68/69,
+DBPSK, Verwürfelung, C-A-B mit Frequenzverschiebung) vorab in double berechnet. Thread A kodiert ganze T2-Rahmen bis in die
+IFFT-Bins (Ring aus 3 Rahmen), Thread B rechnet P1 + IFFT + Guard und schreibt aus.
+
+**Prüfung (24.10., WSL2 „dablab“, gr-dtv 3.10.9; Skripte in `tests/`, Protokolle in `tests/dvbt2_results/`):**
+
+| Prüfung | Ergebnis | Unabhängigkeit |
+|---|---|---|
+| `dvbt2_tables_check.py`: Tabellen 56, 68, 69, G.1, G.2, H.1 (aus der Norm-PDF extrahiert) gegen die gr-dtv-Quelltabellen | alle gleich; gr-dtv hat bei 16K-ext-PP1 einen Tippfehler (CP 3636 statt 13636) und eine überzählige PP3-CP6-Tabelle (32K-PP3 unzulässig) | Norm-Extraktion vs. gr-Quellcode |
+| Trägerzählung je Symbolart gegen Tab. 47–49 (beim Start, sonst Abbruch) | gleich für alle geprüften Konfigurationen | Pilotmuster vs. Normtabellen |
+| `dvbt2_grdtv_compare.py` DE (3 Rahmen) | LDPC-Codewörter 468 Blöcke / 30,3 Mbit: 0 Abweichungen (BBFRAME, BCH, LDPC je 0); Zellwörter nach Bit-IL 5 054 400: 0; Zellen nach Mapping, Zell+Zeit-IL, Rahmen (5 079 069 Zellen inkl. L1/Dummy/FC), Frequenz-IL: je 83,3 dB SNR (= int16-Rundung, max. Fehler −80 dB); IQ 6 764 544 Samples: 66,2 dB (P1 76,4 dB, P2 66,3 dB, Daten 66,3 dB) | Referenz gr-dtv (FFTSIZE_32K_T2GI, FREQUENCY 729833333 wie gr) |
+| dto. Leicht (3 Rahmen) | 429 Blöcke: 0 Abweichungen; Zellen 83,5 dB; IQ 67,0 dB (P1 78,4, P2 67,3, Daten 67,0) | dto. |
+| `dvbt2_grdtv_matrix.sh` (je 2 Rahmen): 16K/256QAM/L1-64QAM, 8K normal/16QAM/16200/L1-16QAM, 2K/QPSK/16200/PP1 (N_P2 = 8), 4K/64QAM ohne Rotation/PP7, 1K/16QAM/5/6 (N_P2 = 16), 32K normal/256QAM/PP7, 32K/QPSK/16200, 7 MHz/8K/PP8/L1-64QAM | alle Stufen gleich (IQ 53–69 dB); einzige Abweichung 16K-ext-PP1 (IQ): vollständig durch den gr-Tippfehler erklärt (alle abweichenden Träger zwischen k = 3636 und 13636, um genau einen Träger verschoben) | gr-dtv |
+| `dvbt2_rates.py` (9 Konfigurationen) | Nutzrate, Ldata, N_FEC exakt gleich | eigene Python-Rechnung aus den Normtabellen |
+| Loopback mit unabhängigem Empfänger (`H:\temp\dvbt2_rx\decode.sh`, Original-TS rein → dvbt2_mod → IQ 8 s → Empfänger → TS-Vergleich) | **DE**: sdr_receiver_dvb_t2 (Oleg) Lock, L1 = 32K/S2 111/GI 19/256/PP4/64QAM/2/3/rot/Ldata 63/156 FEC/TI 4, 98 324 Pakete, 0 Fehler, 0 BBHEADER-CRC-Fehler; DecDVB-T 134 393 Pakete, 0 LDPC-Verluste, 0 BCH-Korrekturen, MER 59,6 dB, 0 Paketfehler. **Leicht**: DecDVB-T 110 714 Pakete, 0 Fehler, MER 60,8 dB (Oleg kann kein 8K) | fremde Empfänger-Implementierungen |
+| `dvbt2_udp_test.sh` (x86): TS per UDP mit 99,5 % der Nutzrate, `--realtime`, 10 s, danach DecDVB-T | 43 531 Nutzpakete lückenlos in Originalfolge, Stopfen nur während der Vorfüllung, 182 Nullpakete verworfen | Empfänger |
+| `--selftest` | schnelle Pfade (BCH, LDPC, Bit-IL, NEON) = bitweise Referenz für 48 Kombinationen; Radix-8-IFFT 59–64 dB SNR gegen double | intern |
+| md5 der IQ-Ausgabe ARM (Pluto) = x86 | gleich (DE, Leicht, QPSK/16QAM/256QAM, 256QAM-16200) | NEON vs. C |
+
+Hinweise zu gr-dtv (nur Prüfreferenz): mit `FFTSIZE_32K` bei GI 19/256 sendet gr-dtv im P1/L1-pre S2 = 101 statt
+normgerecht 111 (Referenz deshalb mit `FFTSIZE_32K_T2GI`); FREQUENCY im L1-post ist in gr-dtv fest 729 833 333 Hz;
+gr-dtv setzt den Symbolzähler des Frequenz-Interleavers nicht je Rahmen zurück (bei ungeradem L_F nur theoretisch
+relevant, in den Läufen nicht aufgetreten).
+
+**Leistung Pluto** (`tests/pluto/dvbt2_bench.sh 20`, nur CPU, `-o /dev/null`, `--affinity --rt`, Eingang TS-Datei in Schleife,
+Wächter: kein fremder Modulator lief):
+
+| Konfiguration | RT-Faktor | Last Thread A / B |
+|---|---|---|
+| **DE** 32K ext 64-QAM 2/3 GI 19/256 PP4 | **1,10** | 0,88 / 0,90 |
+| DE, Eingang `null` | 1,06 | 0,83 / 0,93 |
+| **Leicht** 8K ext 64-QAM 3/5 GI 1/8 PP2 | **1,53** | 0,65 / 0,60 |
+| 16K ext 64-QAM 3/5 GI 1/8 PP2 (Radix-8-IFFT) | 1,32 | 0,69 / 0,75 |
+| 16K ext 64-QAM 2/3 GI 19/256 PP4 | 1,30 | 0,72 / 0,76 |
+| 32K ext 16-QAM 2/3 GI 19/256 PP4 | 1,11 | 0,80 / 0,90 |
+| 32K ext 256-QAM 2/3 GI 1/128 PP7 (UK, 40,2 Mbit/s) | 0,97 | 1,02 / 0,90 |
+| 8K ext 256-QAM 3/4 GI 1/32 PP7 | 1,12 | 0,89 / 0,62 |
+
+Grenze bei 32K ist die IFFT: `--bench-ifft 32` misst fft16 32K allein 2,43 ms (Radix-8: 3,15 ms, 8K: 0,54 gegen 0,57 ms,
+16K Radix-8 1,22 ms gegen ~1,5 ms der früheren DIF-Notlösung), im Betrieb neben Thread A 3,4 ms je 3,85-ms-Symbol, weil
+sich beide Kerne L2 (512 KB) und DRAM teilen (einthreadig: Kodierung 183 ms + Ausgabe 172 ms je 247-ms-Rahmen; zweithreadig
+je +23 %). Umgesetzte Optimierungen gegenüber der Machbarkeitsprüfung: HEM ohne CRC-8 je Paket, BCH mit kompakten
+2-Byte-Tabellen (−20 %), LDPC-Zeilen-XOR mit NEON (−10 %), Bit-Interleaver mit NEON-Spaltenladen und -Bittransposition
+(Prototyp 337 µs, erster Stand 235 µs → 88 µs je FEC-Block), Zell-Interleaver schreibt 2-Byte-Codes (TI-Speicher halbiert), Frequenz-Interleaver + Piloten
+in Thread A direkt in die IFFT-Bins. Gemessen und verworfen (langsamer): direkter Scatter in die Bins, nach Zielfenstern
+sortierter Scatter, PLD auf Schreib-/Leseziele, zeilenweiser TI-Speicher, „lazy“ Zell-+Zeit-Interleaver aus den Zellwörtern,
+Gather auf 2-Byte-Codes, BCH zweier Codewörter verschränkt, fusionierte fft16-Stufen, Radix-8 auch für 8K/32K.
+Das Ziel RT ≥ 1,2 wird für Leicht und 16K erreicht, für DE nicht (1,10); für den Funkbetrieb kommt noch das Kopieren in
+den IIO-DMA-Puffer in Thread B hinzu (nicht gemessen, `-o iio:` war nicht erlaubt).
+
+**Offene Punkte DVB-T2:** DE ohne Reserve (s. o.; Ideen: Symbol-Übergabe statt Rahmen-Übergabe, damit die IFFT-Eingänge
+noch im L2 liegen; IFFT in der FPGA-Logik); kein Empfangstest am Fernseher; Spektrum (Schulter bei 32K ext ±3,89 MHz) ohne
+Fensterung noch nicht gemessen; L1-Optionen wie L1-Wiederholung, ISSY/NPD, mehrere PLPs, T2-Lite, MISO, PAPR nicht umgesetzt.
 
 ## Weitere Standards / Bewertung Pfad „N=6912-IFFT + AD9361-FIR“
 

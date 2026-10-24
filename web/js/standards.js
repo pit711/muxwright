@@ -18,13 +18,14 @@ export const STANDARDS = [
   { id: 'atsc', name: 'ATSC', long: 'ATSC 1.0 8-VSB (A/53, PSIP A/65)', flags: ['us', 'ca', 'mx', 'kr'], untested: true },
   { id: 'isdbt', name: 'ISDB-T', long: 'ISDB-Tb / ISDB-T (ABNT NBR 15601, ARIB STD-B31)', flags: ['br', 'jp', 'ar', 'cl', 'pe', 'ph'], untested: true },
   { id: 'dtmb', name: 'DTMB', long: 'DTMB (GB 20600-2006)', flags: ['cn', 'hk', 'mo', 'cu'], untested: true },
+  { id: 'dvbt2', name: 'DVB-T2', long: 'DVB-T2 (EN 302 755)', flags: ['de', 'gb', 'it', 'ru', 'th', 'co'], untested: true },
 ];
 export const stdName = id => (STANDARDS.find(s => s.id === id) || STANDARDS[0]).name;
 export function standardOf(cfg) {
   const m = cfg?.mode;
-  return typeof m === 'string' && ['fm', 'dvbt', 'dvbc', 'dvbs', 'pal', 'atsc', 'isdbt', 'dtmb'].includes(m) ? m : 'dab';
+  return typeof m === 'string' && ['fm', 'dvbt', 'dvbc', 'dvbs', 'pal', 'atsc', 'isdbt', 'dtmb', 'dvbt2'].includes(m) ? m : 'dab';
 }
-export const isDvb = std => ['dvbt', 'dvbc', 'dvbs', 'atsc', 'isdbt', 'dtmb'].includes(std);
+export const isDvb = std => ['dvbt', 'dvbc', 'dvbs', 'atsc', 'isdbt', 'dtmb', 'dvbt2'].includes(std);
 /** Länderkennung (ISO 3166) → Name in der Bediensprache */
 export const countryName = cc => { try { return cc === 'eu' ? T('Europa') : new Intl.DisplayNames([document.documentElement.lang || 'de'], { type: 'region' }).of(cc.toUpperCase()); } catch { return cc.toUpperCase(); } };
 /** Ausgabeweg vom Server normalisieren: "usb" | "device"/"pluto" (plus path_label) → 'usb' | 'pluto' */
@@ -118,6 +119,49 @@ export const DTMB = { SR: 7560000, CONST: ['4-QAM-NR', '4-QAM', '16-QAM', '32-QA
   BITS: { '4-QAM-NR': 1, '4-QAM': 2, '16-QAM': 4, '32-QAM': 5, '64-QAM': 6 }, K: { '0.4': 3008, '0.6': 4512, '0.8': 6016 },
   ONLY08: ['4-QAM-NR', '32-QAM'] };
 export const dtmbNetRate = p => DTMB.SR / (3780 + Number(p.header)) * 3744 * (DTMB.BITS[p.constellation] || 0) / 7488 * (DTMB.K[p.code_rate] || 0);
+/** DVB-T2 (EN 302 755) wie dvbt2_mod und runner/dvb/tables.py: T2-base, SISO, 1 PLP, 64800er FEC, L1-post BPSK, Ldata bis 250 ms */
+export const DVBT2 = { BW: [5, 6, 7, 8], FFT: ['1k', '2k', '4k', '8k', '16k', '32k'], CONST: ['QPSK', '16-QAM', '64-QAM', '256-QAM'],
+  CR: ['1/2', '3/5', '2/3', '3/4', '4/5', '5/6'], GI: ['1/128', '1/32', '1/16', '19/256', '1/8', '19/128', '1/4'],
+  PRESETS: { leicht: { bandwidth_mhz: 8, fft: '8k', ext: true, constellation: '64-QAM', code_rate: '3/5', guard: '1/8', pp: 2, rotation: true },
+    de: { bandwidth_mhz: 8, fft: '32k', ext: true, constellation: '64-QAM', code_rate: '2/3', guard: '19/256', pp: 4, rotation: true } },
+  T: { 5: 7 / 40, 6: 7 / 48, 7: 1 / 8, 8: 7 / 64 }, BITS: { QPSK: 2, '16-QAM': 4, '64-QAM': 6, '256-QAM': 8 },
+  KBCH: { '1/2': 32208, '3/5': 38688, '2/3': 43040, '3/4': 48408, '4/5': 51648, '5/6': 53840 },
+  NP2: { 1: 16, 2: 8, 4: 4, 8: 2, 16: 1, 32: 1 }, CP2: { 1: 558, 2: 1118, 4: 2236, 8: 4472, 16: 8944, 32: 22432 },
+  CDATA: { '1,0': [764, 768, 798, 804, 818, 0, 0, 0], '2,0': [1522, 1532, 1596, 1602, 1632, 0, 1646, 0], '4,0': [3084, 3092, 3228, 3234, 3298, 0, 3328, 0],
+    '8,0': [6208, 6214, 6494, 6498, 6634, 0, 6698, 6698], '8,1': [6296, 6298, 6584, 6588, 6728, 0, 6788, 6788],
+    '16,0': [12418, 12436, 12988, 13002, 13272, 13288, 13416, 13406], '16,1': [12678, 12698, 13262, 13276, 13552, 13568, 13698, 13688],
+    '32,0': [0, 24886, 0, 26022, 0, 26592, 26836, 26812], '32,1': [0, 25412, 0, 26572, 0, 27152, 27404, 27376] },
+  CFC: { '1,0': [402, 654, 490, 707, 544, 0, 0, 0], '2,0': [804, 1309, 980, 1415, 1088, 0, 1396, 0], '4,0': [1609, 2619, 1961, 2831, 2177, 0, 2792, 0],
+    '8,0': [3218, 5238, 3922, 5662, 4354, 0, 5585, 0], '8,1': [3264, 5312, 3978, 5742, 4416, 0, 5664, 0],
+    '16,0': [6437, 10476, 7845, 11324, 8709, 11801, 11170, 0], '16,1': [6573, 10697, 8011, 11563, 8893, 12051, 11406, 0],
+    '32,0': [0, 20952, 0, 22649, 0, 23603, 0, 0], '32,1': [0, 21395, 0, 23127, 0, 24102, 0, 0] },
+  FC: { 32: { '1/32': [6], '1/16': [4], '19/256': [4], '1/8': [2], '19/128': [2] },
+    16: { '1/32': [7, 6], '1/16': [4, 5], '19/256': [4, 5], '1/8': [2, 3], '19/128': [2, 3], '1/4': [1] },
+    8: { '1/32': [7], '1/16': [4, 5], '19/256': [4, 5], '1/8': [2, 3], '19/128': [2, 3], '1/4': [1] },
+    4: { '1/32': [7], '1/16': [4, 5], '1/8': [2, 3], '1/4': [1] }, 2: { '1/32': [7], '1/16': [4, 5], '1/8': [2, 3], '1/4': [1] }, 1: { '1/16': [4, 5], '1/8': [2, 3], '1/4': [1] } },
+  // Tab. 58: zulässige Pilotmuster (SISO) je FFT und Guard-Intervall
+  PP: { 1: { '1/16': [4, 5], '1/8': [2, 3], '1/4': [1] }, 2: { '1/32': [4, 7], '1/16': [4, 5], '1/8': [2, 3], '1/4': [1] },
+    4: { '1/32': [4, 7], '1/16': [4, 5], '1/8': [2, 3], '1/4': [1] },
+    8: { '1/128': [7], '1/32': [4, 7], '1/16': [4, 5, 8], '19/256': [4, 5, 8], '1/8': [2, 3, 8], '19/128': [2, 3, 8], '1/4': [1, 8] },
+    16: { '1/128': [7], '1/32': [4, 6, 7], '1/16': [2, 4, 5, 8], '19/256': [2, 4, 5, 8], '1/8': [2, 3, 8], '19/128': [2, 3, 8], '1/4': [1, 8] },
+    32: { '1/128': [7], '1/32': [4, 6], '1/16': [2, 4, 8], '19/256': [2, 4, 8], '1/8': [2, 8], '19/128': [2, 8] } } };
+export const dvbt2Pp = (fft, gi) => DVBT2.PP[parseInt(fft, 10)]?.[gi] || [];
+export const dvbt2Sps = p => 1e6 / (DVBT2.T[Number(p.bandwidth_mhz)] || DVBT2.T[8]);
+/** Nutzrate (TS, HEM): N_FEC · (Kbch − 80) · 188/187 / T_F */
+export function dvbt2NetRate(p) {
+  const fk = parseInt(p.fft, 10), n = fk * 1024, [a, b] = String(p.guard).split('/').map(Number), tu = DVBT2.T[Number(p.bandwidth_mhz)];
+  const pp = Number(p.pp), key = `${fk},${p.ext && fk >= 8 ? 1 : 0}`, cd = DVBT2.CDATA[key]?.[pp - 1];
+  if (!tu || !cd || !dvbt2Pp(p.fft, p.guard).includes(pp) || !DVBT2.BITS[p.constellation] || !DVBT2.KBCH[p.code_rate]) return 0;
+  const sym = n + Math.floor(n * a / b), np2 = DVBT2.NP2[fk];
+  let lf = Math.floor((250000 - 2048 * tu) / (sym * tu) + 1e-9); if (fk === 32 && lf % 2) lf--;
+  const ld = lf - np2, fc = (DVBT2.FC[fk][p.guard] || []).includes(pp);
+  const ctot = np2 * DVBT2.CP2[fk] + (fc ? (ld - 1) * cd + DVBT2.CFC[key][pp - 1] : ld * cd);
+  const npt = Math.max((np2 > 1 ? np2 : 2) - 1, Math.floor(6 * (7032 - 350) / 5)), m = np2 === 1 ? 2 : np2;
+  const npost = Math.ceil((350 + 168 + 9000 - npt) / m) * m;
+  const nfec = Math.min(Math.floor((ctot - 1840 - npost) / (64800 / DVBT2.BITS[p.constellation])), 1023);
+  return nfec * (DVBT2.KBCH[p.code_rate] - 80) * 188 / 187 / ((2048 + (np2 + ld) * sym) * tu * 1e-6);
+}
+export const dvbt2Preset = p => Object.keys(DVBT2.PRESETS).find(k => Object.entries(DVBT2.PRESETS[k]).every(([f, v]) => String(p[f]) === String(v))) || 'custom';
 /** ATSC 1.0: feste Nutzrate 19,39 Mbit/s (312 · 188 Byte je 313 · 832 Symbole bei 10,762 MBd) */
 export const ATSC = { SR: 4.5e6 / 286 * 684, RATE: 4.5e6 / 286 * 684 * 312 * 188 * 8 / (313 * 832) };
 /** ISDB-T: 13 Segmente, Mode 1–3, je Schicht Konstellation/Coderate/Zeitverschachtelung */
@@ -194,7 +238,7 @@ export function dvbsNetRate(p) {
 export function netRate(cfg) {
   const s = standardOf(cfg);
   if (s === 'dvbc' && isJ83b(cfg)) return DVBC.J83B[cfg.dvbc.constellation]?.rate || 0;
-  return s === 'dvbt' ? dvbtNetRate(cfg.dvbt) : s === 'dvbc' ? dvbcNetRate(cfg.dvbc) : s === 'dvbs' ? dvbsNetRate(cfg.dvbs) : s === 'atsc' ? ATSC.RATE : s === 'isdbt' ? isdbtNetRate(cfg.isdbt) : s === 'dtmb' ? dtmbNetRate(cfg.dtmb) : 0;
+  return s === 'dvbt' ? dvbtNetRate(cfg.dvbt) : s === 'dvbc' ? dvbcNetRate(cfg.dvbc) : s === 'dvbs' ? dvbsNetRate(cfg.dvbs) : s === 'atsc' ? ATSC.RATE : s === 'isdbt' ? isdbtNetRate(cfg.isdbt) : s === 'dtmb' ? dtmbNetRate(cfg.dtmb) : s === 'dvbt2' ? dvbt2NetRate(cfg.dvbt2) : 0;
 }
 
 /** DATV am PC: kleinste Samples/Symbol ≥ 2, damit der Pluto ≥ 2,1 MS/s bekommt (wie runner/dvb/tables.py ham_sps) */
@@ -209,6 +253,7 @@ export function requiredSampleRate(cfg) {
   if (s === 'atsc') return Math.round(ATSC.SR);          // atsc_mod: 1 Sample/Symbol
   if (s === 'isdbt') return Math.round(ISDBT.SAMPLE_RATE);
   if (s === 'dtmb') return DTMB.SR;                     // dtmb_mod: 1 Sample/Symbol, SRRC im AD9361-FIR
+  if (s === 'dvbt2') return Math.round(dvbt2Sps(cfg.dvbt2));   // dvbt2_mod: 1/T, kein FIR
   if (s === 'pal') return PAL_SYSTEMS[cfg.pal?.system]?.lines === 525 ? FS_525 : cfg.pal?.live ? (Number(cfg.pal?.live_fs) || 7000000) : (Number(cfg.pal?.fs) || 8000000);
   return Number(cfg.rf.sample_rate) || 4096000;
 }
@@ -220,6 +265,7 @@ export function requiredPath(cfg) {
   if (s === 'atsc') return { path: 'pluto', sps, reason: T('ATSC 8-VSB: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'isdbt') return { path: 'pluto', sps, reason: T('ISDB-T: OFDM-Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dtmb') return { path: 'pluto', sps, reason: T('DTMB: Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
+  if (s === 'dvbt2') return { path: 'pluto', sps, reason: T('DVB-T2: OFDM-Modulator auf dem Pluto ({sps} MS/s)', { sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbc' && ['b', 'c'].includes(cfg.dvbc?.annex)) return { path: 'pluto', sps, reason: T('J.83 {annex}: Modulator auf dem Pluto ({sps} MS/s)', { annex: cfg.dvbc.annex.toUpperCase(), sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbt' && Number(cfg.dvbt.bandwidth_mhz) >= 7) return { path: 'pluto', sps, reason: T('DVB-T {bw} MHz braucht {sps} MS/s – nur Modulator/Loop auf dem Pluto (USB max. 7,15 MS/s)', { bw: cfg.dvbt.bandwidth_mhz, sps: (sps / 1e6).toFixed(3) }) };
   if (s === 'dvbs') return sps > USB_MAX_SPS ? { path: 'pluto', sps, reason: T('{sr} MS/s Symbolrate × 2 = {sps} MS/s – Modulator auf dem Pluto (USB max. 7,15 MS/s)', { sr: (cfg.dvbs.symbol_rate / 1e6).toFixed(3), sps: (sps / 1e6).toFixed(2) }) }
@@ -296,6 +342,7 @@ export function fmAudioDeviation(f) { return Number(f.deviation_khz) - (f.stereo
 export const defaultDvbt = () => ({ bandwidth_mhz: 8, fft: '8k', constellation: '64-QAM', code_rate: '2/3', guard: '1/32', cell_id: 0, hierarchy: 'none' });
 export const defaultDvbc = () => ({ symbol_rate: 6900000, constellation: '256-QAM', sps: 2, annex: 'a' });
 export const defaultAtsc = () => ({});
+export const defaultDvbt2 = () => ({ preset: 'de', ...DVBT2.PRESETS.de, cell_id: 0 });
 export const defaultDtmb = () => ({ carriers: 3780, constellation: '64-QAM', code_rate: '0.6', header: 945, interleaver: 720 });
 export const defaultIsdbt = () => ({ region: 'br', mode: 3, guard: '1/8', layers: 1, area_code: 0, remote_key: 1,
   layer_a: { constellation: '64-QAM', code_rate: '3/4', ti: 2 }, layer_b: { constellation: '64-QAM', code_rate: '3/4', ti: 2 } });
@@ -399,6 +446,7 @@ export function normalizeStd(c) {
   c.dvbs = { ...defaultDvbs(), ...(c.dvbs || {}) };
   c.atsc = { ...defaultAtsc(), ...(c.atsc || {}) };
   c.dtmb = { ...defaultDtmb(), ...(c.dtmb || {}) };
+  c.dvbt2 = { ...defaultDvbt2(), ...(c.dvbt2 || {}) };
   const di = defaultIsdbt(), i0 = c.isdbt || {};
   c.isdbt = { ...di, ...i0, layer_a: { ...di.layer_a, ...(i0.layer_a || {}) }, layer_b: { ...di.layer_b, ...(i0.layer_b || {}) } };
   // Der Server speichert für den Runner „horizontal“/„vertical“ – das Dashboard arbeitet mit H/V
@@ -421,7 +469,7 @@ export function normalizeStd(c) {
 }
 
 /** Backoff je Standard: Standardwert und Untergrenze (OFDM/QAM brauchen Abstand für die Spitzen, FM hat konstante Hüllkurve) */
-export const BACKOFF = { dab: [12, 10], dvbt: [12, 10], dvbc: [10, 9], dvbs: [6, 4], pal: [6, 6], fm: [3, 0], atsc: [8, 6], isdbt: [12, 10], dtmb: [12, 10] };
+export const BACKOFF = { dab: [12, 10], dvbt: [12, 10], dvbc: [10, 9], dvbs: [6, 4], pal: [6, 6], fm: [3, 0], atsc: [8, 6], isdbt: [12, 10], dtmb: [12, 10], dvbt2: [12, 10] };
 
 /** Standard umschalten: mode setzen, HF-Kanal auf einen sinnvollen Startwert, falls der alte nicht passt */
 export function setStandard(cfg, std) {
@@ -432,7 +480,7 @@ export function setStandard(cfg, std) {
   if (std !== cur) {
     const rf = cfg.rf;
     if (std === 'fm') { rf.channel = 'fm'; if (!(rf.freq_hz >= FM_MIN_MHZ * 1e6 && rf.freq_hz <= FM_MAX_MHZ * 1e6)) rf.freq_hz = Math.round((cfg.fm?.freq_mhz || 100.0) * 1e6); if (cfg.fm) cfg.fm.freq_mhz = rf.freq_hz / 1e6; }
-    else if (std === 'dvbt') { rf.channel = 'K21'; rf.freq_hz = 474e6; }
+    else if (std === 'dvbt' || std === 'dvbt2') { rf.channel = 'K21'; rf.freq_hz = 474e6; }
     else if (std === 'dvbc') { rf.channel = 'S21'; rf.freq_hz = 306e6; }
     else if (std === 'dvbs') { const d = cfg.dvbs || defaultDvbs(); if (d.use === 'ham') { rf.channel = 'ham'; rf.freq_hz = Math.round(d.ham_freq_mhz * 1e6); } else { rf.channel = 'sat'; rf.freq_hz = satIfHz(d); } }
     else if (std === 'pal') { rf.channel = 'K21'; rf.freq_hz = 471.25e6; }
@@ -568,7 +616,7 @@ export function validateStd(c, add) {
     if (!DVBS.ROLLOFF.includes(Number(d.rolloff)) || (d.system === 'dvbs' && Number(d.rolloff) !== 0.35)) add('dvbs.rolloff', d.system === 'dvbs' ? T('DVB-S: Rolloff 0,35') : T('Rolloff 0,35/0,25/0,20'));
   }
   if (isDvb(std)) {
-    const m = std === 'dvbt' ? c.dvbt : std === 'dvbs' ? c.dvbs : std === 'atsc' ? c.atsc : std === 'isdbt' ? c.isdbt : std === 'dtmb' ? c.dtmb : c.dvbc;
+    const m = std === 'dvbt' ? c.dvbt : std === 'dvbs' ? c.dvbs : std === 'atsc' ? c.atsc : std === 'isdbt' ? c.isdbt : std === 'dtmb' ? c.dtmb : std === 'dvbt2' ? c.dvbt2 : c.dvbc;
     if (std === 'dvbt') {
       if (!DVBT.BW.includes(Number(m.bandwidth_mhz))) add('dvbt.bandwidth_mhz', T('Bandbreite 5/6/7/8 MHz'));
       if (!DVBT.FFT.includes(m.fft)) add('dvbt.fft', T('Modus 2k oder 8k'));
@@ -590,6 +638,16 @@ export function validateStd(c, add) {
       if (!DTMB.CONST.includes(d.constellation)) add('dtmb.constellation', T('Konstellation wählen'));
       if (!DTMB.CR.includes(d.code_rate) || (DTMB.ONLY08.includes(d.constellation) && d.code_rate !== '0.8')) add('dtmb.code_rate', T('{c} nur mit Coderate 0,8', { c: d.constellation }));
       if (!DTMB.PN.includes(Number(d.header))) add('dtmb.header', T('Rahmenkopf PN420/595/945'));
+    } else if (std === 'dvbt2') {
+      if (!DVBT2.BW.includes(Number(m.bandwidth_mhz))) add('dvbt2.bandwidth_mhz', T('Bandbreite 5/6/7/8 MHz'));
+      if (!DVBT2.FFT.includes(m.fft)) add('dvbt2.fft', T('FFT 1K…32K'));
+      if (!DVBT2.CONST.includes(m.constellation)) add('dvbt2.constellation', T('Konstellation QPSK…256-QAM'));
+      if (!DVBT2.CR.includes(m.code_rate)) add('dvbt2.code_rate', T('Coderate 1/2…5/6'));
+      const pps = dvbt2Pp(m.fft, m.guard);
+      if (!pps.length) add('dvbt2.guard', T('Guard {gi} gibt es bei {fft} nicht', { gi: m.guard, fft: String(m.fft).toUpperCase() }));
+      else if (!pps.includes(Number(m.pp))) add('dvbt2.pp', T('PP{pp} bei {fft} und Guard {gi} nicht zulässig (erlaubt: {ok})', { pp: m.pp, fft: String(m.fft).toUpperCase(), gi: m.guard, ok: pps.map(x => 'PP' + x).join(', ') }));
+      if (m.fft === '32k' && m.constellation === '256-QAM') add('dvbt2.constellation', T('32K mit 256-QAM schafft der Pluto nicht in Echtzeit – 16K oder 64-QAM wählen'));
+      if (!(m.cell_id >= 0 && m.cell_id <= 65535)) add('dvbt2.cell_id', T('Zellen-ID 0–65535'));
     } else if (std === 'dvbc' && isJ83b(c)) {
       if (!DVBC.J83B[m.constellation]) add('dvbc.constellation', T('J.83 B: 64-QAM oder 256-QAM'));
     } else if (std === 'dvbc') {

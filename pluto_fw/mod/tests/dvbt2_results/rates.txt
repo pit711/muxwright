@@ -1,0 +1,10 @@
+  8 MHz 32KE 64qam  2/3 GI 19/256 PP4 64800 L1 bpsk : Ldata   63 NFEC  156 TF 246.624 ms  dvbt2_mod  27.3193 Mbit/s  Norm-Rechnung  27.3193  OK
+  8 MHz  8KE 64qam  3/5 GI 1/8    PP2 64800 L1 bpsk : Ldata  245 NFEC  143 TF 249.200 ms  dvbt2_mod  22.2731 Mbit/s  Norm-Rechnung  22.2731  OK
+  8 MHz 32KE 256qam 2/3 GI 1/128  PP7 64800 L1 bpsk : Ldata   67 NFEC  229 TF 245.840 ms  dvbt2_mod  40.2312 Mbit/s  Norm-Rechnung  40.2312  OK
+  8 MHz 16KE 256qam 3/4 GI 1/8    PP2 64800 L1 64qam: Ldata  122 NFEC  191 TF 248.192 ms  dvbt2_mod  37.3904 Mbit/s  Norm-Rechnung  37.3904  OK
+  8 MHz  8K  16qam  1/2 GI 1/16   PP4 16200 L1 16qam: Ldata  260 NFEC  418 TF 249.648 ms  dvbt2_mod  11.7024 Mbit/s  Norm-Rechnung  11.7024  OK
+  8 MHz  2K  qpsk   3/5 GI 1/4    PP1 16200 L1 qpsk : Ldata  884 NFEC  166 TF 249.984 ms  dvbt2_mod   6.3234 Mbit/s  Norm-Rechnung   6.3234  OK
+  7 MHz  8KE 64qam  2/3 GI 19/128 PP8 64800 L1 64qam: Ldata  210 NFEC  132 TF 249.568 ms  dvbt2_mod  22.8437 Mbit/s  Norm-Rechnung  22.8437  OK
+  6 MHz 32KE 64qam  3/4 GI 1/16   PP4 64800 L1 bpsk : Ldata   47 NFEC  117 TF 244.011 ms  dvbt2_mod  23.2966 Mbit/s  Norm-Rechnung  23.2966  OK
+1.7 MHz  1K  qpsk   1/2 GI 1/16   PP4 16200 L1 bpsk : Ldata  406 NFEC   40 TF 249.955 ms  dvbt2_mod   1.1185 Mbit/s  Norm-Rechnung   1.1185  OK
+ALLE RATEN GLEICH

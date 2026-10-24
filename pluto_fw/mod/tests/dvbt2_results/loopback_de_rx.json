@@ -1,0 +1,116 @@
+{
+ "iq": "$DVBT2_WORK/dvbt2_loop/de.iq",
+ "profile": "de",
+ "expected": {
+  "fft": "32k",
+  "ext": 1,
+  "gi": "19/256",
+  "pp": 4,
+  "mod": "64qam",
+  "cr": "2/3",
+  "rot": 1,
+  "fec": 64800
+ },
+ "fs": 9142857.142857144,
+ "format": "s16",
+ "ok": true,
+ "results": [
+  {
+   "receiver": "oleg",
+   "cmd": "$DVBT2_WORK/dvbt2_rx/oleg_headless/build/dvbt2_file_rx $DVBT2_WORK/dvbt2_loop/de.iq $DVBT2_WORK/dvbt2_loop/de_rx.ts --fs 9142857.142857144 --format s16 --plp 0 --quiet",
+   "exit": 0,
+   "locked": true,
+   "params": {
+    "fft": "32k",
+    "s2_field1": 7,
+    "gi": "19/256",
+    "cr": "2/3",
+    "mod": "64qam",
+    "ext": 1,
+    "pp": 4,
+    "ndata": 63,
+    "rot": 1,
+    "fec": 64800,
+    "fecblocks": 156,
+    "plp_count": 1,
+    "time_il_length": 4
+   },
+   "stats": {
+    "samples": 74409984,
+    "seconds": 8.139,
+    "num_plp": 1,
+    "snr_db": 31.09,
+    "bbheader_crc_errors": 0,
+    "ts_error_events": 0,
+    "resyncs": 0,
+    "receiver_resets": 0,
+    "coarse_retunes": 0,
+    "nco_hz": 0.0
+   },
+   "ts_bytes": 18484952,
+   "output": "$DVBT2_WORK/dvbt2_loop/de_rx.ts",
+   "param_mismatch": {},
+   "compare": {
+    "ok": true,
+    "packets_compared": 98324,
+    "packet_errors": 0,
+    "packet_error_rate": 0.0,
+    "leading_unaligned_packets": 0,
+    "first_orig_index": 49278,
+    "realignments": 0,
+    "coverage_of_original": 0.45754012387329746,
+    "error": null,
+    "first_bad": []
+   }
+  },
+  {
+   "receiver": "decdvbt",
+   "cmd": "$DVBT2_WORK/dvbt2_rx/decdvbt_target/release/decdvbt decode /tmp/dvbt2rx_quq3fbrv/input.cs16 --file-rate 9.142857142857144 --seconds 9.139 -o $DVBT2_WORK/dvbt2_loop/de_rx.decdvbt.ts",
+   "exit": 0,
+   "locked": true,
+   "params": {
+    "fft": "32k",
+    "ext": 1,
+    "gi": "19/256",
+    "pp": 4,
+    "mod": "64qam",
+    "cr": "2/3",
+    "rot": 1,
+    "fec": 64800,
+    "fecblocks": 156
+   },
+   "stats": {
+    "ldpc_blocks": 4680,
+    "ldpc_lost": 0,
+    "bch_corrected_bits": 0,
+    "resyncs": 0,
+    "mer_db": 59.6,
+    "ts_packets": 134393,
+    "ts_error_flag": 0,
+    "continuity_jumps": 0
+   },
+   "ts_bytes": 25265884,
+   "output": "$DVBT2_WORK/dvbt2_loop/de_rx.decdvbt.ts",
+   "param_mismatch": {},
+   "compare": {
+    "ok": true,
+    "packets_compared": 134393,
+    "packet_errors": 0,
+    "packet_error_rate": 0.0,
+    "leading_unaligned_packets": 0,
+    "first_orig_index": 8960,
+    "realignments": 0,
+    "coverage_of_original": 0.6253833231734273,
+    "error": null,
+    "first_bad": []
+   }
+  }
+ ],
+ "cross_compare": {
+  "ok": true,
+  "packets_compared": 94075,
+  "beyond_original": 4249,
+  "packet_errors": 0,
+  "first_orig_index": 40318
+ }
+}

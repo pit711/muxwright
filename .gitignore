@@ -54,6 +54,7 @@ pluto_fw/mod/dvbs2_stage
 pluto_fw/mod/dvbs_mod
 pluto_fw/mod/dvbs_rx
 pluto_fw/mod/dvbt_mod
+pluto_fw/mod/dvbt2_mod
 pluto_fw/mod/isdbt_mod
 pluto_fw/mod/rrc_fir_gen
 pluto_fw/mod/tests/dvbt2_proto/

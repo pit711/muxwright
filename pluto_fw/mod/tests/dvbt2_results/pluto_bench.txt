@@ -1,0 +1,40 @@
+selftest 64800 64qam 2/3: BCH+LDPC 0 Fehler, Bit-IL ok
+selftest 16200 64qam 2/3: BCH+LDPC 0 Fehler, Bit-IL ok
+selftest FEC/Bit-IL: ok (48 Kombinationen)
+selftest IFFT  1024 (int16-radix8-neon): SNR 61.1 dB gegen double
+selftest IFFT  2048 (int16-radix8-neon): SNR 63.0 dB gegen double
+selftest IFFT  4096 (int16-radix8-neon): SNR 63.8 dB gegen double
+selftest IFFT  8192 (int16-radix8-neon): SNR 59.6 dB gegen double
+selftest IFFT 16384 (int16-radix8-neon): SNR 62.7 dB gegen double
+selftest IFFT 32768 (int16-radix8-neon): SNR 59.4 dB gegen double
+SAUBER
+md5 de: ARM = x86 (7c887c440310a93d939e85440ce21db2)
+md5 leicht: ARM = x86 (59b2b05a2ebb8477ef70969fc3f12852)
+== de, 20 s, --affinity --rt
+0.25 0.17 0.49 1/60 2370
+{"done":true,"frames":82,"packets":367343,"samples":184897536,"signal_s":20.223,"wall_s":18.426,"rt_factor":1.098,"cpu_coder_s":17.789,"cpu_out_s":18.254,"load_coder":0.880,"load_out":0.903,"frame_ms":246.624,"threads":2,"ts_in":367343,"stuffed":0,"dropped":0,"prof_us_per_fec":{"bb":79.2,"bch":146.9,"ldpc":132.8,"bitil":86.5,"map_cellil":203.8},"prof_ms_per_frame":{"ti_read":113.62,"sym_flush":78.87,"frame_fi":1.52,"render":221.91,"write":0.50}}
+1.74 0.52 0.60 2/64 2407
+SAUBER
+== leicht, 20 s, --affinity --rt
+1.74 0.52 0.60 1/60 2419
+{"done":true,"frames":81,"packets":298929,"samples":184550400,"signal_s":20.185,"wall_s":13.195,"rt_factor":1.530,"cpu_coder_s":13.053,"cpu_out_s":12.133,"load_coder":0.647,"load_out":0.601,"frame_ms":249.200,"threads":2,"ts_in":298929,"stuffed":0,"dropped":0,"prof_us_per_fec":{"bb":60.7,"bch":162.3,"ldpc":150.7,"bitil":83.6,"map_cellil":186.1},"prof_ms_per_frame":{"ti_read":68.58,"sym_flush":35.92,"frame_fi":0.19,"render":148.11,"write":1.16}}
+1.95 0.63 0.63 5/62 2453
+SAUBER
+== --preset de -i null, 20 s
+{"done":true,"frames":82,"packets":367343,"samples":184897536,"signal_s":20.223,"wall_s":19.023,"rt_factor":1.063,"cpu_coder_s":16.853,"cpu_out_s":18.857,"load_coder":0.833,"load_out":0.932,"frame_ms":246.624,"threads":2,"ts_in":0,"stuffed":367343,"dropped":0}
+SAUBER
+== --fft 16k --ext 1 --const 64qam --rate 3/5 --guard 1/8 --pp 2, 20 s
+{"done":true,"frames":81,"packets":298929,"samples":183803904,"signal_s":20.104,"wall_s":15.221,"rt_factor":1.321,"cpu_coder_s":13.839,"cpu_out_s":15.069,"load_coder":0.688,"load_out":0.750,"frame_ms":248.192,"threads":2,"ts_in":298929,"stuffed":0,"dropped":0}
+SAUBER
+== --fft 16k --ext 1 --const 64qam --rate 2/3 --guard 19/256 --pp 4, 20 s
+{"done":true,"frames":81,"packets":365189,"samples":184068288,"signal_s":20.132,"wall_s":15.481,"rt_factor":1.300,"cpu_coder_s":14.419,"cpu_out_s":15.319,"load_coder":0.716,"load_out":0.761,"frame_ms":248.549,"threads":2,"ts_in":365189,"stuffed":0,"dropped":0}
+SAUBER
+== --fft 32k --ext 1 --const 256qam --rate 2/3 --guard 1/128 --pp 7, 20 s
+{"done":true,"frames":82,"packets":539240,"samples":184309760,"signal_s":20.159,"wall_s":20.795,"rt_factor":0.969,"cpu_coder_s":20.610,"cpu_out_s":18.124,"load_coder":1.022,"load_out":0.899,"frame_ms":245.840,"threads":2,"ts_in":539240,"stuffed":0,"dropped":0}
+SAUBER
+== --fft 32k --ext 1 --const 16qam --rate 2/3 --guard 19/256 --pp 4, 20 s
+{"done":true,"frames":82,"packets":244895,"samples":184897536,"signal_s":20.223,"wall_s":18.273,"rt_factor":1.107,"cpu_coder_s":16.213,"cpu_out_s":18.121,"load_coder":0.802,"load_out":0.896,"frame_ms":246.624,"threads":2,"ts_in":244895,"stuffed":0,"dropped":0}
+SAUBER
+== --fft 8k --ext 1 --const 256qam --rate 3/4 --guard 1/32 --pp 7, 20 s
+{"done":true,"frames":81,"packets":588756,"samples":184923648,"signal_s":20.226,"wall_s":18.137,"rt_factor":1.115,"cpu_coder_s":17.987,"cpu_out_s":12.566,"load_coder":0.889,"load_out":0.621,"frame_ms":249.704,"threads":2,"ts_in":588756,"stuffed":0,"dropped":0}
+SAUBER

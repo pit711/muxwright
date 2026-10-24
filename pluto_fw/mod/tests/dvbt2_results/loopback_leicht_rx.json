@@ -1,0 +1,84 @@
+{
+ "iq": "$DVBT2_WORK/dvbt2_loop/leicht.iq",
+ "profile": "leicht",
+ "expected": {
+  "fft": "8k",
+  "ext": 1,
+  "gi": "1/8",
+  "pp": 2,
+  "mod": "64qam",
+  "cr": "3/5",
+  "rot": 1,
+  "fec": 64800
+ },
+ "fs": 9142857.142857144,
+ "format": "s16",
+ "ok": true,
+ "results": [
+  {
+   "receiver": "decdvbt",
+   "cmd": "$DVBT2_WORK/dvbt2_rx/decdvbt_target/release/decdvbt decode /tmp/dvbt2rx_o48qvhi8/input.cs16 --file-rate 9.142857142857144 --seconds 9.224 -o $DVBT2_WORK/dvbt2_loop/leicht_rx.ts",
+   "exit": 0,
+   "locked": true,
+   "params": {
+    "fft": "8k",
+    "ext": 1,
+    "gi": "1/8",
+    "pp": 2,
+    "mod": "64qam",
+    "cr": "3/5",
+    "rot": 1,
+    "fec": 64800,
+    "fecblocks": 143
+   },
+   "stats": {
+    "ldpc_blocks": 4290,
+    "ldpc_lost": 0,
+    "bch_corrected_bits": 0,
+    "resyncs": 0,
+    "mer_db": 60.8,
+    "ts_packets": 110714,
+    "ts_error_flag": 0,
+    "continuity_jumps": 0
+   },
+   "ts_bytes": 20814232,
+   "output": "$DVBT2_WORK/dvbt2_loop/leicht_rx.ts",
+   "param_mismatch": {},
+   "compare": {
+    "ok": true,
+    "packets_compared": 110714,
+    "packet_errors": 0,
+    "packet_error_rate": 0.0,
+    "leading_unaligned_packets": 0,
+    "first_orig_index": 7381,
+    "realignments": 0,
+    "coverage_of_original": 0.6529103025299287,
+    "error": null,
+    "first_bad": []
+   }
+  },
+  {
+   "receiver": "oleg",
+   "cmd": "$DVBT2_WORK/dvbt2_rx/oleg_headless/build/dvbt2_file_rx $DVBT2_WORK/dvbt2_loop/leicht.iq $DVBT2_WORK/dvbt2_loop/leicht_rx.oleg.ts --fs 9142857.142857144 --format s16 --plp 0 --quiet",
+   "exit": 3,
+   "locked": false,
+   "params": {},
+   "stats": {
+    "samples": 75187200,
+    "seconds": 8.224,
+    "num_plp": -1,
+    "snr_db": 0.0,
+    "bbheader_crc_errors": 0,
+    "ts_error_events": 0,
+    "resyncs": 0,
+    "receiver_resets": 0,
+    "coarse_retunes": 0,
+    "nco_hz": 0.0
+   },
+   "ts_bytes": 0,
+   "output": "$DVBT2_WORK/dvbt2_loop/leicht_rx.oleg.ts",
+   "unsupported": "oleg receiver: 8 MHz 16K/32K only",
+   "param_mismatch": null
+  }
+ ]
+}

@@ -1,0 +1,144 @@
+=== Fall 1: --fft 16k --ext 1 --const 256qam --rate 3/4 --guard 1/8 --pp 2 --l1-const 64qam
+   Parameter: {"fft": 16384, "ext": 1, "guard": "1/8", "pp": 2, "const": "256QAM", "rate": "3/4", "fec_len": 64800, "ldata": 122, "nfec": 191, "nti": 3, "t2frames": 2, "l1_const": "64qam", "ts_bps": 37390446.727}
+   BB+BCH+LDPC (Bits)                         GLEICH  24753600 Bits (382 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  3094200 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  3094200 Werte, Skalierung 8592.01, SNR 86.5 dB, max. Fehler -81.6 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  3094200 Werte, Skalierung 8592.01, SNR 86.5 dB, max. Fehler -81.6 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  3112198 Werte, Skalierung 8592.01, SNR 86.5 dB, max. Fehler -81.6 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  3112198 Werte, Skalierung 8592.01, SNR 86.5 dB, max. Fehler -81.6 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4538368 Werte, Skalierung 8229.62, SNR 68.4 dB, max. Fehler -29.1 dB rel. RMS
+      Rahmen 0 P1     SNR   77.8 dB
+      Rahmen 0 P2     SNR   69.1 dB
+      Rahmen 0 Daten  SNR   67.8 dB
+      Rahmen 1 P1     SNR   77.8 dB
+      Rahmen 1 P2     SNR   69.2 dB
+      Rahmen 1 Daten  SNR   69.0 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 2: --fft 8k --ext 0 --const 16qam --rate 1/2 --guard 1/16 --pp 4 --fec 16200 --l1-const 16qam
+   Parameter: {"fft": 8192, "ext": 0, "guard": "1/16", "pp": 4, "const": "16QAM", "rate": "1/2", "fec_len": 16200, "ldata": 260, "nfec": 418, "nti": 4, "t2frames": 2, "l1_const": "16qam", "ts_bps": 11702380.01}
+   BB+BCH+LDPC (Bits)                         GLEICH  13543200 Bits (836 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  3385800 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  3385800 Werte, Skalierung 6139.19, SNR 83.6 dB, max. Fehler -79.7 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  3385800 Werte, Skalierung 6139.19, SNR 83.6 dB, max. Fehler -79.7 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  3395176 Werte, Skalierung 6139.19, SNR 83.6 dB, max. Fehler -79.7 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  3395176 Werte, Skalierung 6139.19, SNR 83.6 dB, max. Fehler -79.7 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4564992 Werte, Skalierung 8229.76, SNR 66.9 dB, max. Fehler -39.1 dB rel. RMS
+      Rahmen 0 P1     SNR   79.7 dB
+      Rahmen 0 P2     SNR   66.9 dB
+      Rahmen 0 Daten  SNR   66.9 dB
+      Rahmen 1 P1     SNR   79.7 dB
+      Rahmen 1 P2     SNR   67.0 dB
+      Rahmen 1 Daten  SNR   66.9 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 3: --fft 2k --const qpsk --rate 3/5 --guard 1/4 --pp 1 --fec 16200 --l1-const qpsk
+   Parameter: {"fft": 2048, "ext": 0, "guard": "1/4", "pp": 1, "const": "QPSK", "rate": "3/5", "fec_len": 16200, "ldata": 884, "nfec": 166, "nti": 3, "t2frames": 2, "l1_const": "qpsk", "ts_bps": 6323445.898}
+   BB+BCH+LDPC (Bits)                         GLEICH  5378400 Bits (332 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  2689200 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  2689200 Werte, Skalierung 6137.82, SNR 90.0 dB, max. Fehler -87.3 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  2689200 Werte, Skalierung 6137.82, SNR 90.0 dB, max. Fehler -87.3 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  2707348 Werte, Skalierung 6137.82, SNR 90.0 dB, max. Fehler -87.3 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  2707348 Werte, Skalierung 6137.82, SNR 90.0 dB, max. Fehler -87.3 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4571136 Werte, Skalierung 8230.02, SNR 69.4 dB, max. Fehler -47.5 dB rel. RMS
+      Rahmen 0 P1     SNR   78.1 dB
+      Rahmen 0 P2     SNR   68.9 dB
+      Rahmen 0 Daten  SNR   69.4 dB
+      Rahmen 1 P1     SNR   78.1 dB
+      Rahmen 1 P2     SNR   68.8 dB
+      Rahmen 1 Daten  SNR   69.4 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 4: --fft 4k --const 64qam --rate 4/5 --guard 1/32 --pp 7 --rotation 0
+   Parameter: {"fft": 4096, "ext": 0, "guard": "1/32", "pp": 7, "const": "64QAM", "rate": "4/5", "fec_len": 64800, "ldata": 536, "nfec": 165, "nti": 4, "t2frames": 2, "l1_const": "bpsk", "ts_bps": 34257445.521}
+   BB+BCH+LDPC (Bits)                         GLEICH  21384000 Bits (330 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  3564000 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  3564000 Werte, Skalierung 8681.57, SNR 88.0 dB, max. Fehler -83.6 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  3564000 Werte, Skalierung 8681.57, SNR 88.0 dB, max. Fehler -83.6 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  3584432 Werte, Skalierung 8681.57, SNR 87.9 dB, max. Fehler -83.6 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  3584432 Werte, Skalierung 8681.57, SNR 87.9 dB, max. Fehler -83.6 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4566016 Werte, Skalierung 8229.59, SNR 53.0 dB, max. Fehler -16.4 dB rel. RMS
+      Rahmen 0 P1     SNR   80.2 dB
+      Rahmen 0 P2     SNR   69.8 dB
+      Rahmen 0 Daten  SNR   53.2 dB
+      Rahmen 1 P1     SNR   80.2 dB
+      Rahmen 1 P2     SNR   69.8 dB
+      Rahmen 1 Daten  SNR   52.7 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 5: --fft 1k --const 16qam --rate 5/6 --guard 1/8 --pp 3
+   Parameter: {"fft": 1024, "ext": 0, "guard": "1/8", "pp": 3, "const": "16QAM", "rate": "5/6", "fec_len": 64800, "ldata": 1966, "nfec": 97, "nti": 3, "t2frames": 2, "l1_const": "bpsk", "ts_bps": 20974116.257}
+   BB+BCH+LDPC (Bits)                         GLEICH  12571200 Bits (194 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  3142800 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  3142800 Werte, Skalierung 8677.98, SNR 86.3 dB, max. Fehler -82.7 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  3142800 Werte, Skalierung 8677.98, SNR 86.3 dB, max. Fehler -82.7 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  3154976 Werte, Skalierung 8677.98, SNR 86.3 dB, max. Fehler -82.7 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  3154976 Werte, Skalierung 8677.98, SNR 86.3 dB, max. Fehler -82.7 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4570624 Werte, Skalierung 8230.39, SNR 66.3 dB, max. Fehler -10.5 dB rel. RMS
+      Rahmen 0 P1     SNR   80.4 dB
+      Rahmen 0 P2     SNR   71.1 dB
+      Rahmen 0 Daten  SNR   64.7 dB
+      Rahmen 1 P1     SNR   80.4 dB
+      Rahmen 1 P2     SNR   71.0 dB
+      Rahmen 1 Daten  SNR   68.6 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 6: --fft 32k --ext 0 --const 256qam --rate 2/3 --guard 1/128 --pp 7
+   Parameter: {"fft": 32768, "ext": 0, "guard": "1/128", "pp": 7, "const": "256QAM", "rate": "2/3", "fec_len": 64800, "ldata": 67, "nfec": 224, "nti": 4, "t2frames": 2, "l1_const": "bpsk", "ts_bps": 39352831.545}
+   BB+BCH+LDPC (Bits)                         GLEICH  29030400 Bits (448 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  3628800 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  3628800 Werte, Skalierung 6138.99, SNR 83.5 dB, max. Fehler -78.8 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  3628800 Werte, Skalierung 6138.99, SNR 83.5 dB, max. Fehler -78.8 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  3640888 Werte, Skalierung 6138.99, SNR 83.5 dB, max. Fehler -78.8 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  3640888 Werte, Skalierung 6138.99, SNR 83.5 dB, max. Fehler -78.8 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4495360 Werte, Skalierung 8228.92, SNR 65.9 dB, max. Fehler -33.0 dB rel. RMS
+      Rahmen 0 P1     SNR   76.8 dB
+      Rahmen 0 P2     SNR   66.0 dB
+      Rahmen 0 Daten  SNR   65.9 dB
+      Rahmen 1 P1     SNR   76.8 dB
+      Rahmen 1 P2     SNR   66.0 dB
+      Rahmen 1 Daten  SNR   65.9 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 7: --fft 32k --ext 1 --const qpsk --rate 1/2 --guard 1/8 --pp 2 --fec 16200
+   Parameter: {"fft": 32768, "ext": 1, "guard": "1/8", "pp": 2, "const": "QPSK", "rate": "1/2", "fec_len": 16200, "ldata": 59, "nfec": 186, "nti": 3, "t2frames": 2, "l1_const": "bpsk", "ts_bps": 5368651.809}
+   BB+BCH+LDPC (Bits)                         GLEICH  6026400 Bits (372 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  3013200 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  3013200 Werte, Skalierung 6076.42, SNR 94.4 dB, max. Fehler -91.8 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  3013200 Werte, Skalierung 6076.42, SNR 94.4 dB, max. Fehler -91.8 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  3035446 Werte, Skalierung 6076.42, SNR 94.1 dB, max. Fehler -83.2 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  3035446 Werte, Skalierung 6076.42, SNR 94.1 dB, max. Fehler -83.2 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  4427776 Werte, Skalierung 8230.49, SNR 66.1 dB, max. Fehler -32.8 dB rel. RMS
+      Rahmen 0 P1     SNR   80.2 dB
+      Rahmen 0 P2     SNR   66.0 dB
+      Rahmen 0 Daten  SNR   66.1 dB
+      Rahmen 1 P1     SNR   80.2 dB
+      Rahmen 1 P2     SNR   66.0 dB
+      Rahmen 1 Daten  SNR   66.1 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 8: --bw 7 --fft 8k --ext 1 --const 64qam --rate 2/3 --guard 19/128 --pp 8 --l1-const 64qam
+   Parameter: {"fft": 8192, "ext": 1, "guard": "19/128", "pp": 8, "const": "64QAM", "rate": "2/3", "fec_len": 64800, "ldata": 210, "nfec": 132, "nti": 3, "t2frames": 2, "l1_const": "64qam", "ts_bps": 22843652.655}
+   BB+BCH+LDPC (Bits)                         GLEICH  17107200 Bits (264 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  2851200 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  2851200 Werte, Skalierung 6096.03, SNR 83.5 dB, max. Fehler -79.0 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  2851200 Werte, Skalierung 6096.03, SNR 83.5 dB, max. Fehler -79.0 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  2868848 Werte, Skalierung 6096.03, SNR 83.5 dB, max. Fehler -79.1 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  2868848 Werte, Skalierung 6096.03, SNR 83.5 dB, max. Fehler -79.1 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  3993088 Werte, Skalierung 8229.29, SNR 67.0 dB, max. Fehler -39.0 dB rel. RMS
+      Rahmen 0 P1     SNR   78.4 dB
+      Rahmen 0 P2     SNR   67.1 dB
+      Rahmen 0 Daten  SNR   67.0 dB
+      Rahmen 1 P1     SNR   78.4 dB
+      Rahmen 1 P2     SNR   67.2 dB
+      Rahmen 1 Daten  SNR   67.0 dB
+   ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)
+=== Fall 9: --fft 16k --ext 1 --const 64qam --rate 3/5 --guard 1/4 --pp 1
+   Parameter: {"fft": 16384, "ext": 1, "guard": "1/4", "pp": 1, "const": "64QAM", "rate": "3/5", "fec_len": 64800, "ldata": 110, "nfec": 129, "nti": 3, "t2frames": 2, "l1_const": "bpsk", "ts_bps": 20119685.154}
+   BB+BCH+LDPC (Bits)                         GLEICH  16718400 Bits (258 FEC-Blöcke), 0 Abweichungen
+   Bit-Interleaver + Demux (Zellwörter)       GLEICH  2786400 Zellen, 0 Abweichungen
+   Mapping + Rotation + Q-Delay (Zellen)      GLEICH  2786400 Werte, Skalierung 8592.01, SNR 86.8 dB, max. Fehler -83.5 dB rel. RMS
+   Zell- + Zeit-Interleaver (Zellen)          GLEICH  2786400 Werte, Skalierung 8592.01, SNR 86.8 dB, max. Fehler -83.5 dB rel. RMS
+   Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  2794838 Werte, Skalierung 8592.01, SNR 86.8 dB, max. Fehler -83.5 dB rel. RMS
+   Frequenz-Interleaver (Zellen)              GLEICH  2794838 Werte, Skalierung 8592.01, SNR 86.8 dB, max. Fehler -83.5 dB rel. RMS
+   IQ gesamt (P1 + P2 + Daten + GI)           ABWEICHUNG  4550656 Werte, Skalierung 1802.94, SNR -13.0 dB, max. Fehler 25.7 dB rel. RMS
+      Rahmen 0 P1     SNR  -11.0 dB
+      Rahmen 0 P2     SNR  -11.0 dB
+      Rahmen 0 Daten  SNR  -13.0 dB
+      Rahmen 1 P1     SNR  -11.0 dB
+      Rahmen 1 P2     SNR  -11.0 dB
+      Rahmen 1 Daten  SNR  -13.0 dB
+   ERGEBNIS: ABWEICHUNGEN

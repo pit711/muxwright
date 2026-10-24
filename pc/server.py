@@ -287,7 +287,7 @@ def validate_rf(rf, errs, base=None, std="dab", freq_ok=True):
         ch = standards.dvb_channel_norm(std, ch) or ch
     if not freq_ok:
         pass
-    elif std in ("dvbs", "pal", "atsc", "isdbt", "dtmb") or (std == "dvbc" and ch not in table and ch[:1] == "C" and ch[1:].isdigit()):
+    elif std in ("dvbs", "pal", "atsc", "isdbt", "dtmb", "dvbt2") or (std == "dvbc" and ch not in table and ch[:1] == "C" and ch[1:].isdigit()):
         # channel/frequency checked by the standard's own validator (US-Kanalraster A…/C… kommt aus runner/dvb)
         try:
             f = int(out.get("freq_hz"))
@@ -1065,7 +1065,7 @@ class App:
             lo, _, _ = self.rf_plan(rf)
             self.agent.rf(lo_hz=int(lo), atten_db=agentmod.MUTE_DB)
             self.gain_applied = MUTE_DB
-            if std in ("dvbt", "pal"):
+            if std in ("dvbt", "dvbt2", "pal"):
                 # no FIR in these modes: switch the shared RX/TX FIR off now (while muted, before the DMA starts),
                 # otherwise a leftover RX FIR (e.g. RRC from DVB-S) spoils the control receiver and toggling it later
                 # would reprogram the BBPLL under a running TX
@@ -1096,6 +1096,8 @@ class App:
                     fir = dev.ensure_fir("dvbs", sr, alpha, 64, self.args.wsl_distro)
             elif std in ("atsc", "isdbt", "dtmb"):
                 rfbw = 6000000 if std != "dtmb" else 8000000
+            elif std == "dvbt2":
+                rfbw = int((self.cfg.get("dvbt2") or {}).get("bandwidth_mhz") or 8) * 1000000
             key = agentmod.mod_key(std, self.cfg)
             if key in agentmod.UPLOADED and not self.args.device_mod_dir:
                 src = os.path.join(devicemod.FILES, f"{key}_mod_iio")

@@ -3558,14 +3558,14 @@ def main(argv=None):
     is_dvb = args.cmd == "media"
     if args.cmd in ("live", "render", "check", "validate"):
         try:
-            is_dvb = str(load_config(args.config).get("mode", "")).lower() in ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")
+            is_dvb = str(load_config(args.config).get("mode", "")).lower() in ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb", "dvbt2")
         except Exception:
             is_dvb = False
     elif args.cmd == "ctl":
         try:
             with open(os.path.join(SESSIONS, args.session, "session.json")) as f:
                 dvb_sess = json.load(f)
-            is_dvb = dvb_sess.get("standard") in ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")
+            is_dvb = dvb_sess.get("standard") in ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb", "dvbt2")
         except Exception:
             is_dvb = False
     # --- Delegation an das PAL-Paket (runner/pal/) ---

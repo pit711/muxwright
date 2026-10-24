@@ -27,7 +27,7 @@ const ALL_PAGES = [
   { id: 'kapazitaet', std: 'dab', title: T('Kapazität'), sub: '864 CU', icon: 'pie', render: pageCapacity, err: p => p === 'capacity' },
   { id: 'sender', std: 'fm', title: T('Sender'), sub: T('MPX, Audio, 2. Träger'), icon: 'wave', render: pageFM, err: p => /^fm\.(?!rds)/.test(p) },
   { id: 'rds', std: 'fm', title: 'RDS', sub: 'PI, PS, RT, AF, EON', icon: 'text', render: pageRDS, err: p => p.startsWith('fm.rds') },
-  { id: 'modulation', std: 'dvb', title: T('Modulation'), sub: T('Bandbreite, QAM, Coderate'), icon: 'wave', render: pageModulation, err: p => /^(dvb[tcs]|atsc|isdbt|dtmb)\./.test(p) },
+  { id: 'modulation', std: 'dvb', title: T('Modulation'), sub: T('Bandbreite, QAM, Coderate'), icon: 'wave', render: pageModulation, err: p => /^(dvb[tcs]|dvbt2|atsc|isdbt|dtmb)\./.test(p) },
   { id: 'programme', std: 'dvb', title: T('Programme'), sub: T('Transportstrom, Video, Audio'), icon: 'tv', render: pagePrograms, err: p => p.startsWith('dvb.programs') || p === 'tsbudget' },
   { id: 'si', std: 'dvb', title: T('SI-Tabellen'), sub: 'NIT, SDT, LCN, EIT', icon: 'layers', render: pageSI, err: p => p.startsWith('dvb.si') },
   { id: 'pal', std: 'pal', title: T('Bild & Ton'), sub: T('Testbild, Text, Ton'), icon: 'tv', render: pagePAL, err: p => p.startsWith('pal.') },

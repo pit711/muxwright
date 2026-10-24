@@ -73,7 +73,10 @@ def step(name):
 
 def no_hscroll(page: Page, where: str):
     w = page.evaluate("[document.documentElement.scrollWidth, window.innerWidth]")
-    assert w[0] <= w[1] + 1, f"horizontaler Überlauf auf {where}: {w}"
+    if w[0] > w[1] + 1:                                   # breiteste Übeltäter mit ausgeben
+        bad = page.evaluate("""() => [...document.querySelectorAll('body *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1)
+            .slice(-4).map(e => e.tagName + '.' + e.className + ' ' + Math.round(e.getBoundingClientRect().right) + ' ' + (e.textContent || '').slice(0, 60))""")
+        raise AssertionError(f"horizontaler Überlauf auf {where}: {w} {bad}")
 
 
 def goto(page: Page, pid: str):
@@ -701,7 +704,7 @@ def functional(page: Page, base: str):
     page.click(T("confirm-restart-ok"))
     expect(page.locator(T("applybar"))).to_be_hidden()
     goto(page, "regie")
-    expect(page.locator(".tile")).to_have_count(9)
+    expect(page.locator(".tile")).to_have_count(10)
     expect(page.locator(T("flags-atsc") + " img.flag")).to_have_count(4)
     expect(page.locator(T("regie-tile-dtmb") + " .badge-untested")).to_have_count(1)
     expect(page.locator(T("regie-tile-dab"))).to_have_class(re.compile(r"\bactive\b"))
@@ -1036,7 +1039,7 @@ def apply_now(page):
 
 
 def world_ui(browser, base: str, console: Console):
-    """Weltweite Standards (untested): ATSC, ISDB-T/Tb, DTMB, J.83 B, NTSC-M, UKW-Region Japan – Seiten, Raten, Kanäle, Flaggen."""
+    """Weltweite Standards (untested): ATSC, ISDB-T/Tb, DTMB, DVB-T2, J.83 B, NTSC-M, UKW-Region Japan – Seiten, Raten, Kanäle, Flaggen."""
     ctx = browser.new_context(locale="de-DE", viewport={"width": 1440, "height": 900}, color_scheme="light")
     ctx.add_init_script("try { localStorage.setItem('dablab.autoApply', 'false') } catch (e) {}")
     page = ctx.new_page()
@@ -1045,7 +1048,7 @@ def world_ui(browser, base: str, console: Console):
     expect(page.locator(T("conn"))).to_have_class("conn ok", timeout=15000)
 
     step("Welt: Regie zeigt Flaggen und „untested“ bei den neuen Standards")
-    for std, n in (("atsc", 4), ("isdbt", 6), ("dtmb", 4)):
+    for std, n in (("atsc", 4), ("isdbt", 6), ("dtmb", 4), ("dvbt2", 6)):
         expect(page.locator(T(f"flags-{std}") + " img.flag")).to_have_count(n)
         expect(page.locator(T(f"flags-{std}") + " .badge-untested")).to_have_count(1)
     expect(page.locator(T("flags-dvbt") + " .badge-untested")).to_have_count(0)
@@ -1087,6 +1090,29 @@ def world_ui(browser, base: str, console: Console):
     apply_now(page)
     c = api(base, "/api/state")["config"]
     assert c["mode"] == "dtmb" and c["rf"]["channel"] == "DS13" and c["dtmb"]["constellation"] == "64-QAM", (c["dtmb"], c["rf"])
+
+    step("Welt: DVB-T2 – Profil leicht 22,27 Mbit/s, Profil Deutschland 27,32 Mbit/s, Tab. 58, Kanal K21")
+    goto(page, "regie")
+    page.click(T("regie-edit-dvbt2"))
+    expect(page.locator(T("card-dvbt2") + " .badge-untested")).to_be_visible()
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("27,31")              # Standardprofil Deutschland
+    page.click(T("dvbt2-preset-leicht"))
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("22,27")
+    expect(page.locator(T("dvb-sps"))).to_contain_text("9,143")
+    page.click(T("dvbt2-preset-de"))
+    expect(page.locator(T("dvb-netrate"))).to_contain_text("27,31")
+    expect(page.locator(T("dvbt2-constellation-256-QAM"))).to_be_disabled()
+    expect(page.locator(T("dvbt2-pp-3"))).to_be_disabled()
+    expect(page.locator(T("dvbt2-guard-1/4"))).to_be_disabled()
+    page.click(T("dvbt2-guard-1/128"))                    # 32K GI 1/128 erlaubt nur PP7 → wird gesetzt, Profil „eigene Werte“
+    expect(page.locator(T("dvbt2-pp-7"))).to_have_attribute("aria-checked", "true")
+    expect(page.locator(T("dvbt2-preset-custom"))).to_be_visible()
+    page.click(T("dvbt2-preset-de"))
+    apply_now(page)
+    c = api(base, "/api/state")["config"]
+    assert c["mode"] == "dvbt2" and c["rf"]["channel"] == "K21" and c["rf"]["freq_hz"] == 474000000 and c["dvbt2"]["fft"] == "32k" and int(c["dvbt2"]["pp"]) == 4, (c["dvbt2"], c["rf"])
+    page.click(T("dvbt2-preset-leicht"))
+    apply_now(page)
 
     step("Welt: DVB-C Annex B (J.83 B) – 256-QAM 38,81 Mbit/s, US-Kabel C80")
     goto(page, "regie")

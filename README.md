@@ -3,9 +3,10 @@
 **Multi-standard test transmitter for the ADALM-Pluto (PlutoSDR).** One Pluto, one dashboard: DAB+, FM with RDS,
 DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
 on the Pluto's own RX input, expected/actual reports and printable test records. Since Beta 0.3 also ATSC, ISDB-T/Tb,
-DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS (marked *untested* until verified with real receivers).
+DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS; since Beta 0.4 DVB-T2 (marked *untested* until verified with real
+receivers).
 
-Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.3**
+Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.4**
 
 This repository contains the complete source. There are no binary releases here – build it yourself (see [Running from source](#running-from-source) and [Building the installer](#building-the-installer)) or request the installer on the website.
 
@@ -39,7 +40,7 @@ This repository contains the complete source. There are no binary releases here 
 
 | | |
 |---|---|
-| **Many standards, one UI** | DAB/DAB+ (EN 300 401), FM stereo + RDS/RBDS (ITU-R BS.450 / IEC 62106 / NRSC-4-B), DVB-T (EN 300 744), DVB-C (EN 300 429, J.83 A/B/C), DVB-S/S2 (EN 300 421 / EN 302 307-1), PAL B/G, D/K, I, M, N and NTSC-M/J (ITU-R BT.470), ATSC 1.0 (A/53), ISDB-T/Tb (ARIB STD-B31 / ABNT NBR 15601), DTMB (GB 20600) – the additions of Beta 0.3 are marked *untested* |
+| **Many standards, one UI** | DAB/DAB+ (EN 300 401), FM stereo + RDS/RBDS (ITU-R BS.450 / IEC 62106 / NRSC-4-B), DVB-T (EN 300 744), DVB-C (EN 300 429, J.83 A/B/C), DVB-S/S2 (EN 300 421 / EN 302 307-1), PAL B/G, D/K, I, M, N and NTSC-M/J (ITU-R BT.470), ATSC 1.0 (A/53), ISDB-T/Tb (ARIB STD-B31 / ABNT NBR 15601), DTMB (GB 20600), DVB-T2 (EN 302 755) – the additions of Beta 0.3 and 0.4 are marked *untested* |
 | **Amateur radio DATV** | DVB-S2 on QO-100 (2401.5–2409.5 MHz uplink) and the 13 cm, 23 cm, 70 cm and 6 cm bands, 25–3500 kS/s, callsign enforced in SI tables |
 | **Monitoring receiver** | The Pluto's RX input decodes the transmitted signal: sync, SNR, services, RDS groups, PAL picture, DVB-S2 BBFRAME CRCs |
 | **Expected/actual reports** | Every configuration is rendered offline, decoded and compared line by line with the settings |
@@ -90,10 +91,11 @@ This repository contains the complete source. There are no binary releases here 
 | **DATV (ham)** | USB, 2/4/8 samples per symbol | DVB-S2 at 25–3500 kS/s on QO-100 or 13/23/70/6 cm, callsign in provider name and NIT network name, band-edge check | DVB-S2 receiver |
 | **PAL B/G, D/K, I** | USB | negative AM with vestigial sideband, PAL colour with burst, FM sound (+5.5/6.5/6.0 MHz), test pattern, image, video or YouTube source with clock overlay, channels E2–E12, K21–K69, S02–S41, China DS1–DS68 | own demodulator: line frequency, levels, sound/vision ratio, decoded picture |
 
-**New in Beta 0.3 – not yet tested with real receivers (marked *untested* in the dashboard):**
+**New in Beta 0.3 and 0.4 – not yet tested with real receivers (marked *untested* in the dashboard):**
 
 | Standard | Output path | Key parameters | Verification so far |
 |---|---|---|---|
+| **DVB-T2** (0.4) | Pluto ARM, 9.143 MS/s at 8 MHz | T2-base, SISO, one PLP; 1K–32K normal/extended, QPSK–256-QAM, code rates 1/2–5/6, all guard intervals and PP1–PP8 (combinations checked against EN 302 755 Tab. 58), rotated constellations, 5–8 MHz; profile Germany 32K 64-QAM 2/3 GI 19/256 PP4 (27.3 Mbit/s) and a light profile 8K 64-QAM 3/5 (22.3 Mbit/s); NIT with T2 delivery descriptor | every stage bit-exact against gr-dtv, loopback through two independent receivers without packet errors |
 | **ATSC 1.0** | Pluto ARM, 10.762 MS/s (1 sample/symbol) | 8-VSB, 19.39 Mbit/s, PSIP: MGT, TVCT (virtual channels major.minor), STT; MPEG-2 + AC-3; channels A2–A69 | symbols bit-exact against gr-dtv, loopback through gr-dtv `atsc_rx` without packet errors |
 | **ISDB-T / ISDB-Tb** | Pluto ARM, 8.127 MS/s | modes 1 and 3, GI 1/4–1/32, one layer (13 segments) or 1seg + 12 segments, QPSK/16/64-QAM, time interleaving; NIT with ISDB delivery, TS information and partial-reception descriptors, 1seg PMT on 0x1FC8; Brazil (H.264, AAC LATM, A14–A69 + 1/7 MHz) and Japan (MPEG-2, AAC, J13–J62) | loopback through gr-isdbt without packet errors, TMCC decoded |
 | **NTSC-M / NTSC-J, PAL-M, PAL-N** | Pluto ARM (loop) | 525/59.94 still-image loop (7.993 MS/s, 508 samples per line), NTSC burst without V switching, 7.5 IRE setup (NTSC-M), PAL-M/N subcarriers, 4.5 MHz FM sound with 75 µs pre-emphasis; channels A2–A69, Japan J1–J62 | own demodulator: line frequency, levels, decoded picture |
@@ -147,7 +149,7 @@ The full list of adapters, attenuators and QO-100 gear is on the [hardware page]
 ## Installation
 
 1. Request the installer at https://muxwright.com/download.html. You confirm your e-mail address and that you use
-   Muxwright only in a shielded lab; the download link arrives by e-mail. Run `Muxwright-Setup-0.3-beta.exe`
+   Muxwright only in a shielded lab; the download link arrives by e-mail. Run `Muxwright-Setup-0.4-beta.exe`
    (no administrator rights needed; ~82 MB) and compare the SHA-256 shown on the download page.
 2. Start Muxwright – a console window (the server) opens and the dashboard appears in your browser at
    `http://127.0.0.1:8792/`. Closing the console mutes the Pluto and stops the server.
@@ -186,7 +188,8 @@ runner/        Signal generation in WSL: dablab_run.py (live/render/check/selfte
   pal/           analogue TV: PAL B/G/D/K/I/M/N and NTSC-M/J loops, test patterns, check demodulator
   patches/       patches for ODR-mmbTools and welle.io applied during component installation
 pluto_fw/      Firmware: build.sh (Buildroot external), br2ext/, agent/ (HTTP :8080), iqplay/, mod/ (modulators)
-  mod/           dvbt_mod, dvbc_mod (Annex A/B/C), dvbs_mod, dvbs2_mod, atsc_mod, isdbt_mod, dtmb_mod, rrc_fir_gen,
+  mod/           dvbt_mod, dvbc_mod (Annex A/B/C), dvbs_mod, dvbs2_mod, atsc_mod, isdbt_mod, dtmb_mod, dvbt2_mod,
+                 rrc_fir_gen,
                  libdvbmod; tests/ with gr-dtv, gr-isdbt and dtmb-sdr comparisons
 wsl/           setup_components.sh – idempotent component installer used by the setup
 launcher/      PyInstaller launcher (Muxwright.exe); Python, numpy, scipy and pylibiio are bundled, pc/ is loaded at run time
@@ -258,11 +261,11 @@ python test/test_ui_mock.py            :: Playwright run of the whole dashboard 
 node test/i18n_check.mjs               :: every T('…') text present in all 20 languages, placeholders intact
 python pc/test_flasher_offline.py      :: flasher with fake dfu-util and fake SSH
 python pc/test_api_offline.py         :: server validation incl. every standard (channel plans, rates, output path)
-python test/installer_e2e.py --setup Muxwright-Setup-0.3-beta.exe
+python test/installer_e2e.py --setup Muxwright-Setup-0.4-beta.exe
                                        :: silent install, fresh WSL distro, full setup via Playwright, self-test,
                                        :: DAB/DVB-T/FM renders, DAB monitoring, ATSC/ISDB-Tb/DTMB/J.83 B/NTSC checks
 python test/e2e_device_world.py        :: device chain with a real Pluto but MUTED (-89.75 dB, transmitter off):
-                                       :: server -> runner -> UDP -> modulator for ATSC, ISDB-T, DTMB, J.83 B,
+                                       :: server -> runner -> UDP -> modulator for ATSC, ISDB-T, DTMB, DVB-T2, J.83 B,
                                        :: DVB-C, DVB-T, DVB-S2; checks UDP delivery, DAC underflows, stuffing
 ```
 
@@ -274,11 +277,12 @@ Modulator verification (`pluto_fw/mod/tests/`):
 | ATSC 1.0 | symbols bit-exact against gr-dtv, loopback through gr-dtv `atsc_rx` |
 | ISDB-T / ISDB-Tb | loopback through the independent receiver [gr-isdbt](https://github.com/git-artes/gr-isdbt) |
 | DTMB | loopback through the independent receiver [dtmb-sdr](https://github.com/ningzichun/dtmb-sdr) |
+| DVB-T2 | every stage (BBFRAME to IQ) against gr-dtv; loopback through [sdr_receiver_dvb_t2](https://github.com/Oleg-Malyutin/sdr_receiver_dvb_t2) and [DecDVB-T](https://github.com/CasualArclamp/DecDVB-T) |
 | J.83 B | QAM symbols identical to the gr-dtv J.83 B transmitter, own trellis/RS receiver |
 | DVB-C (Annex A/C), PAL, NTSC, FM | numpy demodulator and the project's own decoders |
 
 All modulators run in real time on the Pluto's two Cortex-A9 cores; the new ones were checked at the DAC with the
-transmitter muted (0 underflows). None of the Beta 0.3 additions has been verified with a consumer receiver yet.
+transmitter muted (0 underflows). None of the Beta 0.3 and 0.4 additions has been verified with a consumer receiver yet.
 
 ## Licences and codecs
 
@@ -299,7 +303,7 @@ transmitter muted (0 underflows). None of the Beta 0.3 additions has been verifi
 Muxwright stands on the shoulders of many projects – the full list with links is in the setup wizard and at
 [muxwright.com/danke.html](https://muxwright.com/danke.html). In particular: **Evariste Courjaud, F5OEO** (PlutoDVB2,
 libdvbmod, dvbsdr – the proof that DATV on the Pluto works), **Charles Brain, G4GUO**, the **BATC**, **AMSAT-DL**,
-**Ron Economos, W6RZ** (dtv-utils, gr-dtv), **Christophe Jacquet** (PiFmRds), **Anthony96922** (MiniRDS),
+**Ron Economos, W6RZ** (dtv-utils, gr-dtv), **Oleg Malyutin** (sdr_receiver_dvb_t2), **Christophe Jacquet** (PiFmRds), **Anthony96922** (MiniRDS),
 **Bastian Bloessl** (gr-rds), **Opendigitalradio** (ODR-mmbTools), **Thierry Lelégard** (TSDuck),
 **Albrecht Lohöfener** (welle.io), **Oona Räisänen, OH2EIQ** (redsea), **Analog Devices** (plutosdr-fw, libiio),
 Buildroot, Bootlin, FFmpeg, BtbN and the GNU Radio project.

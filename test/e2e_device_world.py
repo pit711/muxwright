@@ -1,5 +1,5 @@
 """Gerätekette ohne Senden: Server (eigene Instanz, eigener runtime-Ordner, Mindestdämpfung 60 dB) → Runner (WSL) →
-UDP → Modulator auf dem Pluto, für die neuen Standards von Beta 0.3. Der Sender bleibt AUS (rf.enabled false, −89,75 dB):
+UDP → Modulator auf dem Pluto, für die neuen Standards von Beta 0.3 und DVB-T2. Der Sender bleibt AUS (rf.enabled false, −89,75 dB):
 geprüft werden nur Kettenstart, Ankunft der TS-Pakete am Modulator (UDP-Zähler, aufgefüllte Nullpakete) und DAC-Unterläufe.
 
   python test/e2e_device_world.py [--runtime DIR] [--port 8811] [--seconds 25] [nur STANDARD …]
@@ -41,6 +41,12 @@ CASES = {
              {"channel": "C80", "freq_hz": 561000000}, [prog("mpeg2", "ac3")]),
     "dvbc": ({"mode": "dvbc", "dvbc": {"annex": "a", "constellation": "256-QAM", "symbol_rate": 6900000, "sps": 1}},
              {"channel": "S21", "freq_hz": 306000000}, [prog("mpeg2", "mp2")]),
+    "dvbt2": ({"mode": "dvbt2", "dvbt2": {"preset": "de", "bandwidth_mhz": 8, "fft": "32k", "ext": True, "constellation": "64-QAM",
+                                          "code_rate": "2/3", "guard": "19/256", "pp": 4, "rotation": True}},
+              {"channel": "K21", "freq_hz": 474000000}, [prog("hevc", "aac")]),
+    "dvbt2_leicht": ({"mode": "dvbt2", "dvbt2": {"preset": "leicht", "bandwidth_mhz": 8, "fft": "8k", "ext": True, "constellation": "64-QAM",
+                                                 "code_rate": "3/5", "guard": "1/8", "pp": 2, "rotation": True}},
+                     {"channel": "K21", "freq_hz": 474000000}, [prog("hevc", "aac")]),
     # Bestandsstandards mit Gerätemodulator (gleicher UDP-Weg)
     "dvbt": ({"mode": "dvbt", "dvbt": {"bandwidth_mhz": 8, "fft": "8k", "constellation": "64-QAM", "code_rate": "2/3", "guard": "1/32", "cell_id": 0}},
              {"channel": "K21", "freq_hz": 474000000}, [prog("mpeg2", "mp2")]),

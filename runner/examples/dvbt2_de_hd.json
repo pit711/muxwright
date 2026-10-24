@@ -1,0 +1,27 @@
+{
+ "mode": "dvbt2",
+ "_kommentar": "DVB-T2 (untested): Kanal K21, Profil Deutschland (32K ext 64-QAM 2/3 GI 19/256 PP4), HEVC HD + AAC",
+ "rf": {
+  "channel": "K21"
+ },
+ "dvbt2": {
+  "preset": "de"
+ },
+ "services": [
+  {
+   "name": "LAB T2",
+   "type": "tv",
+   "video": {
+    "codec": "hevc",
+    "size": "hd"
+   },
+   "audio": {
+    "codec": "aac",
+    "language": "deu"
+   }
+  }
+ ],
+ "output": {
+  "kind": "file"
+ }
+}

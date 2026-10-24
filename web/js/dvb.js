@@ -27,6 +27,7 @@ export function pageModulation() {
   if (std === 'atsc') return pageAtsc(head);
   if (std === 'isdbt') return pageIsdbt(head);
   if (std === 'dtmb') return pageDtmb(head);
+  if (std === 'dvbt2') return pageDvbt2(head);
   if (std === 'dvbc' && STD.isJ83b(S.draft)) return pageJ83b(head);
   if (std === 'dvbt') {
     const p = S.draft.dvbt;
@@ -125,6 +126,44 @@ function pageDtmb(head) {
         field(T('Zeitverschachtelung'), segmented('dtmb.interleaver', STD.DTMB.TI.map(v => ({ v, label: `M=${v}` })), { tid: 'dtmb-ti' }), { path: 'dtmb.interleaver' })),
       h('p.hint', null, icon('info'), T('Programme: H.264 oder MPEG-2 mit MPEG-1 Layer II oder AC-3; DVB-SI (GB/T 17975). Kanalraster DS6–DS68 (China, Hongkong, Macau, Kuba).')),
     ], { tid: 'card-dtmb' })),
+    h('div.col', null, null));
+}
+
+function pageDvbt2(head) {
+  const d = S.draft.dvbt2, pps = STD.dvbt2Pp(d.fft, d.guard), big = parseInt(d.fft, 10) >= 8;
+  // Einzelfeld geändert: Profil neu bestimmen, unzulässige GI/PP auf den ersten erlaubten Wert ziehen (Tab. 58)
+  const fix = () => {
+    const x = S.draft.dvbt2;
+    if (!STD.dvbt2Pp(x.fft, x.guard).length) x.guard = STD.DVBT2.GI.find(g => STD.dvbt2Pp(x.fft, g).length);
+    const ok = STD.dvbt2Pp(x.fft, x.guard);
+    if (!ok.includes(Number(x.pp))) x.pp = ok[0];
+    if (parseInt(x.fft, 10) < 8) x.ext = false;
+    x.preset = STD.dvbt2Preset(x);
+  };
+  const seg = (path, opts, tid) => segmented(path, opts, { tid, onchange: fix });
+  const chan = STD.DVBT_CHANNELS.find(c => c.id === S.draft.rf.channel);
+  const bwWarn = chan && chan.bw !== Number(d.bandwidth_mhz) ? h('p.alert', null, icon('alert'), T('Kanal {ch} ist ein {bw}-MHz-Kanal, gewählt sind {sel} MHz.', { ch: chan.id, bw: chan.bw, sel: d.bandwidth_mhz })) : null;
+  const presets = [{ v: 'de', label: T('Deutschland (32K)') }, { v: 'leicht', label: T('Leicht (8K, stabil)') }, ...(d.preset === 'custom' ? [{ v: 'custom', label: T('Eigene Werte'), disabled: true }] : [])];
+  return h('div.page-grid', null,
+    h('div.col', null, card(h('span', null, 'DVB-T2 · EN 302 755', untestedBadge()), 'wave', [
+      head,
+      field(T('Profil'), segmented('dvbt2.preset', presets, { tid: 'dvbt2-preset', onchange: v => Object.assign(S.draft.dvbt2, STD.DVBT2.PRESETS[v] || {}) }),
+        { path: 'dvbt2.preset', hint: d.fft === '32k' ? null : T('8K 64-QAM 3/5: läuft auf dem Pluto mit Reserve') }),
+      field(T('Bandbreite'), seg('dvbt2.bandwidth_mhz', STD.DVBT2.BW.map(b => ({ v: b, label: `${b} MHz` })), 'dvbt2-bandwidth'), { path: 'dvbt2.bandwidth_mhz' }),
+      bwWarn,
+      h('div.grid2', null,
+        field(T('FFT'), seg('dvbt2.fft', STD.DVBT2.FFT.map(v => ({ v, label: v.toUpperCase(), disabled: v === '32k' && d.constellation === '256-QAM' })), 'dvbt2-fft'), { path: 'dvbt2.fft', hint: T('32K: Gleichwellennetze, höchste Rate; 8K: robust und leicht') }),
+        field(T('Erweiterte Träger'), toggle('dvbt2.ext', T('Extended (ext)'), { tid: 'dvbt2-ext', rerender: true, onchange: fix }), { path: 'dvbt2.ext', hint: big ? T('mehr Träger, nur 8K/16K/32K') : T('nur bei 8K/16K/32K') })),
+      field(T('Konstellation'), seg('dvbt2.constellation', STD.DVBT2.CONST.map(v => ({ v, label: v, disabled: v === '256-QAM' && d.fft === '32k' })), 'dvbt2-constellation'), { path: 'dvbt2.constellation' }),
+      h('div.grid2', null,
+        field(T('Coderate'), seg('dvbt2.code_rate', STD.DVBT2.CR.map(v => ({ v, label: v })), 'dvbt2-coderate'), { path: 'dvbt2.code_rate', hint: T('LDPC + BCH, 64800-Bit-Blöcke') }),
+        field(T('Guard-Intervall'), seg('dvbt2.guard', STD.DVBT2.GI.map(v => ({ v, label: v, disabled: !STD.dvbt2Pp(d.fft, v).length })), 'dvbt2-guard'), { path: 'dvbt2.guard' })),
+      h('div.grid2', null,
+        field(T('Pilotmuster'), seg('dvbt2.pp', [1, 2, 3, 4, 5, 6, 7, 8].map(v => ({ v, label: `PP${v}`, disabled: !pps.includes(v) })), 'dvbt2-pp'), { path: 'dvbt2.pp', hint: T('nur die nach EN 302 755 Tab. 58 zulässigen') }),
+        field(T('Konstellationsdrehung'), toggle('dvbt2.rotation', T('gedreht'), { tid: 'dvbt2-rotation', onchange: fix }), { path: 'dvbt2.rotation' })),
+      field(T('Zellen-ID'), input('dvbt2.cell_id', { type: 'number', min: 0, max: 65535, tid: 'dvbt2-cellid', mono: true }), { path: 'dvbt2.cell_id', hint: '0–65535' }),
+      h('p.hint', null, icon('info'), T('T2-base, SISO, ein PLP, Nullpakete bleiben im Strom. Programme in Deutschland: HEVC mit AAC oder AC-3. Kanalraster wie DVB-T (K21–K69).')),
+    ], { tid: 'card-dvbt2' })),
     h('div.col', null, null));
 }
 

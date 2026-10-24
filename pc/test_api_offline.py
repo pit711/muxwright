@@ -119,6 +119,18 @@ def world(server):
     check("world: DTMB DS25 610 MHz, 64-QAM 0,8 PN420 32,49 Mbit/s", not e and c["rf"]["freq_hz"] == 610000000 and abs(c["_dvb"]["rate_bps"] - 32486400) < 1, (e, c.get("rf")))
     _, e = run("dtmb", {"constellation": "32-QAM", "code_rate": "0.4", "header": 420}, {"channel": "DS25"}, [prog("h264", "mp2")])
     check("world: DTMB 32-QAM nur 0,8", any("dtmb.code_rate" in x for x in e), e)
+    t2de = {"preset": "de", "bandwidth_mhz": 8, "fft": "32k", "ext": True, "constellation": "64-QAM", "code_rate": "2/3", "guard": "19/256", "pp": 4, "rotation": True}
+    c, e = run("dvbt2", t2de, {"channel": "K21", "freq_hz": 306000000}, [prog("hevc", "aac")])
+    check("world: DVB-T2 Profil DE K21 474 MHz (Kanal maßgeblich), 27,319 Mbit/s, 9,142857 MS/s, Gerät", not e and c["rf"]["freq_hz"] == 474000000
+          and abs(c["_dvb"]["rate_bps"] - 27319313.16) < 1 and c["rf"]["sample_rate"] == 9142857 and c["_path"] == "device"
+          and not any("knappe" in w for w in c["_warnings"]), (e, c.get("rf"), c.get("_path")))
+    c, e = run("dvbt2", {"preset": "leicht", "bandwidth_mhz": 8, "fft": "8k", "ext": True, "constellation": "64-QAM", "code_rate": "3/5", "guard": "1/8", "pp": 2},
+               {"channel": "K30"}, [prog("hevc", "aac")])
+    check("world: DVB-T2 leicht K30 546 MHz, 22,273 Mbit/s", not e and c["rf"]["freq_hz"] == 546000000 and abs(c["_dvb"]["rate_bps"] - 22273145.12) < 1, (e, c.get("rf")))
+    _, e = run("dvbt2", dict(t2de, pp=3), {"channel": "K21"}, [prog("hevc", "aac")])
+    check("world: DVB-T2 32K PP3 abgelehnt (Tab. 58)", any("dvbt2.pp" in x for x in e), e)
+    _, e = run("dvbt2", dict(t2de, constellation="256-QAM", guard="1/128", pp=7), {"channel": "K21"}, [prog("hevc", "aac")])
+    check("world: DVB-T2 UK-Profil 32K 256-QAM abgelehnt (Pluto)", any("256-QAM" in x for x in e), e)
     c, e = run("dvbc", {"annex": "b", "constellation": "256-QAM", "sps": 2}, {"channel": "C80"}, [prog()])
     check("world: J.83 B 256-QAM 38,81 Mbit/s, C80 561 MHz, Gerät", not e and c["rf"]["freq_hz"] == 561000000 and abs(c["_dvb"]["rate_bps"] - 38810701) < 2
           and c["_path"] == "device", (e, c.get("rf"), c.get("_path")))

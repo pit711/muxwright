@@ -37,6 +37,14 @@ def nit_xml(cfg, version=1):
             L.append("   <partial_reception_descriptor>")
             L += ['    <service id=%s/>' % _hex(s["service_id"]) for s in one]
             L.append("   </partial_reception_descriptor>")
+    elif std == "dvbt2":
+        # T2_system_id = network_id (dvbt2_mod --t2-system-id, gleiche Zuordnung in pc/agent.py)
+        L.append('   <T2_delivery_system_descriptor plp_id="0" T2_system_id=%s>' % _hex(ts["network_id"]))
+        L.append('    <extension SISO_MISO="SISO" bandwidth=%s guard_interval=%s transmission_mode=%s other_frequency="false" tfs="false">'
+                 % (_a("%dMHz" % d["bandwidth_mhz"]), _a(d["guard"]), _a(d["fft"])))
+        L.append('     <cell cell_id=%s><centre_frequency value=%s/></cell>' % (_hex(d.get("cell_id", 0)), _a(int(rf["freq_hz"]))))
+        L.append('    </extension>')
+        L.append('   </T2_delivery_system_descriptor>')
     elif std == "dtmb":
         pass                              # GB/T 17975: kein eigener Delivery-Descriptor in TSDuck; Suchlauf ueber die Frequenz
     elif std == "dvbt":

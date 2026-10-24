@@ -181,6 +181,7 @@ typedef struct {
     int      eof;
 } ts_stats_t;
 /* spec: "-" stdin, "udp://[addr]:port", "udp://port", sonst Dateiname. loop: Datei wiederholen. */
+extern int ts_input_rt_prio;   /* vor ts_input_open setzen */
 ts_input_t *ts_input_open(const char *spec, int loop, int buffer_packets, int realtime_fill);
 /* liefert immer ein 188-Byte-Paket: Nutzdaten, sonst Nullpaket; 0 = Ende (Datei/stdin ohne loop) */
 int   ts_input_packet(ts_input_t *t, uint8_t *pkt);
@@ -205,6 +206,10 @@ typedef struct {
 
 out_sink_t *out_open(const out_params_t *p);
 int   out_write(out_sink_t *o, const int16_t *iq, size_t nsamples);  /* blockierend */
+/* direkt in den IIO-DMA-Puffer schreiben (spart die Kopie): Zeiger auf n freie Samples am Stück oder NULL
+   (keine IIO-Ausgabe / Puffergrenze) → dann out_write. Nach dem Füllen out_commit(n). Speicher kann ungecacht sein: nur schreiben. */
+int16_t *out_direct(out_sink_t *o, size_t nsamples);
+int   out_commit(out_sink_t *o, size_t nsamples);
 void  out_set_realtime(out_sink_t *o, int on);   /* Datei/stdout mit Echtzeitbremse (nominale Rate) */
 void  out_stats(out_sink_t *o, uint64_t *samples, uint64_t *underflows);
 void  out_close(out_sink_t *o);

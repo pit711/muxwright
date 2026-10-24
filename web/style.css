@@ -203,7 +203,7 @@ label.inline select { width: auto; }
 @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgb(255 255 255 / .7); } 70% { box-shadow: 0 0 0 10px rgb(255 255 255 / 0); } 100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 0); } }
 @keyframes blink { 50% { opacity: .3; } }
 
-.txctl { display: flex; align-items: center; gap: 12px; }
+.txctl { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .seg.ctl { background: var(--topbar-chip); border-color: var(--topbar-border); flex-wrap: nowrap; }
 .seg.ctl button { color: var(--topbar-text); padding: 7px 12px; }
 .seg.ctl button:hover:not(:disabled) { background: rgb(255 255 255 / .1); }
@@ -609,11 +609,14 @@ dialog.modal h3 .ico { width: 22px; height: 22px; }
 
 /* ---------------------------------------------------------------- Responsiv */
 @media (max-width: 2000px) {
-  .topbar { grid-template-columns: auto minmax(280px, 1fr) auto auto auto; grid-template-areas: "brand status ctl tools estop" "chips chips chips chips chips"; row-gap: 8px; }
+  .topbar { grid-template-columns: auto minmax(280px, 1fr) minmax(0, auto) auto auto; grid-template-areas: "brand status ctl tools estop" "chips chips chips chips chips"; row-gap: 8px; }
   .brand { grid-area: brand; } .txstatus { grid-area: status; } .txctl { grid-area: ctl; } .chips { grid-area: chips; justify-content: flex-start; } .chips > :first-child { margin-left: 0; } .tools { grid-area: tools; } .estop { grid-area: estop; }
   .chip-st { grid-template-columns: auto auto auto; grid-template-rows: auto; padding: 4px 10px; }
   .chip-st .ico { grid-row: auto; }
   .chip-st small { font-size: 11px; }
+}
+@media (min-width: 721px) and (max-width: 1800px) {   /* zehn Standards passen nicht mehr neben Status und NOT-AUS: Umschalter in eigene Zeile */
+  .topbar { grid-template-columns: auto minmax(280px, 1fr) auto auto; grid-template-areas: "brand status tools estop" "ctl ctl ctl ctl" "chips chips chips chips"; }
 }
 @media (max-width: 1250px) {
   .page-grid { grid-template-columns: minmax(0, 1fr); }
@@ -767,8 +770,8 @@ dialog.modal h3 .ico { width: 22px; height: 22px; }
 .protocol .rx-kv.bad b { color: #b91c1c; } .protocol .spectrum { width: 100%; height: auto; }
 
 /* ---------------------------------------------------------------- Mehrstandard */
-.stdswitch { flex-wrap: nowrap; background: var(--topbar-chip); border-color: var(--topbar-border); }
-.stdswitch button { color: var(--topbar-muted); padding: 7px 11px; font-weight: 700; letter-spacing: .02em; position: relative; }
+.stdswitch { flex-wrap: nowrap; background: var(--topbar-chip); border-color: var(--topbar-border); min-width: 0; overflow-x: auto; scrollbar-width: none; }   /* 10 Standards: lieber scrollen als die Kopfzeile sprengen */
+.stdswitch button { flex: none; white-space: nowrap; color: var(--topbar-muted); padding: 7px 11px; font-weight: 700; letter-spacing: .02em; position: relative; }
 .stdswitch button:hover:not(.on) { background: rgb(255 255 255 / .1); color: #fff; }
 .stdswitch button.on { background: var(--accent); color: #fff; box-shadow: none; }
 .stdswitch button.pending::after { content: ""; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 0 2px rgb(0 0 0 / .3); }
@@ -788,8 +791,8 @@ dialog.modal h3 .ico { width: 22px; height: 22px; }
 @media (max-width: 980px) { .navsec { display: none; } }
 @media (max-width: 720px) {
   .txctl { flex-wrap: wrap; }
-  .stdswitch { order: -1; width: 100%; justify-content: stretch; }
-  .stdswitch button { flex: 1; padding: 6px 4px; font-size: 12.5px; }
+  .stdswitch { order: -1; width: 100%; justify-content: stretch; flex-wrap: wrap; overflow: visible; }
+  .stdswitch button { flex: 1 0 auto; padding: 6px 8px; font-size: 12.5px; }
   .repgrid { grid-template-columns: minmax(0, 1fr); }
 }
 

@@ -101,8 +101,8 @@ MOD_PATHS = {"dvbt": "/usr/bin/dvbt_mod", "dvbc": "/usr/bin/dvbc_mod", "dvbs": "
              "dvbs2": "/tmp/dablab_bin/dvbs2_mod",
              # neue Standards (untested): Modulatoren werden wie dvbs_mod nach /tmp/dablab_bin geladen (pc/device_files/<name>_iio)
              "atsc": "/tmp/dablab_bin/atsc_mod", "isdbt": "/tmp/dablab_bin/isdbt_mod", "dtmb": "/tmp/dablab_bin/dtmb_mod",
-             "j83b": "/tmp/dablab_bin/dvbc_mod"}
-UPLOADED = ("dvbs", "dvbs2", "atsc", "isdbt", "dtmb", "j83b")   # nicht in der Firmware: vor dem Start hochladen
+             "dvbt2": "/tmp/dablab_bin/dvbt2_mod", "j83b": "/tmp/dablab_bin/dvbc_mod"}
+UPLOADED = ("dvbs", "dvbs2", "atsc", "isdbt", "dtmb", "dvbt2", "j83b")   # nicht in der Firmware: vor dem Start hochladen
 
 
 def mod_key(std, cfg):
@@ -208,6 +208,22 @@ def modulator_command(std, cfg, udp_port, mod_dir="", lo_hz=None, window=32, udp
         args += ["--carriers", int(d.get("carriers", 3780)), "--const", str(d.get("constellation", "64-QAM")).lower().replace("-", ""),
                  "--rate", d.get("code_rate", "0.6"), "--pn", int(d.get("header", 945)), "--ti", int(d.get("interleaver", 720))]
         opts = {"cpu": -1, "rt_prio": 50}
+    elif std == "dvbt2":
+        d = cfg.get("dvbt2") or {}
+        pre = {"de": ("32k", 1, "64qam", "2/3", "19/256", 4), "leicht": ("8k", 1, "64qam", "3/5", "1/8", 2)}.get(str(d.get("preset") or "de"))
+        fft, ext, const, rate, gi, pp = pre or ("8k", 1, "64qam", "3/5", "1/8", 2)
+        si = (cfg.get("dvb") or {}).get("si") or {}
+        nid = si.get("network_id") or (cfg.get("ts") or {}).get("network_id") or 0xFF01
+        nid = int(nid, 16) if isinstance(nid, str) and nid.lower().startswith("0x") else int(nid)
+        args += ["--bw", int(d.get("bandwidth_mhz") or 8), "--fft", str(d.get("fft") or fft).lower(),
+                 "--ext", 1 if d.get("ext", ext) else 0,
+                 "--const", str(d.get("constellation") or const).lower().replace("-", ""),
+                 "--rate", d.get("code_rate") or rate, "--guard", d.get("guard") or gi,
+                 "--pp", int(str(d.get("pp") or pp).upper().replace("PP", "")), "--rotation", 1 if d.get("rotation", True) else 0,
+                 # T2_system_id = network_id wie im T2_delivery_system_descriptor der NIT (runner/dvb/si.py)
+                 "--cell-id", int(d.get("cell_id") or 0), "--network-id", nid, "--t2-system-id", nid,
+                 "--threads", 2, "--affinity", "--rt"]           # Kodier- und IFFT-Thread auf je einem Kern
+        opts = {"cpu": -1, "rt_prio": 0}
     else:
         raise ValueError(f"kein Gerätemodulator für {std}")
     if backoff is not None:

@@ -82,10 +82,16 @@ static int file_packet(ts_input_t *t, uint8_t *pkt)
 }
 
 /* ---- UDP */
+int ts_input_rt_prio;   /* >0: Lesethread SCHED_FIFO – sonst verhungert er neben RT-Rechenthreads auf beiden Kernen */
+
 static void *udp_thread(void *arg)
 {
     ts_input_t *t = (ts_input_t *)arg;
     uint8_t buf[65536];
+    if (ts_input_rt_prio > 0) {
+        struct sched_param sp; sp.sched_priority = ts_input_rt_prio;
+        if (pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp)) perror("SCHED_FIFO udp");
+    }
     while (t->running) {
         ssize_t r = recv(t->fd, buf, sizeof buf, 0);
         if (r <= 0) { if (errno == EINTR || errno == EAGAIN) continue; break; }

@@ -14,10 +14,10 @@ import threading
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-STANDARDS = ("dab", "fm", "dvbt", "dvbc", "dvbs", "pal", "atsc", "isdbt", "dtmb")
-DVB = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")  # alle TS-Standards (Runner runner/dvb)
-DEVICE_ONLY = ("dvbs", "pal", "atsc", "isdbt", "dtmb")
-UNTESTED = ("atsc", "isdbt", "dtmb")                     # dazu DVB-C Annex B/C, NTSC-M/-J, PAL-M/-N, RBDS
+STANDARDS = ("dab", "fm", "dvbt", "dvbc", "dvbs", "pal", "atsc", "isdbt", "dtmb", "dvbt2")
+DVB = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb", "dvbt2")  # alle TS-Standards (Runner runner/dvb)
+DEVICE_ONLY = ("dvbs", "pal", "atsc", "isdbt", "dtmb", "dvbt2")
+UNTESTED = ("atsc", "isdbt", "dtmb", "dvbt2")                     # dazu DVB-C Annex B/C, NTSC-M/-J, PAL-M/-N, RBDS
 NOWIN = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 with open(os.path.join(HERE, "channels.json"), encoding="utf-8") as _f:
@@ -213,6 +213,9 @@ def choose_path(c, std):
         return "device", "ISDB-T: isdbt_mod auf dem Pluto (OFDM 8,127 MS/s, TS per UDP)"
     if std == "dtmb":
         return "device", "DTMB: dtmb_mod auf dem Pluto (7,56 MS/s, TS per UDP)"
+    if std == "dvbt2":
+        sr = int(rf.get("sample_rate") or 0)
+        return "device", f"DVB-T2: dvbt2_mod auf dem Pluto (OFDM {sr / 1e6:.3f} MS/s, TS per UDP)"
     if std == "dvbc" and str((c.get("dvbc") or {}).get("annex", "a")).lower() in ("b", "c"):
         return "device", "J.83 B/C: dvbc_mod --annex b|c auf dem Pluto (1 Sample/Symbol, RRC im AD9361-FIR)"
     sr = int(rf.get("sample_rate") or 0)

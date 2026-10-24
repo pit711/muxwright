@@ -18,8 +18,8 @@ PATTERNS = ("testsrc2", "testsrc", "smptehdbars", "smptebars", "colorbars", "rgb
             "pal100bars", "mandelbrot", "life")
 AUDIO_GEN = ("sine", "speech", "sine+speech", "silence", "noise", "file")
 OUTPUT_KINDS = ("stdout", "udp", "modulator", "file")
-STANDARDS = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb")
-UNTESTED = ("atsc", "isdbt", "dtmb")      # dazu DVB-C Annex B/C (J.83 B/C)
+STANDARDS = ("dvbt", "dvbc", "dvbs", "atsc", "isdbt", "dtmb", "dvbt2")
+UNTESTED = ("atsc", "isdbt", "dtmb", "dvbt2")      # dazu DVB-C Annex B/C (J.83 B/C)
 ATSC_SAMPLE_RATE = 10762238               # atsc_mod: 1 Sample/Symbol (--print-rates), Pilot bei −2,69 MHz um den LO
 SERVICE_TYPES = {"tv": 0x01, "radio": 0x02, "hdtv": 0x19, "aac_radio": 0x0A}
 
@@ -150,7 +150,7 @@ def normalize(raw):
         E.append("mode muss %s sein" % ", ".join("'%s'" % s for s in STANDARDS))
         return cfg, E, W
     cfg["mode"] = std
-    cfg.setdefault("name", {"dvbt": "DVB-T", "dvbc": "DVB-C", "dvbs": "DVB-S", "atsc": "ATSC", "isdbt": "ISDB-T", "dtmb": "DTMB"}[std])
+    cfg.setdefault("name", {"dvbt": "DVB-T", "dvbc": "DVB-C", "dvbs": "DVB-S", "atsc": "ATSC", "isdbt": "ISDB-T", "dtmb": "DTMB", "dvbt2": "DVB-T2"}[std])
     if std in UNTESTED:
         W.append("%s ist ungetestet (untested)" % cfg["name"])
 
@@ -235,6 +235,38 @@ def normalize(raw):
             E.append("dtmb.header: PN 420, 595 oder 945")
         if d["interleaver"] not in (240, 720):
             E.append("dtmb.interleaver: 240 oder 720")
+    elif std == "dvbt2":
+        d = cfg.setdefault("dvbt2", {})
+        # Profil = Vorgabe, einzelne Felder duerfen abweichen; ohne Profil 'de'
+        for k, v in T.DVBT2_PRESETS.get(str(d.get("preset") or "de").lower(), T.DVBT2_PRESETS["de"]).items():
+            d.setdefault(k, v)
+        d["bandwidth_mhz"] = _int(d.get("bandwidth_mhz"), 0)
+        d["fft"] = str(d.get("fft", "32k")).lower()
+        d["ext"] = bool(d.get("ext", True)) and d["fft"] in ("8k", "16k", "32k")
+        d["constellation"] = _norm_const(d.get("constellation", "64-QAM"), T.DVBT2_BITS)
+        d["code_rate"] = str(d.get("code_rate", "2/3")).strip()
+        d["guard"] = str(d.get("guard", "19/256")).strip()
+        d["pp"] = _int(str(d.get("pp", 4)).upper().replace("PP", ""), 4)
+        d["rotation"] = bool(d.get("rotation", True))
+        d["cell_id"] = _int(d.get("cell_id"), 0)
+        if d["fft"] not in T.DVBT2_FFT:
+            E.append("dvbt2.fft: 1k, 2k, 4k, 8k, 16k, 32k")
+        if not d["constellation"]:
+            E.append("dvbt2.constellation: QPSK, 16-QAM, 64-QAM, 256-QAM")
+        if d["code_rate"] not in T.DVBT2_CODE_RATES:
+            E.append("dvbt2.code_rate: %s" % ", ".join(T.DVBT2_CODE_RATES))
+        if d["guard"] not in T.DVBT2_GUARDS:
+            E.append("dvbt2.guard: %s" % ", ".join(T.DVBT2_GUARDS))
+        elif d["fft"] in T.DVBT2_FFT:
+            ok = T.dvbt2_pp_allowed(d["fft"], d["guard"])
+            if not ok:
+                E.append("dvbt2.guard: GI %s gibt es bei %s nicht (EN 302 755 Tab. 58)" % (d["guard"], d["fft"].upper()))
+            elif d["pp"] not in ok:
+                E.append("dvbt2.pp: PP%d bei %s und GI %s nicht zulaessig, erlaubt %s (EN 302 755 Tab. 58)"
+                         % (d["pp"], d["fft"].upper(), d["guard"], ", ".join("PP%d" % x for x in ok)))
+        # Pluto (2 x A9): 32K-IFFT + 256-QAM-Kodierung nicht echtzeitfaehig (gemessen 0,97); Profil DE laeuft stabil (600-s-Geraetetest)
+        if d["fft"] == "32k" and d["constellation"] == "256-QAM" and (cfg.get("output") or {}).get("kind") not in ("file", "stdout"):
+            E.append("dvbt2: 32K mit 256-QAM ist auf dem Pluto nicht echtzeitfaehig - 16K oder 64-QAM waehlen")
     elif std == "isdbt":
         d = cfg.setdefault("isdbt", {})
         d["region"] = "jp" if str(d.get("region", "br")).lower() in ("jp", "japan") else "br"
@@ -298,7 +330,7 @@ def normalize(raw):
     rf = cfg.setdefault("rf", {})
     ch = rf.get("channel") or d.get("channel")
     tab = "j83b" if (std == "dvbc" and d.get("annex") == "b") else "isdbt_jp" if (std == "isdbt" and d.get("region") == "jp") else \
-        "dtmb" if (std == "dvbc" and str(ch or "").upper().startswith("DS")) else std
+        "dtmb" if (std == "dvbc" and str(ch or "").upper().startswith("DS")) else "dvbt" if std == "dvbt2" else std
     look = T.channel_lookup(tab, ch) if ch and str(ch).lower() != "custom" and std != "dvbs" else None
     if ch and str(ch).lower() != "custom" and not look and std != "dvbs":
         E.append("rf.channel '%s' nicht in der %s-Kanaltabelle" % (ch, {"dvbt": "DVB-T", "dvbc": "DVB-C", "atsc": "US-", "isdbt": "US-/Brasilien-",
@@ -306,8 +338,13 @@ def normalize(raw):
     if look:
         rf["channel"] = str(ch).upper()
         rf["freq_hz"] = look[0]            # Kanal ist maßgeblich (feine Verschiebung über rf.offset_hz)
-        if std == "dvbt" and not d["bandwidth_mhz"]:
+        if std in ("dvbt", "dvbt2") and not d["bandwidth_mhz"]:
             d["bandwidth_mhz"] = look[1]
+    if std == "dvbt2":
+        if not d["bandwidth_mhz"]:
+            d["bandwidth_mhz"] = 8
+        if d["bandwidth_mhz"] not in T.DVBT2_BANDWIDTHS:
+            E.append("dvbt2.bandwidth_mhz: 5, 6, 7 oder 8")
     if std == "dvbt":
         if not d["bandwidth_mhz"]:
             d["bandwidth_mhz"] = 8
@@ -329,7 +366,7 @@ def normalize(raw):
                 E.append("services: Rufzeichen %s muss im Dienst- oder Anbieternamen stehen (Stationskennung)" % d["callsign"])
     if not rf["freq_hz"]:
         rf["freq_hz"] = {"dvbt": 474000000, "dvbc": 113000000, "dvbs": 1288000000, "atsc": 473000000,
-                         "isdbt": 473142857, "dtmb": 474000000}[std]
+                         "isdbt": 473142857, "dtmb": 474000000, "dvbt2": 474000000}[std]
         if std != "dvbs":
             W.append("rf.freq_hz fehlt, NIT bekommt %d Hz" % rf["freq_hz"])
     rf.setdefault("atten_db", 60)
@@ -348,6 +385,9 @@ def normalize(raw):
             rf["sample_rate"] = d["sps"] * d["symbol_rate"]   # DATV: Modulator am PC, IQ per USB (RRC im Programm)
         elif (cfg.get("output") or {}).get("kind") == "modulator":
             rf["sample_rate"] = 2 * d["symbol_rate"]  # lokaler Modulator am PC: --sps 2 (RRC im Programm)
+    elif std == "dvbt2":
+        rate = T.dvbt2_useful_bitrate(d["bandwidth_mhz"], d["fft"], d["ext"], d["constellation"], d["code_rate"], d["guard"], d["pp"])
+        rf["sample_rate"] = int(round(T.dvbt2_sample_rate(d["bandwidth_mhz"])))   # dvbt2_mod: 1/T, kein FIR
     elif std == "dtmb":
         rate = T.dtmb_useful_bitrate(d["constellation"], d["code_rate"], d["header"])
         rf["sample_rate"] = int(d.get("sample_rate") or T.DTMB_SR)     # dtmb_mod: 1 Sample/Symbol, SRRC im AD9361-FIR (INT 2)
@@ -642,7 +682,9 @@ def summary(cfg):
     std = cfg["mode"]
     d = cfg[std]
     mod = ("%s %s %s GI %s %d MHz" % (d["mode"], d["constellation"], d["code_rate"], d["guard"], d["bandwidth_mhz"])
-           if std == "dvbt" else ("%s%s %s %.3f MBd%s" % ("DVB-S2 " if d.get("system") == "dvbs2" else "", d.get("modulation", "QPSK"),
+           if std == "dvbt" else ("%s%s %s %s GI %s PP%d %d MHz" % (d["fft"].upper(), " ext" if d["ext"] else "", d["constellation"], d["code_rate"],
+                                                               d["guard"], d["pp"], d["bandwidth_mhz"])) if std == "dvbt2"
+           else ("%s%s %s %.3f MBd%s" % ("DVB-S2 " if d.get("system") == "dvbs2" else "", d.get("modulation", "QPSK"),
                                                               d["code_rate"], d["symbol_rate"] / 1e6,
                                                               (" α %s%s" % (d["roll_off"], " Pilots" if d.get("pilots") else ""))
                                                               if d.get("system") == "dvbs2" else "")

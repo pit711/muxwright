@@ -327,7 +327,7 @@ def compare(cfg, rep):
         else:
             x = tss[0]
             d = x.get("delivery")
-            if not d and std not in ("isdbt", "dtmb"):       # ISDB_terrestrial_delivery_system_descriptor zerlegt die Analyse nicht
+            if not d and std not in ("isdbt", "dtmb", "dvbt2"):       # ISDB_terrestrial_delivery_system_descriptor zerlegt die Analyse nicht
                 M.append("NIT: Delivery-System-Descriptor fehlt")
             elif std == "dvbt":
                 dd = cfg["dvbt"]
@@ -337,7 +337,7 @@ def compare(cfg, rep):
                 for k, v in want.items():
                     if d.get(k) != v:
                         M.append("NIT terrestrial %s = %r statt %r" % (k, d.get(k), v))
-            elif std in ("isdbt", "dtmb") or not d:
+            elif std in ("isdbt", "dtmb", "dvbt2") or not d:
                 pass                      # ISDB-/DTMB-Delivery: von tsanalyze nicht zerlegt bzw. nicht vorhanden
             elif std == "dvbs":
                 dd = cfg["dvbs"]

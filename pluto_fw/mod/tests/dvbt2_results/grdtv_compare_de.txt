@@ -1,0 +1,21 @@
+Parameter: {"fft": 32768, "ext": 1, "guard": "19/256", "pp": 4, "const": "64QAM", "rate": "2/3", "fec_len": 64800, "ldata": 63, "nfec": 156, "nti": 4, "t2frames": 2, "l1_const": "bpsk", "ts_bps": 27319313.16}
+BB+BCH+LDPC (Bits)                         GLEICH  30326400 Bits (468 FEC-Blöcke), 0 Abweichungen
+  davon BBFRAME                            0 Abweichungen
+  davon BCH-Parität                        0 Abweichungen
+  davon LDPC-Parität                       0 Abweichungen
+Bit-Interleaver + Demux (Zellwörter)       GLEICH  5054400 Zellen, 0 Abweichungen
+Mapping + Rotation + Q-Delay (Zellen)      GLEICH  5054400 Werte, Skalierung 6075.95, SNR 83.3 dB, max. Fehler -79.9 dB rel. RMS
+Zell- + Zeit-Interleaver (Zellen)          GLEICH  5054400 Werte, Skalierung 6075.95, SNR 83.3 dB, max. Fehler -79.9 dB rel. RMS
+Rahmen vor Frequenz-IL (L1/PLP/Dummy/FC)   GLEICH  5079069 Werte, Skalierung 6075.95, SNR 83.3 dB, max. Fehler -79.9 dB rel. RMS
+Frequenz-Interleaver (Zellen)              GLEICH  5079069 Werte, Skalierung 6075.95, SNR 83.3 dB, max. Fehler -79.9 dB rel. RMS
+IQ gesamt (P1 + P2 + Daten + GI)           GLEICH  6764544 Werte, Skalierung 8230.01, SNR 66.2 dB, max. Fehler -17.1 dB rel. RMS
+   Rahmen 0 P1     SNR   76.4 dB
+   Rahmen 0 P2     SNR   66.3 dB
+   Rahmen 0 Daten  SNR   66.3 dB
+   Rahmen 1 P1     SNR   76.4 dB
+   Rahmen 1 P2     SNR   66.3 dB
+   Rahmen 1 Daten  SNR   66.3 dB
+   Rahmen 2 P1     SNR   76.4 dB
+   Rahmen 2 P2     SNR   66.3 dB
+   Rahmen 2 Daten  SNR   66.1 dB
+ERGEBNIS: alle Stufen gleich (Zellen bis auf Rundung)

@@ -327,7 +327,7 @@ def build_pal_report(kind):
 
 def standard_of(cfg):
     m = cfg.get("mode")
-    return m if m in ("fm", "dvbt", "dvbc", "dvbs", "pal", "atsc", "isdbt", "dtmb") else "dab"
+    return m if m in ("fm", "dvbt", "dvbc", "dvbs", "pal", "atsc", "isdbt", "dtmb", "dvbt2") else "dab"
 
 
 BITS = {"QPSK": 2, "16-QAM": 4, "32-QAM": 5, "64-QAM": 6, "128-QAM": 7, "256-QAM": 8}
@@ -358,6 +358,14 @@ def net_rate(cfg):
         m = cfg["dtmb"]
         b = {"4-QAM-NR": 1, "4-QAM": 2, "16-QAM": 4, "32-QAM": 5, "64-QAM": 6}[m["constellation"]]
         return 7560000 / (3780 + int(m["header"])) * 3744 * b / 7488 * {"0.4": 3008, "0.6": 4512, "0.8": 6016}[str(m["code_rate"])]
+    if std == "dvbt2":
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "runner"))
+        from dvb import tables as T2             # gleiche Rechnung wie Runner und dvbt2_mod --print-rates
+        m = cfg["dvbt2"]
+        try:
+            return float(T2.dvbt2_useful_bitrate(int(m["bandwidth_mhz"]), m["fft"], m.get("ext"), m["constellation"], m["code_rate"], m["guard"], int(m["pp"])))
+        except (KeyError, IndexError, ValueError):
+            return 0.0
     if std == "dvbs":
         m = cfg["dvbs"]
         a, b = (int(x) for x in m["fec"].split("/"))
@@ -369,7 +377,7 @@ def net_rate(cfg):
 
 def rf_path(cfg):
     std = standard_of(cfg)
-    if std in ("pal", "atsc", "isdbt", "dtmb") or (std == "dvbc" and cfg["dvbc"].get("annex") == "b"):
+    if std in ("pal", "atsc", "isdbt", "dtmb", "dvbt2") or (std == "dvbc" and cfg["dvbc"].get("annex") == "b"):
         return "device"
     if std == "dvbt" and float(cfg["dvbt"]["bandwidth_mhz"]) >= 7:
         return "device"
@@ -775,7 +783,7 @@ def build_any_report(kind):
     std = standard_of(ST["config"])
     if std == "fm":
         return build_fm_report(kind)
-    if std in ("dvbt", "dvbc", "atsc", "isdbt", "dtmb"):
+    if std in ("dvbt", "dvbc", "atsc", "isdbt", "dtmb", "dvbt2"):
         return build_dvb_report(kind)
     if std == "pal":
         return build_pal_report(kind)

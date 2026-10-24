@@ -102,6 +102,17 @@ static int iio_open(out_sink_t *o, const out_params_t *p)
     return 0;
 }
 
+static int iio_push_full(out_sink_t *o)
+{
+    ssize_t r = iio_buffer_push(o->buf);
+    if (r < 0) { o->underflows++; fprintf(stderr, "iio: push fehlgeschlagen (%zd)\n", r); return -1; }
+    /* WICHTIG: im mmap-Modus (mehrere Kernel-Puffer) zeigt der Puffer nach jedem Push auf den nächsten
+       Block → Schreibzeiger neu holen (sonst werden veraltete Blöcke gesendet). */
+    o->fill = (int16_t *)iio_buffer_start(o->buf);
+    o->fill_n = 0;
+    if (o->cyclic) o->pushed_cyclic = 1;
+    return 0;
+}
 static int iio_write(out_sink_t *o, const int16_t *iq, size_t n)
 {
     while (n) {
@@ -110,18 +121,32 @@ static int iio_write(out_sink_t *o, const int16_t *iq, size_t n)
         memcpy(o->fill + 2 * (size_t)o->fill_n, iq, take * 4);
         o->fill_n += (int)take; iq += 2 * take; n -= take; o->samples += take;
         if (o->fill_n == o->buf_samples) {
-            ssize_t r = iio_buffer_push(o->buf);
-            if (r < 0) { o->underflows++; fprintf(stderr, "iio: push fehlgeschlagen (%zd)\n", r); return -1; }
-            /* WICHTIG: im mmap-Modus (mehrere Kernel-Puffer) zeigt der Puffer nach jedem Push auf den nächsten
-               Block → Schreibzeiger neu holen (sonst werden veraltete Blöcke gesendet). */
-            o->fill = (int16_t *)iio_buffer_start(o->buf);
-            o->fill_n = 0;
-            if (o->cyclic) { o->pushed_cyclic = 1; return 0; }
+            if (iio_push_full(o) < 0) return -1;
+            if (o->cyclic) return 0;
         }
     }
     return 0;
 }
 #endif
+
+int16_t *out_direct(out_sink_t *o, size_t n)
+{
+#ifdef HAVE_LIBIIO
+    if (o->kind == 1 && !o->cyclic && (size_t)(o->buf_samples - o->fill_n) >= n) return o->fill + 2 * (size_t)o->fill_n;
+#endif
+    (void)o; (void)n;
+    return NULL;
+}
+
+int out_commit(out_sink_t *o, size_t n)
+{
+#ifdef HAVE_LIBIIO
+    o->fill_n += (int)n; o->samples += n;
+    if (o->fill_n == o->buf_samples) return iio_push_full(o);
+#endif
+    (void)o; (void)n;
+    return 0;
+}
 
 out_sink_t *out_open(const out_params_t *p)
 {

@@ -9,10 +9,10 @@ import { estDbm } from './pages.js';
 import { APP_NAME } from './brand.js';
 import { T } from './i18n.js';
 
-const ICON = { dab: 'radio', fm: 'wave', dvbt: 'antenna', dvbc: 'layers', dvbs: 'star', pal: 'tv', atsc: 'antenna', isdbt: 'antenna', dtmb: 'antenna' };
-const FIRST_PAGE = { dab: 'dienste', fm: 'sender', dvbt: 'modulation', dvbc: 'modulation', dvbs: 'modulation', pal: 'pal', atsc: 'modulation', isdbt: 'modulation', dtmb: 'modulation' };
+const ICON = { dab: 'radio', fm: 'wave', dvbt: 'antenna', dvbc: 'layers', dvbs: 'star', pal: 'tv', atsc: 'antenna', isdbt: 'antenna', dtmb: 'antenna', dvbt2: 'antenna' };
+const FIRST_PAGE = { dab: 'dienste', fm: 'sender', dvbt: 'modulation', dvbc: 'modulation', dvbs: 'modulation', pal: 'pal', atsc: 'modulation', isdbt: 'modulation', dtmb: 'modulation', dvbt2: 'modulation' };
 
-const RANGE = { dab: [170e6, 1500e6], fm: [76e6, 108e6], dvbt: [40e6, 1000e6], dvbc: [40e6, 1000e6], dvbs: [430e6, 5850e6], pal: [45e6, 870e6], atsc: [54e6, 806e6], isdbt: [54e6, 806e6], dtmb: [160e6, 960e6] };
+const RANGE = { dab: [170e6, 1500e6], fm: [76e6, 108e6], dvbt: [40e6, 1000e6], dvbc: [40e6, 1000e6], dvbs: [430e6, 5850e6], pal: [45e6, 870e6], atsc: [54e6, 806e6], isdbt: [54e6, 806e6], dtmb: [160e6, 960e6], dvbt2: [40e6, 1000e6] };
 
 /** Kleine Länderflaggen je Standard (web/flags, flag-icons MIT) */
 export function stdFlags(st, max = 6) {
@@ -63,6 +63,7 @@ function tileInfo(std, cfg) {
   if (std === 'dvbs') { const d = cfg.dvbs; return { ch: `${D.fmtNum(d.transponder_mhz, 0)} ${d.polarization}`, freq: T('ZF {f}', { f: f(STD.satIfHz(d)) }), params: `${d.system === 'dvbs2' ? 'DVB-S2' : 'DVB-S'} ${d.modulation} ${d.fec} · ${d.symbol_rate / 1000} kS/s · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   if (std === 'dtmb') { const m = cfg.dtmb; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${m.carriers === 1 ? 'C=1' : 'C=3780'} ${m.constellation} ${m.code_rate} PN${m.header} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   if (std === 'atsc') return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `8-VSB · 19,39 Mbit/s`, prog: prgs };
+  if (std === 'dvbt2') { const m = cfg.dvbt2; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${String(m.fft).toUpperCase()}${m.ext ? 'E' : ''} ${m.constellation} ${m.code_rate} GI ${m.guard} PP${m.pp} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   if (std === 'isdbt') { const m = cfg.isdbt; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `Mode ${m.mode} GI ${m.guard} · ${Number(m.layers) === 2 ? '1seg + 12' : '13 Seg.'} ${m.layer_a.constellation} ${m.layer_a.code_rate} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   if (std === 'dvbc' && STD.isJ83b(cfg)) { const m = cfg.dvbc; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `J.83 B ${m.constellation} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
   if (std === 'dvbt') { const m = cfg.dvbt; return { ch: rf.channel === 'custom' ? T('frei') : rf.channel, freq: f(rf.freq_hz), params: `${m.bandwidth_mhz} MHz ${m.fft} ${m.constellation} ${m.code_rate} GI ${m.guard} · ${(STD.netRate(c2) / 1e6).toFixed(1)} Mbit/s`, prog: prgs }; }
