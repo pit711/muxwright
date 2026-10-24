@@ -2571,10 +2571,11 @@ def main():
     ap.add_argument("--device-rt-prio", type=int, default=50)
     ap.add_argument("--device-window", type=int, default=32, help="dvbt_mod --window (8k: 32, 2k: max. 8)")
     ap.add_argument("--no-device-ssh", action="store_true", help="kein SSH zum Pluto (keine Dateiverteilung, kein Geräte-RX)")
-    # Installierte Version (Inno-Setup, unins000.exe im Programmordner): eigene Distro "muxwright" in {app}\wsl\fs,
-    # damit sie nicht die Entwicklungs-Distro "dablab" mitbenutzt (und der Deinstaller nur ihre eigene entfernt).
+    # Installierte Version (Inno-Setup, unins000.exe im Programmordner): eigene Distro in {app}\wsl\fs, damit sie nicht die
+    # Entwicklungs-Distro "dablab" mitbenutzt (und der Deinstaller nur ihre eigene entfernt). Nicht "muxwright" nennen:
+    # WSL verwaltet den Startmenü-Ordner mit dem Namen der Distro und löscht dort beim Start fremde Verknüpfungen.
     installed = os.path.exists(os.path.join(ROOT, "unins000.exe"))
-    ap.add_argument("--wsl-distro", default=os.environ.get("DABLAB_WSL_DISTRO", "muxwright" if installed else "dablab"))
+    ap.add_argument("--wsl-distro", default=os.environ.get("DABLAB_WSL_DISTRO", "muxwright-linux" if installed else "dablab"))
     ap.add_argument("--ssh-host", default=os.environ.get("DABLAB_SSH_HOST", ""), help="nur --backend ssh: user@host des Runner-Rechners")
     ap.add_argument("--min-atten", type=float, default=float(os.environ.get("DABLAB_MIN_ATTEN", "0")),
                     help="Untergrenze der Dämpfung in dB (Sicherheitsklemme, Standard 0)")

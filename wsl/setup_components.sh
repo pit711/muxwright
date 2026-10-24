@@ -16,6 +16,18 @@ net() {   # DNS-Fallback nur, wenn die Namensauflösung nicht geht (WSL mit VPN 
 apt_in() { step "apt install $*"; apt-get install -y -q "$@" 2>&1 | grep -E "^(E:|Err)" ; [ "${PIPESTATUS[0]}" = 0 ] || fail "apt-get install $*"; }
 apt_upd() { [ -n "$(find /var/lib/apt/lists -maxdepth 1 -name '*Packages*' -mmin -600 2>/dev/null | head -1)" ] || { step "apt update"; apt-get update -q >/dev/null || fail "apt-get update"; }; }
 
+# WSL legt für Linux-Programme mit Oberfläche (z. B. ImageMagick „display“) Startmenü-Einträge im Ordner der Distro an –
+# die Distro heißt wie das Muxwright-Startmenü. Solche Einträge ausblenden (NoDisplay); Terminal-Programme bleiben unberührt.
+hide_gui_entries() {
+  for f in /usr/share/applications/*.desktop; do
+    [ -f "$f" ] || continue
+    grep -qi '^NoDisplay=true' "$f" && continue
+    grep -qi '^Terminal=true' "$f" && continue
+    sed -i '0,/^\[Desktop Entry\]/s//[Desktop Entry]\nNoDisplay=true/' "$f"
+  done
+}
+[ "$WHAT" = check ] || trap hide_gui_entries EXIT
+
 have_base()   { command -v python3 >/dev/null && python3 -c "import numpy,scipy" 2>/dev/null && command -v git >/dev/null && command -v make >/dev/null; }
 have_ffmpeg() { command -v ffmpeg >/dev/null && [[ "$(ffmpeg -hide_banner -encoders 2>/dev/null)" == *libx264* ]]; }   # ohne Pipe (pipefail/SIGPIPE)
 have_tsduck() { command -v tsp >/dev/null; }

@@ -1029,6 +1029,12 @@ def screenshots(browser, base: str, console: Console):
                 ("hell", "light", "handy", {"width": 390, "height": 844}),
                 ("dunkel", "dark", "handy", {"width": 390, "height": 844})]
     # etwas Zustand für aussagekräftige Bilder: Kette läuft und sendet, Bericht vorhanden
+    # (der Funktionstest endet mit DATV/DVB-S – die Seitenliste PAGES gehört zu DAB, also zurückschalten)
+    cfg = api(base, "/api/state")["config"]
+    cfg["mode"] = 1
+    cfg["rf"].update({"channel": "6C", "freq_hz": 185360000})
+    api(base, "/api/tx/stop", {})
+    api(base, "/api/config", cfg, method="PUT")
     api(base, "/api/tx/start", {})
     time.sleep(1)
     api(base, "/api/rf", {"enabled": True})
