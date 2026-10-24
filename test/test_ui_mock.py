@@ -1201,10 +1201,17 @@ def screenshots(browser, base: str, console: Console):
                               ("dvbt", {"channel": "K21", "freq_hz": 474000000}, ["hf", "modulation", "programme", "si", "pruefen"]),
                               ("dvbc", {"channel": "S21", "freq_hz": 306000000}, ["modulation", "programme"]),
                               ("pal", {"channel": "K36", "freq_hz": 591250000}, ["hf", "pal", "pruefen"]),
-                              ("dvbs", {"channel": "sat", "freq_hz": 1550000000}, ["hf", "modulation", "pruefen"])):
+                              ("dvbs", {"channel": "sat", "freq_hz": 1550000000}, ["hf", "modulation", "pruefen"]),
+                              ("dvbt2", {"channel": "K21", "freq_hz": 474000000}, ["modulation"]),
+                              ("atsc", {"channel": "A14", "freq_hz": 473000000}, ["modulation"]),
+                              ("isdbt", {"channel": "A14", "freq_hz": 473142857}, ["modulation"]),
+                              ("dtmb", {"channel": "DS13", "freq_hz": 474000000}, ["modulation"])):
             cfg = api(base, "/api/state")["config"]
             cfg["mode"] = std
             cfg["rf"].update(rf)
+            if std == "dvbt2":                                   # Website zeigt das Profil Deutschland
+                cfg["dvbt2"] = {"preset": "de", "bandwidth_mhz": 8, "fft": "32k", "ext": True, "constellation": "64-QAM", "code_rate": "2/3",
+                                "guard": "19/256", "pp": 4, "rotation": True, "cell_id": 0}
             api(base, "/api/config", cfg, method="PUT")
             api(base, "/api/tx/stop", {}); api(base, "/api/tx/start", {}); time.sleep(0.8)
             api(base, "/api/rf", {"enabled": True})
