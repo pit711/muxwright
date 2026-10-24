@@ -111,7 +111,10 @@ PAL test pattern as decoded by the Pluto's own RX input:
 | **PC** | Windows 10 (2004+) / 11, 64-bit, WSL2 (virtualisation enabled in the BIOS), 8 GB RAM. Any 2-core CPU for DAB+/FM/SD | 6 cores / 12 threads for HD H.264 (x264), 16 cores or an NVIDIA GPU with NVENC (Turing or newer) for UHD/HDR10 |
 | **Cabling** | SMA → F (satellite IF, plus a **DC block** – receivers feed 13/18 V) or SMA → IEC (DVB-T/C, FM, PAL), 20–50 dB of attenuators | RF shielding box for antenna tests |
 
-Where to get the Pluto: [Amazon.de](https://www.amazon.de/s?k=ADALM+Pluto&i=electronics&tag=wobranding-21) · [AliExpress](https://s.click.aliexpress.com/e/_c3LvvRh5) *(affiliate links – they help fund the project, the price is the same for you)*. The full list of adapters, attenuators and QO-100 gear is on the [hardware page](https://muxwright.com/#hardware).
+Where to get the Pluto *(affiliate links – they help fund the project, the price is the same for you)*:
+
+<a href="https://www.amazon.de/dp/B0D47FDP3K?tag=wobranding-21"><img src="docs/img/pluto-amazon.svg" width="160" alt="PlutoSDR on Amazon"></a>&nbsp;&nbsp;<a href="https://s.click.aliexpress.com/e/_c3eTlIfV"><img src="docs/img/pluto-aliexpress.svg" width="160" alt="PlutoSDR on AliExpress"></a>
+ The full list of adapters, attenuators and QO-100 gear is on the [hardware page](https://muxwright.com/#hardware).
 
 ## Installation
 
