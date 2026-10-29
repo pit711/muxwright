@@ -16,6 +16,8 @@ import time
 from . import si, sources, nvenc
 from . import tables as T
 
+import teletext as TTX
+
 try:
     import numpy as np
 except Exception:  # pragma: no cover
@@ -197,6 +199,7 @@ class DvbChain:
         base = 0
         out_idx = 0
         vi = ai = 0  # Zaehler je Typ fuer Stream-Spezifizierer v:N / a:N
+        prog_pos = {}
         for i, s in enumerate(c["services"]):
             v = s.get("video") or {}
             use_nv = s["type"] == "tv" and v.get("encoder") in ("nvenc", "amf")
@@ -284,9 +287,22 @@ class DvbChain:
             prog = "title=%s:program_num=%d" % (s["name"].replace(":", " ").replace("=", " "), s["service_id"])
             for k in st:
                 prog += ":st=%d" % k
+            prog_pos[s["key"]] = len(programs) + 1
             programs += ["-program", prog, "-metadata:p:%d" % i, "service_provider=%s" % s["provider"],
                          "-metadata:p:%d" % i, "service_name=%s" % s["name"]]
             base += len(src["inputs"])
+        tt = c.get("teletext") or {}
+        if tt.get("enable"):
+            # Teletext: eigener kleiner TS aus runner/teletext.py (PES je Bild, PTS im 40-ms-Raster), unveraendert
+            # uebernommen (-c copy)
+            inputs += self._teletext_input(tt)
+            maps += ["-map", "%d:0" % base]
+            codec_opts += ["-c:s", "copy"]
+            streamids += ["-streamid", "%d:%d" % (out_idx, tt["_pid"])]
+            for k in tt["_programs"]:
+                programs[prog_pos[k]] += ":st=%d" % out_idx
+            out_idx += 1
+            base += 1
         ts = c["ts"]
         cmd += inputs + (["-filter_complex", ";".join(fc)] if fc else []) + maps + codec_opts + streamids + programs
         if seconds:
@@ -304,6 +320,35 @@ class DvbChain:
                 "-max_delay", str(int(float(delay) * 1e6)), "-muxpreload", delay, "-muxdelay", delay,
                 "-f", "mpegts", "pipe:1"]
         return cmd
+
+    def _teletext_input(self, tt):
+        prgs = [{"name": s["name"], "now": s["eit"].get("title", "")} for s in self.cfg["services"] if s["type"] == "tv"]
+        tt["_folder_path"] = sources.host_path(self.host, tt["folder"]) if tt.get("folder") else None
+        car = TTX.Carousel(tt, prgs, self.log)
+        gen = TTX.DvbTeletextTs(car, tt["units"], tt.get("language", "deu"), tt["_initial_page"])
+        self.teletext = car
+        rfd, wfd = os.pipe()
+        self.pass_fds.append(rfd)
+        self.close_after.append(rfd)
+
+        def feed():
+            try:
+                with os.fdopen(wfd, "wb", 0) as f:
+                    while not self.stop_evt.is_set():
+                        f.write(gen.chunk())
+            except (BrokenPipeError, OSError, ValueError):
+                pass
+            except Exception as e:
+                if not self.stop_evt.is_set():
+                    self.log("error", "Teletext: %s" % e)
+
+        t = threading.Thread(target=feed, daemon=True, name="teletext")
+        t.start()
+        self.threads.append(t)
+        self.log("info", "Teletext: %d Seiten, PID %d, %.0f kbit/s" % (len(car.pages), tt["_pid"], tt["_bps"] / 1000),
+                 teletext=car.page_list())
+        # eigener TS ohne PCR: PTS aus den PES nehmen (sonst ersetzt der Demuxer sie aus einem PCR, den es nicht gibt)
+        return ["-f", "mpegts", "-fix_teletext_pts", "0", "-thread_queue_size", "64", "-i", "pipe:%d" % rfd]
 
     def _mpegts_flags(self, small):
         c = self.cfg

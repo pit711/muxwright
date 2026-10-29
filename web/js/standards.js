@@ -308,7 +308,7 @@ export function programRate(p) {
 export function tsBudget(cfg) {
   const net = netRate(cfg);
   const items = (cfg.dvb?.programs || []).map(p => ({ key: p.key, name: p.name, bps: programRate(p), prg: p }));
-  const si = siOverhead(net);
+  const si = siOverhead(net) + (cfg.dvb?.teletext?.enable ? teletextBps(cfg) : 0);
   const used = items.reduce((a, b) => a + b.bps, 0) + si;
   return { net, items, si, used, nulls: Math.max(0, net - used), over: used > net, pct: net ? used / net : 0 };
 }
@@ -402,7 +402,33 @@ export function newProgram(key, n = 1) {
     eit: { title: `Testsendung ${n}`, description: 'DAB-Lab Laborsender – Prüfprogramm', duration_min: 60 },
   };
 }
-export const defaultDvb = () => ({ programs: [newProgram('prg1', 1)], si: { network_id: '0xFF16', network_name: 'DAB-Lab Netz', onid: '0xFF16', tsid: '0x0016', lcn: true, eit: true, tdt: true, private_data: 'eacem' } });
+/** Teletext (runner/teletext.py): gleiche Struktur für DVB (dvb.teletext) und PAL (pal.teletext) */
+export const defaultTeletext = () => ({ enable: false, header: 'Muxwright', charset: 'de', initial_page: '100', auto_index: true, folder: '', programs: 'all',
+  pages: [{ page: '101', title: T('Willkommen'), lines: ['{double}{yellow}' + T('Willkommen'), '', '{cyan}' + T('Dies ist eine Teletext-Testseite.'), '', T('Farben:') + ' {red}' + T('rot') + ' {green}' + T('grün') + ' {blue}' + T('blau') + ' {yellow}' + T('gelb')], links: ['100', '', '', ''] }] });
+/** Teletext-Strom im TS: Dateneinheiten je PES wie runner (3 bei DATV-Raten, sonst 7) -> Bitrate inkl. PAT/PMT des Eingangs */
+export function teletextBps(c) { const small = netRate(c) < 2e6; return Math.round(25 * ((small ? 1 : 2) + 0.4) * 188 * 8); }
+/** Grund, warum Teletext im aktuellen Standard nicht geht (oder null) */
+export function teletextBlocked(c) {
+  const std = standardOf(c);
+  if (std === 'pal') return PAL_SYSTEMS[c.pal.system]?.lines === 525 ? T('Teletext nur für 625-Zeilen-Normen (B/G, D/K, I)') : null;
+  if (!['dvbt', 'dvbt2', 'dvbc', 'dvbs'].includes(std) || (std === 'dvbc' && c.dvbc?.annex && c.dvbc.annex !== 'a')) return T('Teletext gibt es nur bei DVB-T/T2/C/S (EN 300 472)');
+  return null;
+}
+const ttxPage = s => /^[1-8][0-9a-f]{2}$/i.test(String(s || '').trim());
+function valTeletext(tt, b, add) {
+  if (!ttxPage(tt.initial_page)) add(`${b}.initial_page`, T('Startseite 100–8FF'));
+  const seen = new Set();
+  (tt.pages || []).forEach((p, i) => {
+    const pb = `${b}.pages.${i}`;
+    if (!ttxPage(p.page)) add(`${pb}.page`, T('Teletext-Seite {n}: Nummer 100–899', { n: i + 1 }));
+    else if (seen.has(String(p.page))) add(`${pb}.page`, T('Teletext-Seite {p} doppelt', { p: p.page })); seen.add(String(p.page));
+    if ((p.lines || []).length > 23) add(`${pb}.lines`, T('Teletext-Seite {p}: höchstens 23 Zeilen', { p: p.page }));
+    const long = (p.lines || []).findIndex(l => String(l || '').replace(/\{([a-zA-Zäöüß-]+)\}/g, '#').length > 40);
+    if (long >= 0) add(`${pb}.lines`, T('Teletext-Seite {p}: Zeile {n} länger als 40 Zeichen', { p: p.page, n: long + 1 }));
+    (p.links || []).forEach(l => { if (l && !ttxPage(l)) add(`${pb}.links`, T('Teletext-Seite {p}: Link {l} ungültig', { p: p.page, l })); });
+  });
+}
+export const defaultDvb = () => ({ teletext: defaultTeletext(), programs: [newProgram('prg1', 1)], si: { network_id: '0xFF16', network_name: 'DAB-Lab Netz', onid: '0xFF16', tsid: '0x0016', lcn: true, eit: true, tdt: true, private_data: 'eacem' } });
 
 /** Videobitraten so setzen, dass der TS passt (85 % der Nettorate auf die Programme verteilt) */
 export function fitPrograms(c) {
@@ -453,10 +479,11 @@ export function normalizeStd(c) {
   // Der Server speichert für den Runner „horizontal“/„vertical“ – das Dashboard arbeitet mit H/V
   c.dvbs.polarization = { horizontal: 'H', vertical: 'V', h: 'H', v: 'V' }[String(c.dvbs.polarization).toLowerCase()] || c.dvbs.polarization;
   const dp = defaultPal(), p0 = migratePal(c.pal || {});
-  c.pal = { ...dp, ...p0, image: { ...dp.image, ...(p0.image || {}) }, sound: { ...dp.sound, ...(p0.sound || {}) } };
+  c.pal = { ...dp, ...p0, image: { ...dp.image, ...(p0.image || {}) }, sound: { ...dp.sound, ...(p0.sound || {}) }, teletext: { ...defaultTeletext(), ...(p0.teletext || {}) } };
   const dd = defaultDvb();
   c.dvb = { ...dd, ...(c.dvb || {}) };
   c.dvb.si = { ...dd.si, ...(c.dvb.si || {}) };
+  c.dvb.teletext = { ...dd.teletext, ...(c.dvb.teletext || {}) };
   c.dvb.programs = (c.dvb.programs || []).map((p, i) => {
     const t = newProgram(p.key || `prg${i + 1}`, i + 1);
     const r = { ...t, ...p };
@@ -581,6 +608,7 @@ export function validateStd(c, add) {
     if (k === 'youtube' && !p.image.file && !p.image.url) add('pal.image.url', T('PAL: YouTube-URL fehlt'));
     if ([...(p.image.text || '')].length > 40) add('pal.image.text', T('Text 1: maximal 40 Zeichen'));
     if ([...(p.image.text2 || '')].length > 40) add('pal.image.text2', T('Text 2: maximal 40 Zeichen'));
+    if (p.teletext?.enable) { const why = teletextBlocked(c); if (why) add('pal.teletext.enable', why); valTeletext(p.teletext, 'pal.teletext', add); }
     if (!['off', 'silence'].includes(p.sound.kind)) {
       if (!(p.sound.deviation_hz >= 1000 && p.sound.deviation_hz <= 75000)) add('pal.sound.deviation_hz', T('Ton-Hub 1–75 kHz (Nenn ±50)'));
       if (p.sound.kind === 'file' && !p.sound.file) add('pal.sound.file', T('PAL: Tondatei fehlt'));
@@ -690,6 +718,13 @@ export function validateStd(c, add) {
       if (p.audio.source.kind === 'file' && !p.audio.source.file) add(`${b}.audio.source.file`, T('{name}: Audiodatei fehlt', { name: p.name }));
       if ([...(p.eit.title || '')].length > 96) add(`${b}.eit.title`, T('{name}: EIT-Titel maximal 96 Zeichen', { name: p.name }));
     });
+    if (c.dvb.teletext?.enable) {
+      const why = teletextBlocked(c);
+      if (why) add('dvb.teletext.enable', why);
+      valTeletext(c.dvb.teletext, 'dvb.teletext', add);
+      const tv = c.dvb.programs.filter(p => p.type === 'tv');
+      if (!tv.length || (Array.isArray(c.dvb.teletext.programs) && !c.dvb.teletext.programs.some(k => tv.some(p => p.key === k)))) add('dvb.teletext.programs', T('Teletext: kein TV-Programm gewählt'));
+    }
     const bud = tsBudget(c);
     if (bud.over) add('tsbudget', T('Transportstrom überbucht: {used} von {net} Mbit/s', { used: (bud.used / 1e6).toFixed(2), net: (bud.net / 1e6).toFixed(2) })
       + (isHam(c) ? T(' – für DATV meist nur ein Programm: Programme entfernen oder Symbolrate erhöhen ({n} Programme)', { n: (c.dvb?.programs || []).length }) : ''));

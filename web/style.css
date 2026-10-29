@@ -853,6 +853,16 @@ dialog.modal h3 .ico { width: 22px; height: 22px; }
 .tile-np span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-np i { flex: 1; min-width: 40px; height: 4px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
 .tile-np i b { display: block; height: 100%; background: var(--accent); }
+/* Teletext (web/js/teletext.js) */
+.ttx-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.ttx-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+@media (max-width: 1100px) { .ttx-layout { grid-template-columns: 1fr; } }
+.ttx-edit { font-size: 13px; line-height: 1.35; white-space: pre; overflow-x: auto; width: 100%; }
+.ttx-screen { background: #000; padding: 8px 10px; border-radius: 8px; font: 15px/1.15 ui-monospace, Consolas, "DejaVu Sans Mono", monospace; display: inline-block; max-width: 100%; overflow-x: auto; }
+.ttx-row { white-space: pre; display: flex; }
+.ttx-row span { display: inline-block; width: 1ch; text-align: center; }
+.ttx-row span.dh { transform: scaleY(2); transform-origin: top; }
+.ttx-row span.dhl { visibility: hidden; }
 /* Live-Vorschau (web/js/preview.js) */
 .pv-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
 .pv-strip.sm { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }

@@ -1,0 +1,12 @@
+{double}{yellow}Wetter
+{cyan}Heute
+{white}Vormittag   {yellow}14 °C  {white}bewölkt
+{white}Nachmittag  {yellow}17 °C  {white}Schauer
+{white}Abend       {yellow}11 °C  {white}trocken
+
+{cyan}Morgen
+{white}Höchstwerte {yellow}12 bis 16 °C
+{white}Wind        {green}schwach aus Südwest
+
+{blue}{bg}{white}Dateiname = Seitennummer (110.txt / 110 Wetter.txt)
+{white}Markierungen wie im Dashboard: {rot}{gelb}...

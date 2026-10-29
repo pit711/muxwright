@@ -13,6 +13,8 @@ import time
 
 import numpy as np
 
+import teletext as TTX
+
 from . import gen, demod
 from .systems import FS_525, SYSTEMS, UNTESTED, channel_lookup, channel_table, default_offset, loop_s
 
@@ -93,7 +95,43 @@ def normalize(raw):
     rf.setdefault("enabled", False)
     if p["image"]["kind"] in ("file",) and not p["image"].get("file"):
         E.append("pal.image.file fehlt")
+    tt = p.setdefault("teletext", {})
+    if tt.get("enable"):
+        if sysd["lines"] != 625:
+            E.append("pal.teletext: nur fuer 625-Zeilen-Normen (B/G, D/K, I)")
+        E += ["pal." + e for e in TTX.config_defaults(tt)]
     return c, E, W
+
+
+def carousel(host, c, log=None):
+    """Teletext-Karussell der PAL-Konfiguration oder None."""
+    tt = c["pal"].get("teletext") or {}
+    if not tt.get("enable"):
+        return None
+    if tt.get("folder"):
+        from dvb import sources as dsrc
+        tt["_folder_path"] = dsrc.host_path(host, tt["folder"])
+    img = c["pal"]["image"]
+    return TTX.Carousel(tt, [{"name": "PAL %s" % c["pal"]["system"], "now": img.get("text") or ""}], log)
+
+
+def loop_packets(car, log=None):
+    """Schleife (4 Vollbilder x 32 Zeilen = 128 Pakete): nur ganze Seiten, die hineinpassen; Uhr steht."""
+    if car is None:
+        return None
+    slots = gen.FRAMES * len(TTX.VBI_LINES)
+    out, skipped = [], []
+    for num in car.order:
+        for pg in car.groups[num]:
+            pk = car.packets_for(pg)
+            if len(out) + len(pk) <= slots:
+                out += pk
+            else:
+                skipped.append("%03x" % pg.page)
+    if skipped and log:
+        log("warn", "Teletext in der Standbild-Schleife: Platz fuer %d Zeilen, Seiten %s fehlen (Live-Betrieb sendet alle)"
+            % (slots, ", ".join(skipped)))
+    return out or None
 
 
 def params(c, live=False):
@@ -122,12 +160,14 @@ def _still_rgb(host, c):
     return gen.ffmpeg_image(host, img, h=480 if SYSTEMS[c["pal"]["system"]]["lines"] == 525 else 576)
 
 
-def stream_loop(host, c, rgb):
+def stream_loop(host, c, rgb, ttx=None):
     """Schleife ueber den Strom-Encoder (4 Vollbilder, periodisch) - fuer den Vergleich mit dem FFT-Verfahren."""
     p = params(c)
     enc = gen.StreamEncoder(p)
     Y, Pb, Pr = _rgb_to_ypbpr(rgb, enc.act_len)
-    vid = np.concatenate([enc.frame(Y, Pb, Pr, k) for k in range(gen.FRAMES)])
+    n = len(TTX.VBI_LINES)
+    vid = np.concatenate([enc.frame(Y, Pb, Pr, k, [ttx[(k * n + i) % len(ttx)] for i in range(n)] if ttx else None)
+                          for k in range(gen.FRAMES)])
     snd = gen.sound_loop(p, len(vid), p["fs"])
     s = vid + snd
     s = s / np.max(np.abs(s)) * p["level"]
@@ -157,10 +197,11 @@ def cmd_render(args, host):
         return 2
     t0 = time.time()
     rgb = _still_rgb(host, c)
+    ttx = loop_packets(carousel(host, c, host.log), host.log)
     if getattr(args, "method", "fft") == "stream":
-        s, rep = stream_loop(host, c, rgb)
+        s, rep = stream_loop(host, c, rgb, ttx)
     else:
-        s, rep = gen.loop_iq(params(c), rgb)
+        s, rep = gen.loop_iq(params(c), rgb, ttx)
     fmt = "cf32" if args.format == "cf32" else "s16"
     gen.to_int16(s, args.out, fmt)
     out = {"ok": True, "out": os.path.abspath(args.out), "format": fmt, "bytes": os.path.getsize(args.out),
@@ -188,8 +229,9 @@ def cmd_check(args, host):
     if SYSTEMS[p["system"]]["lines"] == 525:
         methods = ["fft"]                         # 525 Zeilen: nur Standbild-Schleife (kein Strom-Encoder)
     rep = {"ok": True, "standard": "pal", "session": sid, "summary": summary(c), "warnings": W, "methods": {}, "mismatches": []}
+    ttx = loop_packets(carousel(host, c, host.log), host.log)
     for mth in methods:
-        s, spec = (gen.loop_iq(params(c), rgb) if mth == "fft" else stream_loop(host, c, rgb))
+        s, spec = (gen.loop_iq(params(c), rgb, ttx) if mth == "fft" else stream_loop(host, c, rgb, ttx))
         iq = gen.to_int16(s)                      # wie gesendet: int16
         x = (iq[0::2].astype(np.float64) + 1j * iq[1::2]) / 32768.0
         xx = np.concatenate([x, x])               # zwei Schleifendurchlaeufe -> Schleifenstelle mitten im Bild
@@ -267,13 +309,13 @@ def _winit(p):
 
 
 def _wframe(job):
-    k, raw = job
+    k, raw, ttx = job
     a = _ENC.act_len
     f = np.frombuffer(raw, np.uint8).reshape(3, 576, a).astype(np.float32)
     Y = (f[0] - 16.0) / 219.0
     Pb = _chroma_lp((f[1] - 128.0) / 224.0)
     Pr = _chroma_lp((f[2] - 128.0) / 224.0)
-    return _ENC.frame(Y, Pb, Pr, k)
+    return _ENC.frame(Y, Pb, Pr, k, ttx)
 
 
 def _source_cmd(host, c, act_len, sr, afd):
@@ -372,13 +414,18 @@ def cmd_live(args, host):
     abuf = bytearray()
     rc = 0
 
+    car = carousel(host, c, host.log)
+    if car:
+        host.log("info", "Teletext: %d Seiten in den Austastzeilen" % len(car.pages), teletext=car.page_list())
+
     def reader():
         k = 0
         while stop["why"] is None:
             raw = src.stdout.read(fb)
             if not raw or len(raw) < fb:
                 return
-            yield (k, raw)
+            ttx = [x for x in (car.next_packet() for _ in TTX.VBI_LINES) if x] if car else None
+            yield (k, raw, ttx)
             k += 1
 
     try:

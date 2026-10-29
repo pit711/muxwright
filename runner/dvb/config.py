@@ -7,6 +7,8 @@ from fractions import Fraction
 
 from . import tables as T
 
+import teletext as TTX
+
 VIDEO_SIZES = {"uhd": (3840, 2160), "2160p": (3840, 2160), "4k": (3840, 2160), "sd": (720, 576), "hd": (1920, 1080), "1080p": (1920, 1080), "720p": (1280, 720), "576p": (720, 576),
                "480p": (720, 480), "qsd": (352, 288)}
 VIDEO_CODECS = ("mpeg2", "h264", "hevc")
@@ -135,6 +137,8 @@ def from_dashboard(raw):
                                    "channels": a.get("channels", 2), "samplerate": a.get("samplerate", 48000)},
                          "source": src, "eit": e})
         c["services"] = svcs
+    if dv.get("teletext") and "teletext" not in c:
+        c["teletext"] = copy.deepcopy(dv["teletext"])
     if "output" not in c:
         path = (c.get("rf") or {}).get("path")
         if path == "pluto":
@@ -624,6 +628,22 @@ def normalize(raw):
         s["_apid"] = ts["start_pid"] + 16 * i + 1 if a["codec"] != "none" else None
         s["_pcr_pid"] = s["_vpid"] if s["type"] == "tv" else s["_apid"]
 
+    # -- Teletext (EN 300 472): ein Teletext-Strom, in den PMTs der gewaehlten Programme --
+    tt = cfg.get("teletext") or {}
+    cfg["teletext"] = tt
+    if tt.get("enable"):
+        if std not in ("dvbt", "dvbt2", "dvbc", "dvbs") or T.is_psip(cfg):
+            E.append("teletext: nur DVB-T/T2/C/S (nicht %s)" % std.upper())
+        E += TTX.config_defaults(tt)
+        tv = [s["key"] for s in svcs if s.get("type") == "tv"]
+        want = tt.get("programs") or "all"
+        tt["_programs"] = tv if want == "all" else [k for k in want if k in tv]
+        if not tt["_programs"]:
+            E.append("teletext.programs: kein TV-Programm gewaehlt")
+        tt["units"] = int(tt.get("units") or (3 if cfg["_rate_bps"] < 2e6 else 7))
+        tt["_pid"] = ts["start_pid"] + 16 * len(svcs)
+        tt["_bps"] = TTX.dvb_bitrate(tt["units"])
+
     # -- Ausgabe --
     out = cfg.setdefault("output", {})
     out["kind"] = str(out.get("kind", "stdout")).lower()
@@ -650,7 +670,7 @@ def _budget(cfg, W):
     Reserve: SI-Tabellen + Nullpakete ~ 4 %, PES/TS-Overhead Video ~ 3 %, Audio-TS-Overhead ~ 8 %."""
     R = cfg["_rate_bps"]
     # PAT/PMT je Bild + NIT/SDT (ffmpeg, per tsp ersetzt): bei großen Raten pauschal 250 kbit/s, bei DATV-Raten ~ 8 %
-    si = (250000 if R >= 4e6 else max(25000, 0.08 * R)) + cfg["ts"]["eit_bitrate"] + cfg["ts"]["tdt_bitrate"]
+    si = (250000 if R >= 4e6 else max(25000, 0.08 * R)) + cfg["ts"]["eit_bitrate"] + cfg["ts"]["tdt_bitrate"] +         (cfg["teletext"].get("_bps", 0) if cfg["teletext"].get("enable") else 0)
     audio = sum(s["audio"]["bitrate_kbps"] * 1000 * 1.08 for s in cfg["services"])
     avail = R * 0.96 - si - audio
     autos = [s for s in cfg["services"] if s["type"] == "tv" and str(s["video"]["bitrate_kbps"]).lower() == "auto"]

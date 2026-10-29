@@ -238,7 +238,8 @@ def ffprobe_programs(host, path):
 def decode_test(host, path, service_id, seconds=4, has_video=True):
     """ffmpeg dekodiert ein Programm in den Null-Muxer; Rueckgabe: Frames/Zeit, Fehlerzeilen."""
     ff = host.tool("ffmpeg")
-    cmd = [ff, "-nostdin", "-v", "error", "-threads", "2", "-t", str(seconds), "-i", path, "-map", "0:p:%d" % service_id,
+    cmd = [ff, "-nostdin", "-v", "error", "-threads", "2", "-t", str(seconds), "-i", path, "-map", "0:p:%d:v?" % service_id,
+           "-map", "0:p:%d:a?" % service_id,       # nur Bild/Ton (Teletext kann der Null-Muxer nicht)
            "-progress", "pipe:1", "-f", "null", "-"]
     rc, out, err = _run(cmd, timeout=180)
     frames = 0

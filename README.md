@@ -4,9 +4,9 @@
 DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
 on the Pluto's own RX input, expected/actual reports and printable test records. Since Beta 0.3 also ATSC, ISDB-T/Tb,
 DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS; since Beta 0.4 DVB-T2 (marked *untested* until verified with real
-receivers).
+receivers); since Beta 0.5 teletext, a live preview of the transmitted pictures and image-folder infoscreens.
 
-Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.4**
+Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.5**
 
 This repository contains the complete source. There are no binary releases here – build it yourself (see [Running from source](#running-from-source) and [Building the installer](#building-the-installer)) or request the installer on the website.
 
@@ -48,7 +48,18 @@ This repository contains the complete source. There are no binary releases here 
 | **Guided setup** | Device and firmware check, PC performance rating (CPU/NVENC), operating mode (lab / amateur radio), legal confirmations, component installation |
 | **Firmware flasher** | Verifies the bundled Pluto firmware, tests it in RAM first, backs up the running firmware, flashes only after confirmation |
 | **20 languages** | Dashboard, setup and website: de en fr es pt it nl pl cs sv ru uk tr ar hi zh ja ko id vi |
+| **Live preview** | Thumbnails of every transmitted TV programme, decoded from the finished transport stream (keyframes, about 1–2 pictures per second) – on the Regie tile and the programme page |
 | **No codecs shipped** | FFmpeg, x264/x265, ODR-mmbTools with FDK-AAC, TSDuck and welle-cli are installed by the user from the official sources (see [Licences and codecs](#licences-and-codecs)) |
+
+### New in Beta 0.5
+
+| Feature | Details | Verification so far |
+|---|---|---|
+| **Teletext (DVB)** | EN 300 472 teletext stream (stream type 0x06, `teletext_descriptor`) in the PMT of every selected programme, ≈ 90 kbit/s; pages from the dashboard editor (40×23 with colour tags, Fastext links), from a folder of `.tti`/`.txt` files (re-read every 2 s) and an automatic index page 100; rolling clock in the header, German/English national character set | decoded with libzvbi (FFmpeg `libzvbi_teletextdec`) from the multiplexed, regulated stream incl. umlauts; *untested* on TVs |
+| **Teletext (PAL)** | VBI lines 7–22 and 320–335, 6.9375 Mbit/s NRZ at 66 % white; live mode carries all pages, the 160 ms still-picture loop only the pages that fit into 128 lines (≈ 5) | IQ → synchronous demodulation → slicer → libzvbi: 128/128 lines bit-exact for the loop (FFT and stream method) and the live encoder; *untested* on TVs |
+| **Image folder (infoscreen)** | Always sends the newest image of a folder (JPG/PNG/BMP/WebP, polled every 0.5 s); low-latency encoding (no B-frames/lookahead, 0.2 s mux delay, small TSDuck buffer) | new image visible in the preview after 0.9–2.6 s (measured); add the receiver's own delay |
+| **Programmes without audio** | Audio codec "none": TV programme with video only, e.g. 3–4 infoscreens on one DVB-C channel | PMT and decoder check without audio stream |
+| **AMD GPU encoder** | `h264_amf` / `hevc_amf` through the Windows FFmpeg, same sources as NVENC | *untested* – no AMD card in the lab, feedback welcome |
 
 ## How it works
 

@@ -11,6 +11,7 @@ import { pageFM, pageRDS } from './js/fm.js';
 import { pageModulation, pagePrograms, pageSI, tsBudgetBar } from './js/dvb.js';
 import * as STD from './js/standards.js';
 import { pagePAL } from './js/pal.js';
+import { pageTeletext } from './js/teletext.js';
 import { pageRegie, rememberRf } from './js/regie.js';
 import { APP_NAME, APP_SUB, APP_VERSION } from './js/brand.js';
 import { pageFirmware } from './js/firmware.js';
@@ -30,7 +31,9 @@ const ALL_PAGES = [
   { id: 'modulation', std: 'dvb', title: T('Modulation'), sub: T('Bandbreite, QAM, Coderate'), icon: 'wave', render: pageModulation, err: p => /^(dvb[tcs]|dvbt2|atsc|isdbt|dtmb)\./.test(p) },
   { id: 'programme', std: 'dvb', title: T('Programme'), sub: T('Transportstrom, Video, Audio'), icon: 'tv', render: pagePrograms, err: p => p.startsWith('dvb.programs') || p === 'tsbudget' },
   { id: 'si', std: 'dvb', title: T('SI-Tabellen'), sub: 'NIT, SDT, LCN, EIT', icon: 'layers', render: pageSI, err: p => p.startsWith('dvb.si') },
-  { id: 'pal', std: 'pal', title: T('Bild & Ton'), sub: T('Testbild, Text, Ton'), icon: 'tv', render: pagePAL, err: p => p.startsWith('pal.') },
+  { id: 'teletext', std: 'dvb', title: 'Teletext', sub: T('Seiten, Ordner, Fastext'), icon: 'text', render: pageTeletext, err: p => p.startsWith('dvb.teletext') },
+  { id: 'pal', std: 'pal', title: T('Bild & Ton'), sub: T('Testbild, Text, Ton'), icon: 'tv', render: pagePAL, err: p => p.startsWith('pal.') && !p.startsWith('pal.teletext') },
+  { id: 'videotext', std: 'pal', title: 'Teletext', sub: T('Seiten in der Austastlücke'), icon: 'text', render: pageTeletext, err: p => p.startsWith('pal.teletext') },
   { id: 'medien', title: T('Medien & Playlists'), short: T('Medien'), sub: T('Bibliothek, Playlists'), icon: 'playlist', render: pageMedia, err: () => false },
   { id: 'pruefen', title: T('Prüfen'), sub: T('Offline & Kontrollempfang'), icon: 'scan', render: pageCheck, err: () => false },
   { id: 'presets', title: T('Presets & Testpläne'), short: T('Presets'), sub: T('Vorlagen, Protokoll'), icon: 'checklist', render: pagePresets, err: () => false },

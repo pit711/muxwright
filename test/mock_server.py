@@ -966,6 +966,8 @@ class H(BaseHTTPRequestHandler):
             return self.send_json({"files": [{"name": "muxwright-2026-10-23.log", "size": 2048}], "file": "muxwright-2026-10-23.log", "entries": ents, "total": 2})
         if p == "/api/events":
             return self.sse()
+        if p == "/api/preview":            # Live-Vorschau: der Mock sendet keinen Transportstrom -> keine Bilder
+            return self.send_json({"ok": True, "session": None, "items": []})
         if p == "/api/media":
             files = [media_item(f) for f in sorted(MEDIA.iterdir()) if f.is_file()]
             vd = MEDIA / "video"

@@ -132,8 +132,9 @@ def active_row(L, lines=625):
 
 
 # --------------------------------------------------------------------------------------------- 1. Standbild-Schleife
-def loop_iq(p, rgb):
-    """p: Parameter (system, fs, offset_hz, level, sound{...}). rgb: (576, 720, 3) 0..1.
+def loop_iq(p, rgb, ttx=None):
+    """p: Parameter (system, fs, offset_hz, level, sound{...}). rgb: (576, 720, 3) 0..1. ttx: Teletext-Pakete fuer die
+    Austastzeilen der vier Vollbilder (teletext.VBI_LINES, der Reihe nach, zyklisch aufgefuellt).
     -> (komplexes Signal (np.complex128, Laenge fs*0,16), Bericht)."""
     sysd = SYSTEMS[p["system"]]
     LN, LS, FSCX, FR = sysd["lines"], sysd["line_s"], sysd["fsc"], sysd["frames"]
@@ -183,6 +184,12 @@ def loop_iq(p, rgb):
                 sl = slice(base + act0, base + act0 + act_len)
                 Yb[sl], Ub[sl], Vb[sl] = rows[r]
                 active_mask[sl] = 1.0
+    if ttx:
+        from teletext import VBI_LINES, vbi_line
+        slots = [(f, L) for f in range(FR) for L in VBI_LINES]
+        for i, (f, L) in enumerate(slots):
+            base = (f * LN + L - 1) * spl
+            v[base: base + spl] += vbi_line(ttx[i % len(ttx)], spl, LS)
     f_hi = np.fft.fftfreq(N, 1 / FS_HI)
 
     def lp(x, fc, tr):
@@ -319,6 +326,8 @@ class StreamEncoder:
         aw[-ramp:] = aw[:ramp][::-1]
         self.aw = aw
         self.lines_idx = np.array([L - 1 for L in range(1, LINES + 1) if active_row(L) is not None])
+        from teletext import VBI_LINES
+        self.vbi_idx = np.array(VBI_LINES) - 1
         self.rows_idx = np.array([active_row(L) for L in range(1, LINES + 1) if active_row(L) is not None])
         tl = np.arange(self.spl) / self.fh
         ta = (self.act0 + np.arange(self.act_len)) / self.fh
@@ -363,11 +372,16 @@ class StreamEncoder:
         self.hist = (tail_env[-(self.taps - 1):] * self.mix[-(self.taps - 1):]).astype(np.complex64)
         self.vid_scale = 1.0
 
-    def frame(self, Y, Pb, Pr, k):
-        """Y (576, act_len) 0..1, Pb/Pr (576, act_len) -0,5..0,5 (bereits tiefpassgefiltert). -> complex64 (fs*0,04)."""
+    def frame(self, Y, Pb, Pr, k, ttx=None):
+        """Y (576, act_len) 0..1, Pb/Pr (576, act_len) -0,5..0,5 (bereits tiefpassgefiltert); ttx: bis zu 32 Teletext-
+        Pakete fuer die Austastzeilen (teletext.VBI_LINES). -> complex64 (fs*0,04)."""
         from scipy import signal
         k %= FRAMES
         v = self.base[k].copy()
+        if ttx:
+            from teletext import vbi_line
+            for i, pk in enumerate(ttx[:len(self.vbi_idx)]):
+                v[self.vbi_idx[i]] += vbi_line(pk, self.spl, LINE_S)
         U = 0.8736 * Pb[self.rows_idx]
         V = 1.2296 * Pr[self.rows_idx]
         act = (Y[self.rows_idx] * (0.7 * self.aw)) + U * self.S[k] + V * self.C[k]

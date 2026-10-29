@@ -455,7 +455,7 @@ function prgVideo(p, base) {
     params.push(field(T('Ordner'), input(`${ps}.folder`, { tid: 'vid-folder', mono: true, ph: 'C:\Infoscreen\Kanal1' }),
       { path: `${ps}.folder`, wide: true, hint: T('Gesendet wird immer das neueste Bild (JPG/PNG/BMP/WebP) im Ordner; dieselbe Datei darf auch überschrieben werden.') }));
     params.push(field(T('Prüfintervall (s)'), input(`${ps}.poll_s`, { type: 'number', min: 0.2, max: 10, step: 0.1, tid: 'vid-folder-poll', mono: true }),
-      { hint: T('Latenzarm: ohne B-Bilder und Lookahead, kleiner Puffer. Neues Bild nach etwa 1–2 s am TV (je nach Receiver).') }));
+      { hint: T('Latenzarm: ohne B-Bilder und Lookahead, kleiner Puffer. Neues Bild nach etwa 2–3 s am TV (je nach Receiver).') }));
   }
   if (src.kind === 'youtube') params.push(youtubeField(src, ps));
   if (src.kind === 'playlist') {

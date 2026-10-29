@@ -1,0 +1,13 @@
+DE,Beispiel im Teletext-Rohformat (.tti)
+PN,12000
+SC,0000
+PS,8000
+OL,1,Teletext-Rohformat (.tti)
+OL,3,Zeichen sind Teletext-Codes: deutsche Umlaute
+OL,4,stehen als { | } [ \ ] ~ (Zeichensatz Deutsch).
+OL,6,Steuerzeichen: ESC + Code+0x40, z. B. ESC A = rot.
+OL,7,Gelb:CText in Gelb
+OL,9,FL-Zeile: Fastext-Links rot/gr}n/gelb/cyan/
+OL,10,naechste/Index.
+OL,24,A100      B110      C120      F100
+FL,100,110,120,100,8ff,100
