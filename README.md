@@ -4,9 +4,11 @@
 DVB-T, DVB-C, DVB-S/S2 (SD to UHD/HDR10), analogue PAL and amateur-radio DATV for QO-100 – with a monitoring receiver
 on the Pluto's own RX input, expected/actual reports and printable test records. Since Beta 0.3 also ATSC, ISDB-T/Tb,
 DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS; since Beta 0.4 DVB-T2 (marked *untested* until verified with real
-receivers); since Beta 0.5 teletext, a live preview of the transmitted pictures and image-folder infoscreens.
+receivers); since Beta 0.5 teletext and image-folder infoscreens; since Beta 0.6 a monitoring receiver on the Pluto's
+RX path (received picture, MER, constellation), logo/text overlays, network streams (SRT/RTMP/OBS), a schedule with EIT
+programme guide and experimental HbbTV signalling.
 
-Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.5**
+Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.6**
 
 This repository contains the complete source. There are no binary releases here – build it yourself (see [Running from source](#running-from-source) and [Building the installer](#building-the-installer)) or request the installer on the website.
 
@@ -48,8 +50,20 @@ This repository contains the complete source. There are no binary releases here 
 | **Guided setup** | Device and firmware check, PC performance rating (CPU/NVENC), operating mode (lab / amateur radio), legal confirmations, component installation |
 | **Firmware flasher** | Verifies the bundled Pluto firmware, tests it in RAM first, backs up the running firmware, flashes only after confirmation |
 | **20 languages** | Dashboard, setup and website: de en fr es pt it nl pl cs sv ru uk tr ar hi zh ja ko id vi |
-| **Live preview** | Thumbnails of every transmitted TV programme, decoded from the finished transport stream (keyframes, about 1–2 pictures per second) – on the Regie tile and the programme page |
+| **Live preview** | Every transmitted TV programme as smooth video (about 12 frames/s) decoded from the finished transport stream, next to the picture received back through the Pluto's RX path – on the Regie tile and the programme page, enlarge with a click |
 | **No codecs shipped** | FFmpeg, x264/x265, ODR-mmbTools with FDK-AAC, TSDuck and welle-cli are installed by the user from the official sources (see [Licences and codecs](#licences-and-codecs)) |
+
+### New in Beta 0.6
+
+| Feature | Details | Verification so far |
+|---|---|---|
+| **Monitoring receiver (RX picture)** | While the preview is open, the Pluto's RX path captures ~1.8 s at the TX channel (`iio_readdev`, 4 M-sample blocks), transferred over USB via a short-lived HTTP server, decoded with GNU Radio gr-dtv (DVB-T) or the DVB-C/S decoders; first keyframe per programme, RX gain tracks clipping | live on a Pluto (K21, 64-QAM 2/3): picture every ~48 s, 0 transport errors, 0 DAC underflows |
+| **MER and constellation** | Equalised data cells tapped after gr-dtv's reference-signal block; robust MER estimate (DC carriers of the zero-IF receiver and outlier cells excluded and reported), constellation in the preview and the test protocol | 27.9–28.6 dB on the Pluto; 34.3 dB in the IQ loopback of the installer test |
+| **Logo and text overlay** | PNG/JPG logo (position, size, opacity) and a text line or scrolling ticker per TV programme; text changeable live via `ctl` without restarting the chain; CPU encoder only | rendered and inspected frame by frame, live text change during a 60 s render |
+| **Network stream source** | Pull `srt://`, `udp://`, `rtp://`, `rtmp://`, HLS; listen mode as OBS target (RTMP with stream key, SRT); feeder with fixed frame clock, fallback picture and automatic reconnect – the TS rate never changes | stream starting late, dropping and returning: PCR jitter 0, no DTS jumps; LAN/SRT listening needs the optional Windows FFmpeg |
+| **Schedule** | Running order per programme by time and weekday (file, playlist, test pattern, image folder), frame-exact switching without restarting the chain, EIT present/following and EIT schedule (0x50) for 48 h | switching at the planned frame, EIT p/f within 0.6 s; *untested* on TV EPGs |
+| **HbbTV signalling** | AIT (table 0x74) per programme on its own PID, PMT entry stream type 0x05 with `application_signalling_descriptor`, AUTOSTART or PRESENT | `tstables`/`tsanalyze` decode the AIT, repetition 1 s; *experimental*, *untested* on TVs |
+| **Setup** | New required component GNU Radio gr-dtv (Ubuntu package); parallel compile jobs follow the free memory (8 GB PCs); Windows FFmpeg now from BtbN n8.1 (n7.1 was removed upstream) | headless installer test with WSL limited to 4 GB |
 
 ### New in Beta 0.5
 
