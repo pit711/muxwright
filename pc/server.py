@@ -1112,7 +1112,7 @@ class App:
                 if not E and n["isdbt"]["layers"] == 2:
                     mcfg = copy.deepcopy(mcfg)
                     mcfg.setdefault("isdbt", {})["_layer_a_pids"] = [p for s in n["services"] if s.get("oneseg")
-                                                                     for p in (s.get("_pmt_pid_out", s["_pmt_pid"]), s["_vpid"], s["_apid"])]
+                                                                     for p in (s.get("_pmt_pid_out", s["_pmt_pid"]), s["_vpid"], s["_apid"]) if p is not None]
             cmd, margs, opts = agentmod.modulator_command(std, mcfg, self.args.device_udp_port,
                                                          self.args.device_mod_dir, lo_hz=lo, window=self.args.device_window,
                                                          fir=fir, rfbw_hz=rfbw)
@@ -1622,6 +1622,35 @@ class App:
         except Exception as e:
             self.runner_ok = False
             log("warn", f"Backend-Prüfung: {e}")
+
+    # ---------------------------------------------------------------- Vorschau
+    def _preview_dir(self):
+        if self.source != "runner" or not self.session or self.stream is None:
+            return None
+        return os.path.join(RUNTIME, "sessions", self.session, "preview")
+
+    def preview_list(self):
+        """Vorschaubilder der laufenden DVB-Sitzung (runner/dvb/chain.py schreibt preview/<key>.jpg, ~1–2 Bilder/s)."""
+        d = self._preview_dir()
+        items = []
+        if d and os.path.isdir(d):
+            now = time.time()
+            for fn in sorted(os.listdir(d)):
+                if fn.endswith(".jpg"):
+                    try:
+                        t = os.path.getmtime(os.path.join(d, fn))
+                    except OSError:
+                        continue
+                    items.append({"key": fn[:-4], "t": t, "age_s": round(now - t, 1)})
+        return {"ok": True, "session": self.session if d else None, "items": items}
+
+    def preview_file(self, name):
+        d = self._preview_dir()
+        m = re.match(r"^([a-z0-9_]+)\.jpg$", name or "")
+        if not d or not m:
+            return None
+        fp = os.path.join(d, m.group(0))
+        return fp if os.path.isfile(fp) else None
 
     # ---------------------------------------------------------------- state
     def state(self):
@@ -2497,6 +2526,14 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(404, {"ok": False, "error": "Preset nicht gefunden"})
                 with open(fp, encoding="utf-8") as f:
                     return self._send(200, json.load(f))
+            if p == "/api/preview":
+                return self._send(200, APP.preview_list())
+            if p.startswith("/api/preview/"):
+                fp = APP.preview_file(unquote(p[len("/api/preview/"):]))
+                if not fp:
+                    return self._send(404, {"ok": False, "error": "keine Vorschau"})
+                with open(fp, "rb") as f:
+                    return self._send(200, f.read(), "image/jpeg")
             if p.startswith("/api/"):
                 return self._send(404, {"ok": False, "error": "unbekannter Pfad"})
             if p.startswith("/media/"):

@@ -204,13 +204,23 @@ def write_concat(host, path, dur, list_path, windows):
 def encoder_args(svc):
     v = svc["video"]
     hd = v.get("hdr") or {}
-    codec = "hevc_nvenc" if v["codec"] == "hevc" else "h264_nvenc"
+    hevc = v["codec"] == "hevc"
     br = int(float(v["bitrate_kbps"]) * 1000)
     fps = int(v["fps"])
-    a = ["-c:v", codec, "-preset", v.get("nv_preset", "p4"), "-tune", "hq", "-rc", "cbr", "-b:v", str(br),
-         "-maxrate", str(br), "-bufsize", str(int(br * float(v.get("vbv_s", 0.5)))), "-g", str(fps),
-         "-keyint_min", str(fps), "-forced-idr", "1", "-bf", "0", "-aud", "1", "-spatial-aq", "1",
-         "-force_key_frames", "expr:gte(t,n_forced*1)"]
+    buf = str(int(br * float(v.get("vbv_s", 0.5))))
+    if v.get("encoder") == "amf":
+        # AMD AMF (ungetestet: keine AMD-Karte im Labor). CBR mit Fuellbits, IDR je Sekunde, SPS/PPS(/VPS) vor jedem IDR
+        a = ["-c:v", "hevc_amf" if hevc else "h264_amf", "-usage", "transcoding", "-quality", v.get("amf_quality", "balanced"),
+             "-rc", "cbr", "-b:v", str(br), "-maxrate", str(br), "-bufsize", buf, "-enforce_hrd", "1", "-filler_data", "1",
+             "-g", str(fps), "-forced_idr", "1", "-bf", "0", "-aud", "1",
+             "-force_key_frames", "expr:gte(t,n_forced*1)"]
+        if hevc:
+            a += ["-header_insertion_mode", "idr"]
+    else:
+        a = ["-c:v", "hevc_nvenc" if hevc else "h264_nvenc", "-preset", v.get("nv_preset", "p4"), "-tune", "hq", "-rc", "cbr",
+             "-b:v", str(br), "-maxrate", str(br), "-bufsize", buf, "-g", str(fps),
+             "-keyint_min", str(fps), "-forced-idr", "1", "-bf", "0", "-aud", "1", "-spatial-aq", "1",
+             "-force_key_frames", "expr:gte(t,n_forced*1)"]
     ten = v["codec"] == "hevc" and (v.get("bit_depth", 8) == 10 or hd.get("mode") in ("hdr10", "hlg"))
     if v["codec"] == "hevc":
         a += ["-profile:v", "main10" if ten else "main", "-pix_fmt", "p010le" if ten else "yuv420p"]
@@ -229,11 +239,13 @@ def encoder_args(svc):
 
 
 def build(chain, svc):
-    """Startet den Windows-Encoder fuer einen Dienst. -> dict(inputs=[...], vin, ain, af, pass_fds=[...], info)."""
+    """Startet den Windows-Encoder (NVENC oder AMF) fuer einen Dienst. -> dict(inputs=[...], vin, ain, af, pass_fds=[...], info)."""
     host, cfg, log = chain.host, chain.cfg, chain.log
-    if not available():
-        raise host.RunnerError("NVENC: Windows-ffmpeg nicht gefunden (%s, DABLAB_WIN_FFMPEG)" % win_exe())
     v, src = svc["video"], svc["source"]
+    enc = v.get("encoder", "nvenc")
+    label = "AMF" if enc == "amf" else "NVENC"
+    if not available():
+        raise host.RunnerError("%s: Windows-ffmpeg nicht gefunden (%s, DABLAB_WIN_FFMPEG)" % (label, win_exe()))
     w, h = v["_wh"]
     fps = int(v["fps"])
     kind = src["kind"]
@@ -241,7 +253,7 @@ def build(chain, svc):
     os.makedirs(cdir, exist_ok=True)
     win_in, vf = [], ["fps=%d" % fps, "scale=%d:%d:force_original_aspect_ratio=decrease:flags=bicubic" % (w, h),
                       "pad=%d:%d:(ow-iw)/2:(oh-ih)/2" % (w, h), "setsar=1"]
-    info = {"encoder": "nvenc", "kind": kind}
+    info = {"encoder": enc, "kind": kind}
     audio = None                                 # (linux_inputs, af)
     probe = {}
     if kind in ("file", "youtube"):
@@ -258,15 +270,17 @@ def build(chain, svc):
             raise host.RunnerError("Videodatei fehlt: %s" % path)
         probe = probe_video(host, path)
         info.update({"file": path, "duration_s": probe["duration"], "source_hdr_side_data": probe["hdr_side_data"]})
-        # CUDA-Dekodierung nur fuer Formate, die die GPU kann (Pascal: H.264, HEVC 8/10 bit, VP9, MPEG-2); AV1 per libdav1d
-        dec = ["-hwaccel", "cuda"] if probe.get("codec") in ("h264", "hevc", "vp9", "mpeg2video", "vc1", "mpeg4") else []
+        # GPU-Dekodierung nur fuer Formate, die die GPU kann (Pascal: H.264, HEVC 8/10 bit, VP9, MPEG-2); AV1 per libdav1d.
+        # NVIDIA: CUDA; AMD: D3D11VA (Bilder werden automatisch in den Hauptspeicher kopiert)
+        hw = "d3d11va" if enc == "amf" else "cuda"
+        dec = ["-hwaccel", hw] if probe.get("codec") in ("h264", "hevc", "vp9", "mpeg2video", "vc1", "mpeg4") else []
         if probe.get("codec") == "av1":
             if not win_has_decoder("libdav1d"):
-                raise host.RunnerError("NVENC: %s ist AV1 - die GPU (Pascal) dekodiert kein AV1 und das Windows-ffmpeg hat kein "
+                raise host.RunnerError("%s: %s ist AV1 - die GPU dekodiert kein AV1 und das Windows-ffmpeg hat kein "
                                        "libdav1d. Quelle vorher umwandeln (z. B. ffmpeg -i x.mp4 -c:v libx264 -crf 16 y.mp4) "
-                                       "oder ein ffmpeg-full-Build verwenden." % os.path.basename(path))
+                                       "oder ein ffmpeg-full-Build verwenden." % (label, os.path.basename(path)))
             dec = ["-c:v", "libdav1d"]
-        info["decoder"] = "cuda" if dec[:1] == ["-hwaccel"] else (dec[1] if dec else "software")
+        info["decoder"] = hw if dec[:1] == ["-hwaccel"] else (dec[1] if dec else "software")
         if src.get("loop", True) and probe["duration"]:
             lw = write_concat(host, path, probe["duration"], os.path.join(cdir, "%s_%s_win.ffconcat" % (chain.sid, svc["key"])), True)
             win_in = dec + ["-f", "concat", "-safe", "0", "-i", winpath(lw)]
@@ -299,7 +313,7 @@ def build(chain, svc):
         win_in = ["-f", "lavfi", "-i", "ddagrab=output_idx=%d:framerate=%d" % (int(src.get("output", 0)), fps)]
         vf.insert(0, "hwdownload,format=bgra")
     else:
-        raise host.RunnerError("NVENC: Quelle %s nicht unterstuetzt (file, youtube, testpattern, dshow, gdigrab, ddagrab)" % kind)
+        raise host.RunnerError("%s: Quelle %s nicht unterstuetzt (file, youtube, testpattern, dshow, gdigrab, ddagrab)" % (label, kind))
     hd = v.get("hdr") or {}
     ten = v["codec"] == "hevc" and (v.get("bit_depth", 8) == 10 or hd.get("mode") in ("hdr10", "hlg"))
     vf.append("format=%s" % ("p010le" if ten else "yuv420p"))
@@ -308,23 +322,23 @@ def build(chain, svc):
            "-filter_threads", "2"] + win_in + ["-map", "0:v:0", "-vf", ",".join(vf), "-an"] + encoder_args(svc) + \
         ["-f", "hevc" if v["codec"] == "hevc" else "h264", "pipe:1"]
     # HDR10-SEI: NVENC uebernimmt Mastering-Display/CLL aus der Quelle (nachgewiesen); fehlen sie (SDR-Quelle als
-    # HDR10-Testsignal), fuegt der Runner sie selbst ein
+    # HDR10-Testsignal), fuegt der Runner sie selbst ein. AMF: nicht nachgewiesen -> immer einfuegen
     inject = None
     if hd.get("mode") == "hdr10":
         want = hd.get("inject_sei", "auto")
-        if want == "always" or (want == "auto" and not probe.get("hdr_side_data")):
+        if want == "always" or (want == "auto" and (enc == "amf" or not probe.get("hdr_side_data"))):
             inject = SeiInjector(hdr10_sei_nal(hd.get("master_display", DEFAULT_MASTER), hd.get("max_cll", 1000),
                                                hd.get("max_fall", 400)))
-        info["sei"] = "eingefuegt (Runner)" if inject else "aus der Quelle (NVENC)"
-    lf = open(os.path.join(chain.sdir, "nvenc_%s.log" % svc["key"]), "ab")
+        info["sei"] = "eingefuegt (Runner)" if inject else "aus der Quelle (%s)" % label
+    lf = open(os.path.join(chain.sdir, "%s_%s.log" % (enc, svc["key"])), "ab")
     lf.write(("\n=== %s\n" % " ".join(cmd)).encode())
     lf.flush()
     t_start = time.time()
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=lf)
     lf.close()
-    chain.win_procs.append(("nvenc_" + svc["key"], p))
+    chain.win_procs.append(("%s_%s" % (enc, svc["key"]), p))
     rfd, wfd = os.pipe()
-    chain.win_started.append(("nvenc_" + svc["key"], time.time(), info))
+    chain.win_started.append(("%s_%s" % (enc, svc["key"]), time.time(), info))
 
     def relay():
         try:
@@ -343,7 +357,7 @@ def build(chain, svc):
                     wf.write(inject.flush())
         except Exception as e:
             if not chain.stop_evt.is_set() and not (chain.ffmpeg is not None and chain.ffmpeg.poll() is not None):
-                log("warn", "NVENC-Relais %s: %s" % (svc["key"], e))
+                log("warn", "%s-Relais %s: %s" % (label, svc["key"], e))
         finally:
             info["sei_count"] = inject.count if inject else None
 
@@ -356,6 +370,10 @@ def build(chain, svc):
     pass_fds = [rfd]
     # Ton
     from . import sources as S
+    if svc["audio"]["codec"] == "none":
+        info["cmd"] = " ".join(cmd)
+        return {"inputs": inputs, "vin": vin, "ain": None, "af": None, "pass_fds": pass_fds, "info": info,
+                "close_after_spawn": [rfd]}
     if audio is None and src["audio"]["kind"] == "dshow":
         # Ton von einem DirectShow-Geraet: zweites Windows-ffmpeg -> PCM s16le 48 kHz stereo
         acmd = [exe, "-hide_banner", "-loglevel", "error", "-f", "dshow", "-audio_buffer_size", "50", "-i",

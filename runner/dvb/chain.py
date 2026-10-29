@@ -3,6 +3,7 @@
 import glob
 import json
 import os
+import queue
 import re
 import shutil
 import signal
@@ -113,7 +114,7 @@ class DvbChain:
         self.level = None
         self.versions = {"nit": 1, "sdt": 1}
         self.names = {}
-        self.ffmpeg = self.tsp = self.mod = None
+        self.ffmpeg = self.tsp = self.mod = self.preview = None
         self.out_fd = None
         self.relay_thread = None
         self.win_procs = []          # Windows-Prozesse (NVENC, dshow-Ton)
@@ -198,14 +199,14 @@ class DvbChain:
         vi = ai = 0  # Zaehler je Typ fuer Stream-Spezifizierer v:N / a:N
         for i, s in enumerate(c["services"]):
             v = s.get("video") or {}
-            use_nv = s["type"] == "tv" and v.get("encoder") == "nvenc"
+            use_nv = s["type"] == "tv" and v.get("encoder") in ("nvenc", "amf")
             use_ts = s["source"]["kind"] == "ts"
             if use_nv:
                 src = nvenc.build(self, s)
                 src["feeder"] = None
                 self.pass_fds += src["pass_fds"]
                 self.close_after += src["close_after_spawn"]
-                self.log("info", "NVENC-Encoder gestartet (%s)" % s["key"], nvenc=src["info"])
+                self.log("info", "%s-Encoder gestartet (%s)" % ("AMF" if v["encoder"] == "amf" else "NVENC", s["key"]), nvenc=src["info"])
             elif use_ts:
                 # fertiger Transportstrom: Programm unveraendert uebernehmen (Video/Ton kopiert), endlos
                 path = self.host.media_path(s["source"]["file"])
@@ -236,24 +237,27 @@ class DvbChain:
                 v = s["video"]
                 br = int(float(v["bitrate_kbps"]) * 1000)
                 sp = "v:%d" % vi
+                low = s["source"]["kind"] == "folder"    # Infoscreen: ohne B-Bilder/Lookahead (geringe Latenz)
                 o = ["-c:" + sp]
                 if v["codec"] == "mpeg2":
                     o += ["mpeg2video", "-b:" + sp, str(br), "-maxrate:" + sp, str(int(br * 1.15)),
                           "-bufsize:" + sp, str(9781248 if v["_hd"] else 1835008), "-g:" + sp, str(v["gop"]),
-                          "-bf:" + sp, "2"]
+                          "-bf:" + sp, "0" if low else "2"]
                     if v.get("interlaced"):
                         o += ["-flags:" + sp, "+ilme+ildct", "-top:" + sp, "1", "-alternate_scan:" + sp, "1"]
                 elif v["codec"] == "hevc":
                     o += ["libx265", "-preset:" + sp, v.get("preset", "veryfast"), "-profile:" + sp, "main",
                           "-b:" + sp, str(br), "-tag:" + sp, "hvc1",
                           "-x265-params:" + sp, "pools=%d:vbv-maxrate=%d:vbv-bufsize=%d:keyint=%d:min-keyint=%d:scenecut=0:"
-                          "repeat-headers=1:aud=1:hrd=1:log-level=error" % (THREADS, br // 1000, br // 2000, v["gop"], v["gop"])]
+                          "repeat-headers=1:aud=1:hrd=1:log-level=error" % (THREADS, br // 1000, br // 2000, v["gop"], v["gop"])
+                          + (":bframes=0:rc-lookahead=0:frame-threads=1" if low else "")]
                 else:
                     o += ["libx264", "-preset:" + sp, v.get("preset", "veryfast"),
                           "-profile:" + sp, "high" if v["_hd"] else "main", "-level:" + sp, "4.0" if v["_hd"] else "3.0",
                           "-b:" + sp, str(br), "-maxrate:" + sp, str(int(br * 1.1)), "-bufsize:" + sp, str(br * 2),
                           "-g:" + sp, str(v["gop"]), "-keyint_min:" + sp, str(v["gop"]), "-sc_threshold:" + sp, "0",
-                          "-x264-params:" + sp, "nal-hrd=vbr:force-cfr=1:aud=1:threads=%d" % THREADS]
+                          "-x264-params:" + sp, "nal-hrd=vbr:force-cfr=1:aud=1:threads=%d" % THREADS
+                          + (":bframes=0:rc-lookahead=0:sync-lookahead=0:sliced-threads=1" if low else "")]
                 o += ["-aspect:" + sp, v.get("aspect", "16:9"), "-r:" + sp, str(v["fps"])]
                 codec_opts += o
                 streamids += ["-streamid", "%d:%d" % (out_idx, s["_vpid"])]
@@ -262,20 +266,21 @@ class DvbChain:
                 vi += 1
             a = s["audio"]
             sp = "a:%d" % ai
-            if use_ts:
-                maps += ["-map", "%d:p:%d:a:0" % (base, s["source"]["program"])]
-                o = ["-c:" + sp, "copy", "-metadata:s:%d" % out_idx, "language=%s" % a.get("language", "deu")]
-            else:
-                fc.append("[%d:a:0]%s[a%d]" % (base + src["ain"], src["af"] or "anull", i))
-                maps += ["-map", "[a%d]" % i]
-                o = ["-c:" + sp, {"mp2": "mp2", "aac": "aac", "ac3": "ac3"}[a["codec"]], "-b:" + sp, "%dk" % a["bitrate_kbps"],
-                     "-ac:" + sp, str(a["channels"]), "-ar:" + sp, str(a["samplerate"]),
-                     "-metadata:s:%d" % out_idx, "language=%s" % a.get("language", "deu")]
-            codec_opts += o
-            streamids += ["-streamid", "%d:%d" % (out_idx, s["_apid"])]
-            st.append(out_idx)
-            out_idx += 1
-            ai += 1
+            if a["codec"] != "none":     # "none": Programm ohne Tonspur, eine erzeugte Tonquelle bleibt ungenutzt
+                if use_ts:
+                    maps += ["-map", "%d:p:%d:a:0" % (base, s["source"]["program"])]
+                    o = ["-c:" + sp, "copy", "-metadata:s:%d" % out_idx, "language=%s" % a.get("language", "deu")]
+                else:
+                    fc.append("[%d:a:0]%s[a%d]" % (base + src["ain"], src["af"] or "anull", i))
+                    maps += ["-map", "[a%d]" % i]
+                    o = ["-c:" + sp, {"mp2": "mp2", "aac": "aac", "ac3": "ac3"}[a["codec"]], "-b:" + sp, "%dk" % a["bitrate_kbps"],
+                         "-ac:" + sp, str(a["channels"]), "-ar:" + sp, str(a["samplerate"]),
+                         "-metadata:s:%d" % out_idx, "language=%s" % a.get("language", "deu")]
+                codec_opts += o
+                streamids += ["-streamid", "%d:%d" % (out_idx, s["_apid"])]
+                st.append(out_idx)
+                out_idx += 1
+                ai += 1
             prog = "title=%s:program_num=%d" % (s["name"].replace(":", " ").replace("=", " "), s["service_id"])
             for k in st:
                 prog += ":st=%d" % k
@@ -288,13 +293,15 @@ class DvbChain:
             cmd += ["-t", "%.3f" % float(seconds)]
         # DATV (Nutzrate < 2 Mbit/s): PAT/PMT nicht zu jedem Bild, sondern alle 0,4 s, sonst frisst die SI ~ 75 kbit/s
         small = c["_rate_bps"] < 2e6
+        # Infoscreen (Bildordner): Mux-Vorlauf 0,2 s statt 0,5 s
+        delay = "0.2" if any(s["source"]["kind"] == "folder" for s in c["services"]) else "0.5"
         cmd += ["-mpegts_transport_stream_id", str(ts["transport_stream_id"]),
                 "-mpegts_original_network_id", str(ts["original_network_id"]),
                 "-mpegts_pmt_start_pid", str(ts["pmt_start_pid"]), "-mpegts_start_pid", str(ts["start_pid"]),
                 "-mpegts_flags", self._mpegts_flags(small), "-muxrate", str(c["_muxrate"]),
                 "-pcr_period", str(ts.get("pcr_period_ms", 30)), "-pat_period", "0.4" if small else "0.1",
                 "-sdt_period", "1" if small else "0.25", "-nit_period", "1" if small else "0.25", "-tables_version", str(ts.get("tables_version", 1) % 32),
-                "-max_delay", "500000", "-muxpreload", "0.5", "-muxdelay", "0.5",
+                "-max_delay", str(int(float(delay) * 1e6)), "-muxpreload", delay, "-muxdelay", delay,
                 "-f", "mpegts", "pipe:1"]
         return cmd
 
@@ -314,6 +321,12 @@ class DvbChain:
             except OSError:
                 pass
 
+    def _tsp_buffer(self):
+        """tsp puffert sonst 16 MB (bei 25 Mbit/s ~ 5 s). Mit Bildordner-Quelle (Infoscreen): ~ 0,4 s Transportstrom."""
+        if not any(s["source"]["kind"] == "folder" for s in self.cfg["services"]):
+            return []
+        return ["--buffer-size-mb", "%.3f" % max(0.05, self.cfg["_rate_bps"] * 0.4 / 8 / 1e6)]
+
     def tsp_cmd(self, output, regulate):
         c, ts = self.cfg, self.cfg["ts"]
         tsp = self.host.tool("tsp")
@@ -321,7 +334,7 @@ class DvbChain:
         if T.is_psip(c):
             # ffmpeg schreibt immer eine SDT: durch Nullpakete ersetzen; PSIP auf der Basis-PID 0x1FFB (A/65: MGT <= 150 ms,
             # VCT <= 400 ms, STT 1 s)
-            cmd = [tsp, "--bitrate", R, "-I", "file", "-P", "filter", "--negate", "--pid", "17", "--stuffing",
+            cmd = [tsp, "--bitrate", R] + self._tsp_buffer() + ["-I", "file", "-P", "filter", "--negate", "--pid", "17", "--stuffing",
                    "-P", "inject", "--pid", "8187", "--bitrate", "40000", "--stuffing", "--poll-files",
                    os.path.join(self.sdir, "mgt.bin") + "=100", os.path.join(self.sdir, "vct.bin") + "=300",
                    os.path.join(self.sdir, "stt.bin") + "=1000",
@@ -332,7 +345,7 @@ class DvbChain:
                 cmd += ["-P", "count", "--interval", str(max(1000, int(c["_rate_bps"] / 8 / 188 * 5)))]
             return cmd + output
         remap = ["%d=%d" % (s["_pmt_pid"], s["_pmt_pid_out"]) for s in c["services"] if s.get("_pmt_pid_out")]
-        cmd = [tsp, "--bitrate", R, "-I", "file"] + (["-P", "remap"] + remap if remap else []) + [
+        cmd = [tsp, "--bitrate", R] + self._tsp_buffer() + ["-I", "file"] + (["-P", "remap"] + remap if remap else []) + [
                "-P", "inject", "--pid", "16", "--replace", "--stuffing", "--poll-files", os.path.join(self.sdir, "nit.xml"),
                "-P", "inject", "--pid", "17", "--replace", "--stuffing", "--poll-files", os.path.join(self.sdir, "sdt.xml")]
         if ts.get("tdt", True):
@@ -392,9 +405,15 @@ class DvbChain:
             out = ["-O", "file"]  # stdout
         tcmd = self.tsp_cmd(out, regulate)
         need_relay = out == ["-O", "file"]
-        self.tsp = self.spawn("tsp", tcmd, stdin=self.ffmpeg.stdout,
+        tsp_in = self.ffmpeg.stdout
+        if self._preview_wanted():
+            tsp_in = self._start_preview()
+        self.tsp = self.spawn("tsp", tcmd, stdin=tsp_in,
                               stdout=subprocess.PIPE if need_relay else None)
-        self.ffmpeg.stdout.close()
+        if tsp_in is self.ffmpeg.stdout:
+            self.ffmpeg.stdout.close()
+        else:
+            os.close(tsp_in)
         src_pipe = self.tsp.stdout if need_relay else None
         if need_relay and (kind == "modulator" or iq):
             mcmd = modulator_cmd(self.host, c)
@@ -411,6 +430,88 @@ class DvbChain:
         self.out_t0 = time.time()
         self.cmds = {"ffmpeg": ffcmd, "tsp": tcmd}
         return self.cmds
+
+    # ------------------------------------------------------------------ Vorschau
+    # Abgriff zwischen Mux-ffmpeg und tsp: Video ist dort schon so kodiert, wie es gesendet wird. Ein zweites ffmpeg
+    # dekodiert nur Keyframes (-skip_frame nokey, ~1-2 Bilder/s je Programm) und schreibt je TV-Dienst
+    # preview/<key>.jpg (atomar). Die Vorschau bremst nie die Sendekette: ist ihre Warteschlange voll, fallen Pakete weg.
+    PREVIEW_H = 270
+
+    def _preview_wanted(self):
+        return (not self.render and self.cfg["ts"].get("preview", True)
+                and any(s["type"] == "tv" for s in self.cfg["services"]))
+
+    def _start_preview(self):
+        """-> Lese-Ende der Pipe fuer tsp; startet Tee-Thread und Vorschau-ffmpeg."""
+        pdir = os.path.join(self.sdir, "preview")
+        os.makedirs(pdir, exist_ok=True)
+        for f in glob.glob(os.path.join(pdir, "*.jpg")):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        cmd = [self.host.tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostats", "-threads", "2",
+               "-skip_frame", "nokey", "-probesize", "4M", "-analyzeduration", "3M", "-f", "mpegts", "-i", "pipe:0"]
+        for s in self.cfg["services"]:
+            if s["type"] != "tv":
+                continue
+            cmd += ["-map", "0:p:%d:v:0?" % s["service_id"], "-vf", "scale=-2:%d" % self.PREVIEW_H, "-q:v", "6",
+                    "-f", "image2", "-update", "1", "-atomic_writing", "1", os.path.join(pdir, "%s.jpg" % s["key"])]
+        self.preview = self.spawn("preview", cmd, stdin=subprocess.PIPE)
+        self.preview_q = queue.Queue(maxsize=64)
+        rfd, wfd = os.pipe()
+        for target, args, name in ((self._tee, (self.ffmpeg.stdout, wfd), "tee"), (self._preview_feed, (), "preview")):
+            t = threading.Thread(target=target, args=args, daemon=True, name=name)
+            t.start()
+            self.threads.append(t)
+        return rfd
+
+    def _tee(self, src, wfd):
+        q = self.preview_q
+        rest = b""
+        try:
+            with os.fdopen(wfd, "wb", 0) as wf:
+                while True:
+                    b = src.read(1 << 16)
+                    if not b:
+                        break
+                    wf.write(b)
+                    # nur ganze 188-Byte-Pakete an die Vorschau, sonst verliert der Demuxer nach einem Verwurf den Takt
+                    b = rest + b
+                    n = len(b) - len(b) % 188
+                    rest = b[n:]
+                    try:
+                        q.put_nowait(b[:n])
+                    except queue.Full:
+                        pass
+        except (BrokenPipeError, OSError, ValueError):
+            pass
+        finally:
+            try:
+                src.close()
+            except Exception:
+                pass
+            try:
+                q.put_nowait(None)
+            except queue.Full:
+                pass
+
+    def _preview_feed(self):
+        p = self.preview
+        try:
+            while not self.stop_evt.is_set():
+                b = self.preview_q.get()
+                if b is None:
+                    break
+                p.stdin.write(b)
+        except (BrokenPipeError, OSError, ValueError):
+            if not self.stop_evt.is_set():
+                self.log("warn", "Vorschau beendet (rc=%s), Sendung laeuft weiter" % p.poll())
+        finally:
+            try:
+                p.stdin.close()
+            except Exception:
+                pass
 
     def _relay(self, pipe, is_iq):
         fd = self.out_fd

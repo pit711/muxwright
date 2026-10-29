@@ -139,8 +139,9 @@ def tvct_xml(cfg, version=1):
         L.append('   <service_location_descriptor PCR_PID=%s>' % _hex(s["_pcr_pid"]))
         if s["type"] == "tv":
             L.append('    <component stream_type=%s elementary_PID=%s/>' % (_a("0x%02X" % ST_VIDEO[s["video"]["codec"]]), _hex(s["_vpid"])))
-        L.append('    <component stream_type=%s elementary_PID=%s ISO_639_language_code=%s/>'
-                 % (_a("0x%02X" % ST_AUDIO[s["audio"]["codec"]]), _hex(s["_apid"]), _a(s["audio"].get("language", "eng")[:3])))
+        if s["_apid"] is not None:
+            L.append('    <component stream_type=%s elementary_PID=%s ISO_639_language_code=%s/>'
+                     % (_a("0x%02X" % ST_AUDIO[s["audio"]["codec"]]), _hex(s["_apid"]), _a(s["audio"].get("language", "eng")[:3])))
         L.append("   </service_location_descriptor>")
         L.append('   <extended_channel_name_descriptor><long_channel_name_text><string language="eng" text=%s/></long_channel_name_text>'
                  '</extended_channel_name_descriptor>' % _a(s["name"]))

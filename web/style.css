@@ -853,6 +853,18 @@ dialog.modal h3 .ico { width: 22px; height: 22px; }
 .tile-np span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-np i { flex: 1; min-width: 40px; height: 4px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
 .tile-np i b { display: block; height: 100%; background: var(--accent); }
+/* Live-Vorschau (web/js/preview.js) */
+.pv-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.pv-strip.sm { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.pv { margin: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pv-img { position: relative; aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; background: #000; border: 1px solid var(--border); display: grid; place-items: center; }
+.pv-img img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.pv-img img[hidden] { display: none; }
+.pv-img .pv-state { position: absolute; inset: auto 0 0 0; padding: 2px 6px; font-size: 11px; text-align: center; color: #ddd; background: rgba(0, 0, 0, .55); }
+.pv-img .pv-state:empty { display: none; }
+.pv.stale .pv-img { border-color: var(--warn); }
+.pv figcaption { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-2); }
+.pv.sm figcaption { font-size: 11px; }
 .tile footer { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
 .tile footer .btn.lg { flex: 1; }
 .btn.onair { background: var(--onair); border-color: var(--onair); color: #fff; font-weight: 750; }

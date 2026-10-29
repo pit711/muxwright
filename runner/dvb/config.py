@@ -10,9 +10,10 @@ from . import tables as T
 VIDEO_SIZES = {"uhd": (3840, 2160), "2160p": (3840, 2160), "4k": (3840, 2160), "sd": (720, 576), "hd": (1920, 1080), "1080p": (1920, 1080), "720p": (1280, 720), "576p": (720, 576),
                "480p": (720, 480), "qsd": (352, 288)}
 VIDEO_CODECS = ("mpeg2", "h264", "hevc")
-ENCODERS = ("cpu", "nvenc")
-AUDIO_CODECS = ("mp2", "aac", "ac3")
-SOURCE_KINDS = ("testpattern", "file", "youtube", "slideshow", "playlist", "dshow", "gdigrab", "ddagrab", "ts")
+ENCODERS = ("cpu", "nvenc", "amf")
+GPU_ENCODERS = ("nvenc", "amf")            # Windows-ffmpeg: NVIDIA NVENC bzw. AMD AMF
+AUDIO_CODECS = ("mp2", "aac", "ac3", "none")  # none: Programm ohne Tonspur (nur TV, z. B. Infoscreen)
+SOURCE_KINDS = ("testpattern", "file", "youtube", "slideshow", "folder", "playlist", "dshow", "gdigrab", "ddagrab", "ts")
 NVENC_ONLY_SOURCES = ("dshow", "gdigrab", "ddagrab")
 PATTERNS = ("testsrc2", "testsrc", "smptehdbars", "smptebars", "colorbars", "rgbtestsrc", "yuvtestsrc", "pal75bars",
             "pal100bars", "mandelbrot", "life")
@@ -97,6 +98,9 @@ def from_dashboard(raw):
             elif src["kind"] == "slideshow":
                 src["images"] = vs.get("images") or []
                 src["interval_s"] = vs.get("interval_s", 5)
+            elif src["kind"] == "folder":
+                src["folder"] = vs.get("folder")
+                src["poll_s"] = vs.get("poll_s", 0.5)
             # Tonquelle (Dashboard: audioSrc() wie bei DAB: tone/silence/noise/pinknoise/file/...)
             ak = asrc.get("kind") or ("source" if src["kind"] in ("file", "youtube", "playlist") else "tone")
             amap = {"tone": "sine", "sweep": "sine", "lr_test": "sine", "polarity": "sine", "pinknoise": "noise",
@@ -480,9 +484,9 @@ def normalize(raw):
                 E.append("services[%d].video.codec: mpeg2, h264 oder hevc" % i)
             v["encoder"] = str(v.get("encoder", "cpu")).lower()
             if v["encoder"] not in ENCODERS:
-                E.append("services[%d].video.encoder: cpu oder nvenc" % i)
-            if v["encoder"] == "nvenc" and v["codec"] == "mpeg2":
-                E.append("services[%d]: NVENC kann kein MPEG-2 (h264 oder hevc)" % i)
+                E.append("services[%d].video.encoder: cpu, nvenc oder amf" % i)
+            if v["encoder"] in GPU_ENCODERS and v["codec"] == "mpeg2":
+                E.append("services[%d]: %s kann kein MPEG-2 (h264 oder hevc)" % (i, v["encoder"].upper()))
             hd = v.setdefault("hdr", {"mode": "off"})
             if isinstance(hd, str):
                 hd = v["hdr"] = {"mode": hd}
@@ -491,10 +495,10 @@ def normalize(raw):
                 E.append("services[%d].video.hdr.mode: off, hdr10, hlg" % i)
             if hd["mode"] != "off" and v["codec"] != "hevc":
                 E.append("services[%d]: HDR nur mit HEVC (Main10)" % i)
-            if hd["mode"] != "off" and v["encoder"] != "nvenc":
-                E.append("services[%d]: HDR ist nur fuer video.encoder = nvenc umgesetzt" % i)
+            if hd["mode"] != "off" and v["encoder"] not in GPU_ENCODERS:
+                E.append("services[%d]: HDR ist nur fuer video.encoder = nvenc oder amf umgesetzt" % i)
             if str(v.get("size", "sd")).lower() in ("uhd", "2160p", "4k") and v["encoder"] == "cpu" and (os.cpu_count() or 0) < 16:
-                E.append("services[%d]: UHD mit CPU-Encoder nicht in Echtzeit (%d Threads) - video.encoder nvenc oder Aufloesung hd"
+                E.append("services[%d]: UHD mit CPU-Encoder nicht in Echtzeit (%d Threads) - video.encoder nvenc/amf oder Aufloesung hd"
                          % (i, os.cpu_count() or 0))
             size = str(v.get("size", "sd")).lower()
             if size in ("sd", "576p") and region60:
@@ -522,8 +526,10 @@ def normalize(raw):
         a = s.setdefault("audio", {})
         a["codec"] = str(a.get("codec", "mp2")).lower().replace("mpeg", "mp2").replace("a52", "ac3")
         if a["codec"] not in AUDIO_CODECS:
-            E.append("services[%d].audio.codec: mp2, aac oder ac3" % i)
-        a["bitrate_kbps"] = _int(a.get("bitrate_kbps"), 192 if a["codec"] != "aac" else 128)
+            E.append("services[%d].audio.codec: mp2, aac, ac3 oder none" % i)
+        if a["codec"] == "none" and s["type"] != "tv":
+            E.append("services[%d]: Radioprogramm braucht eine Tonspur" % i)
+        a["bitrate_kbps"] = 0 if a["codec"] == "none" else _int(a.get("bitrate_kbps"), 192 if a["codec"] != "aac" else 128)
         a["channels"] = _int(a.get("channels"), 2)
         a["samplerate"] = _int(a.get("samplerate"), 48000)
         a.setdefault("language", "deu")
@@ -536,8 +542,16 @@ def normalize(raw):
                        "images": "slideshow", "yt": "youtube"}.get(k, k)
         if src["kind"] not in SOURCE_KINDS:
             E.append("services[%d].source.kind: %s" % (i, ", ".join(SOURCE_KINDS)))
-        if src["kind"] in NVENC_ONLY_SOURCES and v.get("encoder") != "nvenc":
-            E.append("services[%d]: Quelle %s laeuft auf Windows und braucht video.encoder = nvenc" % (i, src["kind"]))
+        if src["kind"] in NVENC_ONLY_SOURCES and v.get("encoder") not in GPU_ENCODERS:
+            E.append("services[%d]: Quelle %s laeuft auf Windows und braucht video.encoder = nvenc oder amf" % (i, src["kind"]))
+        if src["kind"] == "folder":
+            if s["type"] != "tv":
+                E.append("services[%d]: Bildordner nur fuer TV-Programme" % i)
+            if not src.get("folder"):
+                E.append("services[%d].source.folder fehlt (Ordner mit dem aktuellen Bild)" % i)
+            src["poll_s"] = min(10.0, max(0.2, float(src.get("poll_s") or 0.5)))
+            if v.get("encoder") in GPU_ENCODERS:
+                E.append("services[%d]: Bildordner nur mit CPU-Encoder (Standbilder brauchen kaum Rechenleistung)" % i)
         if src["kind"] == "dshow" and not src.get("device"):
             E.append("services[%d].source.device fehlt (dablab_run.py media dshow)" % i)
         if src["kind"] == "ts":
@@ -561,7 +575,7 @@ def normalize(raw):
         if src["kind"] == "playlist" and not src.get("playlist"):
             E.append("services[%d].source.playlist fehlt" % i)
         src.setdefault("loop", True)
-        aud = src.setdefault("audio", "sine" if src["kind"] in ("testpattern", "slideshow") else "source")
+        aud = src.setdefault("audio", "sine" if src["kind"] in ("testpattern", "slideshow", "folder") else "source")
         if isinstance(aud, str):
             src["audio"] = {"kind": aud}
         src["audio"].setdefault("kind", "sine")
@@ -570,7 +584,7 @@ def normalize(raw):
         src["audio"].setdefault("text", "This is the DAB Lab test transmitter, programme %s." % s["name"])
         if src["audio"]["kind"] not in AUDIO_GEN + ("source",):
             E.append("services[%d].source.audio.kind: %s, source" % (i, ", ".join(AUDIO_GEN)))
-        if src["kind"] in ("testpattern", "slideshow") and src["audio"]["kind"] == "source":
+        if src["kind"] in ("testpattern", "slideshow", "folder") and src["audio"]["kind"] == "source":
             src["audio"]["kind"] = "sine"
         # EIT
         e = s.setdefault("eit", {})
@@ -607,7 +621,7 @@ def normalize(raw):
             # ARIB TR-B14 / ABNT NBR 15603: PMT des 1seg-Dienstes auf 0x1FC8–0x1FCF (Empfänger suchen dort); tsp remap setzt sie um
             s["_pmt_pid_out"] = 0x1FC8 + sum(1 for x in svcs[:i] if x.get("oneseg"))
         s["_vpid"] = ts["start_pid"] + 16 * i
-        s["_apid"] = ts["start_pid"] + 16 * i + 1
+        s["_apid"] = ts["start_pid"] + 16 * i + 1 if a["codec"] != "none" else None
         s["_pcr_pid"] = s["_vpid"] if s["type"] == "tv" else s["_apid"]
 
     # -- Ausgabe --

@@ -380,7 +380,7 @@ def build_source(host, cfg, svc, work, sdir, log, render=False):
         if src.get("loop", True) and src.get("loop_mode", "feeder") == "feeder" and not src.get("seek_s"):
             # Nahtlose Schleife: Feeder dekodiert die Datei Durchlauf fuer Durchlauf in Rohdaten-FIFOs; der Mux sieht
             # einen endlosen Strom mit festem Takt -> PTS/DTS/PCR laufen ohne Sprung weiter (kein -stream_loop).
-            use_a = src["audio"]["kind"] == "source"
+            use_a = src["audio"]["kind"] == "source" and svc["audio"]["codec"] != "none"
             if use_a and not pr.get("has_audio", True):
                 log("warn", "%s hat keine Tonspur, nehme Sinus" % os.path.basename(path))
                 src["audio"]["kind"], use_a = "sine", False
@@ -449,16 +449,31 @@ def build_source(host, cfg, svc, work, sdir, log, render=False):
         inputs.append(a_args)
         ain = len(inputs) - 1
         info["images"] = len(imgs)
+    elif kind == "folder":
+        feeder = FolderFeeder(host, svc, work, log)
+        w, h = svc["video"]["_wh"]
+        # kleine Eingangswarteschlange: der Feeder schreibt jedes Bild erst, wenn der Mux es abholt -> geringe Latenz
+        inputs.append(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", "%dx%d" % (w, h), "-r", str(svc["video"]["fps"]),
+                       "-analyzeduration", "0", "-thread_queue_size", "2", "-i", feeder.fifo_v])
+        vin = 0
+        vf = video_filter(svc, drawtext_filter(svc, src.get("text"), src.get("timestamp", False))
+                          if (src.get("text") or src.get("timestamp")) else None)
+        a_args, af = audio_input(host, svc, src["audio"], work, log)
+        inputs.append(a_args)
+        ain = len(inputs) - 1
+        info["folder"] = feeder.folder
     elif kind == "playlist":
-        feeder = VideoFeeder(host, cfg, svc, work, sdir, log)
+        use_a = svc["audio"]["codec"] != "none"
+        feeder = VideoFeeder(host, cfg, svc, work, sdir, log, audio=use_a)
         w, h = svc["video"]["_wh"] if is_tv else (0, 0)
         if is_tv:
             inputs.append(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", "%dx%d" % (w, h), "-r", str(svc["video"]["fps"]),
                            "-analyzeduration", "0", "-thread_queue_size", "64", "-i", feeder.fifo_v])
             vin = 0
             vf = video_filter(svc, drawtext_filter(svc, src.get("text"), True) if src.get("text") else None)
-        inputs.append(["-f", "s16le", "-ar", str(sr), "-ac", "2", "-analyzeduration", "0", "-thread_queue_size", "256", "-i", feeder.fifo_a])
-        ain = len(inputs) - 1
+        if use_a:
+            inputs.append(["-f", "s16le", "-ar", str(sr), "-ac", "2", "-analyzeduration", "0", "-thread_queue_size", "256", "-i", feeder.fifo_a])
+            ain = len(inputs) - 1
         af = "anull"
         info["playlist"] = feeder.pl.get("name")
         info["items"] = feeder.n
@@ -788,8 +803,9 @@ class VideoFeeder:
             if self.is_tv:
                 self.qv.put(self.black)
                 self.frames += 1
-                self.qa.put(bytes(spf * 4))
-                self.samples += spf
+                if self.use_audio:
+                    self.qa.put(bytes(spf * 4))
+                    self.samples += spf
             else:
                 self.qa.put(bytes(self.sr // 10 * 4))
                 self.samples += self.sr // 10
@@ -808,3 +824,116 @@ class VideoFeeder:
     def stop(self):
         self.stop_evt.set()
         self.kill()
+
+
+# ---------------------------------------------------------------------------------------------
+# Bildordner (Infoscreen): immer das neueste Bild eines Ordners
+# ---------------------------------------------------------------------------------------------
+IMAGE_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif", ".tif", ".tiff")
+
+
+def host_path(host, p):
+    """Windows-Pfad aus dem Dashboard (C:\\Infoscreen) -> /mnt/c/Infoscreen; sonst wie media_path."""
+    m = re.match(r"^([A-Za-z]):[\\/]?(.*)$", str(p or ""))
+    if m and os.sep == "/":
+        return "/mnt/%s/%s" % (m.group(1).lower(), m.group(2).replace("\\", "/"))
+    return host.media_path(p)
+
+
+class FolderFeeder:
+    """Schreibt Rohbilder (yuv420p) in eine FIFO, die der Mux-ffmpeg mit fester Bildrate liest. Jedes Bild ist das zum
+    Schreibzeitpunkt neueste Bild des Ordners (Aenderungszeit; dieselbe Datei darf auch ueberschrieben werden). Der
+    Ordner wird alle poll_s Sekunden geprueft; ein neues Bild wird erst dekodiert, wenn es >= 0,15 s alt ist (halb
+    geschriebene Dateien), Dekodierfehler -> naechster Versuch beim naechsten Durchlauf. Bis zum ersten Bild: schwarz."""
+    SETTLE_S = 0.15
+
+    def __init__(self, host, svc, work, log):
+        self.host, self.svc, self.log = host, svc, log
+        self.key = svc["key"]
+        self.src = svc["source"]
+        self.folder = host_path(host, self.src["folder"])
+        self.poll_s = float(self.src.get("poll_s", 0.5))
+        self.w, self.h = svc["video"]["_wh"]
+        self.frame_bytes = self.w * self.h * 3 // 2
+        self.frame = bytes([16]) * (self.w * self.h) + bytes([128]) * (self.w * self.h // 2)
+        self.cur = None              # (Pfad, mtime_ns, Groesse) des gesendeten Bildes
+        self.cur_t = None            # Zeitpunkt, ab dem es gesendet wird
+        self.failed = None
+        self.warned = False
+        self.fifo_v = os.path.join(work, "folder_v_%s.yuv" % self.key)
+        os.mkfifo(self.fifo_v)
+        self.stop_evt = threading.Event()
+        self.threads = []
+
+    def now_playing(self):
+        return {"service": self.key, "title": os.path.basename(self.cur[0]) if self.cur else "", "file": self.cur[0] if self.cur else None,
+                "folder": self.folder, "elapsed_s": round(time.time() - self.cur_t, 1) if self.cur_t else None}
+
+    def _newest(self):
+        best = None
+        try:
+            with os.scandir(self.folder) as it:
+                for e in it:
+                    if not e.name.lower().endswith(IMAGE_EXT) or e.name.startswith("."):
+                        continue
+                    try:
+                        st = e.stat()
+                    except OSError:
+                        continue
+                    if st.st_size and (best is None or st.st_mtime_ns > best[1]):
+                        best = (e.path, st.st_mtime_ns, st.st_size)
+        except OSError as e:
+            if not self.warned:
+                self.log("warn", "Bildordner %s: %s" % (self.folder, e))
+                self.warned = True
+            return None
+        self.warned = False
+        return best
+
+    def _decode(self, path):
+        w, h = self.w, self.h
+        cmd = [self.host.tool("ffmpeg"), "-nostdin", "-hide_banner", "-loglevel", "error", "-err_detect", "explode",
+               "-i", path, "-frames:v", "1",
+               "-vf", "scale=%d:%d:force_original_aspect_ratio=decrease:flags=bicubic,pad=%d:%d:(ow-iw)/2:(oh-ih)/2,setsar=1,"
+                      "format=yuv420p" % (w, h, w, h), "-f", "rawvideo", "pipe:1"]
+        try:
+            r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+        except Exception as e:
+            return None, str(e)
+        if r.returncode != 0 or len(r.stdout) != self.frame_bytes:
+            return None, r.stderr.decode("utf-8", "replace").strip()[-200:] or "rc=%d" % r.returncode
+        return r.stdout, None
+
+    def _watch(self):
+        while not self.stop_evt.is_set():
+            n = self._newest()
+            if n and n != self.cur and n != self.failed and time.time() - n[1] / 1e9 >= self.SETTLE_S:
+                frame, err = self._decode(n[0])
+                if frame:
+                    self.frame, self.cur, self.cur_t, self.failed = frame, n, time.time(), None
+                    self.log("info", "now_playing", now_playing=self.now_playing())
+                else:
+                    self.failed = n          # erst bei geaenderter Datei erneut versuchen
+                    self.log("warn", "Bildordner: %s nicht lesbar: %s" % (os.path.basename(n[0]), err))
+            self.stop_evt.wait(self.poll_s)
+
+    def _write(self):
+        try:
+            # O_RDWR wie VideoFeeder: open() blockiert nicht, auch wenn der Mux die FIFO noch nicht geoeffnet hat
+            with os.fdopen(os.open(self.fifo_v, os.O_RDWR), "wb", buffering=0) as f:
+                while not self.stop_evt.is_set():
+                    mv = memoryview(self.frame)
+                    while mv:
+                        mv = mv[f.write(mv):]
+        except Exception as e:
+            if not self.stop_evt.is_set():
+                self.log("warn", "Bildordner-Feeder %s: %s" % (self.key, e))
+
+    def start(self):
+        for fn in (self._watch, self._write):
+            t = threading.Thread(target=fn, daemon=True, name="folder-%s" % self.key)
+            t.start()
+            self.threads.append(t)
+
+    def stop(self):
+        self.stop_evt.set()

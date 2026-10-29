@@ -378,7 +378,7 @@ def compare(cfg, rep):
         types = {c["pid"]: c["stream_type"] for c in pm["components"]}
         if s["type"] == "tv" and types.get(s["_vpid"]) not in ST_V[s["video"]["codec"]]:
             M.append("PMT Dienst %d: Video-Streamtyp %s statt %s" % (s["service_id"], types.get(s["_vpid"]), ST_V[s["video"]["codec"]]))
-        if types.get(s["_apid"]) not in ST_A[s["audio"]["codec"]]:
+        if s["_apid"] is not None and types.get(s["_apid"]) not in ST_A[s["audio"]["codec"]]:
             M.append("PMT Dienst %d: Audio-Streamtyp %s statt %s" % (s["service_id"], types.get(s["_apid"]), ST_A[s["audio"]["codec"]]))
     if ts.get("eit", True):
         eits = {e["service_id"]: e for e in t.get("eit", []) if e.get("actual") == "true"}
@@ -463,8 +463,11 @@ def analyze_file(host, cfg, path, log=None, decode_seconds=4):
                     d["stream_check"].append("Programm %d Video %s statt %s" % (s["service_id"], v[0]["codec"], want))
                 elif v[0]["size"] != "%dx%d" % s["video"]["_wh"]:
                     d["stream_check"].append("Programm %d Groesse %s statt %dx%d" % ((s["service_id"], v[0]["size"]) + s["video"]["_wh"]))
-            want_a = {"mp2": "mp2", "aac": "aac", "ac3": "ac3"}[s["audio"]["codec"]]
-            if not a:
+            want_a = {"mp2": "mp2", "aac": "aac", "ac3": "ac3", "none": None}[s["audio"]["codec"]]
+            if want_a is None:
+                if a:
+                    d["stream_check"].append("Programm %d hat Ton, soll ohne Tonspur sein" % s["service_id"])
+            elif not a:
                 d["stream_check"].append("Programm %d ohne Ton" % s["service_id"])
             elif a[0]["codec"].replace("aac_latm", "aac") != want_a:
                 d["stream_check"].append("Programm %d Audio %s statt %s" % (s["service_id"], a[0]["codec"], want_a))

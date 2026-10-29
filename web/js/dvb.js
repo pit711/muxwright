@@ -3,9 +3,10 @@
 import { h, icon, api, toast, dialog } from './ui.js';
 import * as D from './dab.js';
 import * as STD from './standards.js';
-import { S, field, input, textarea, select, toggle, segmented, card, counter, edited, errorsFor, getPath, setPath, upload, previewCache, loadMedia, loadPlaylists, save, load } from './core.js';
+import { S, field, input, textarea, select, toggle, segmented, card, counter, edited, errorsFor, getPath, setPath, upload, previewCache, loadMedia, loadPlaylists, save, load, txRunning } from './core.js';
 import { audioSourceCard, uploadBtn } from './pages.js';
 import { T, LANG } from './i18n.js';
+import { previewStrip, previewHint } from './preview.js';
 
 const LOC = LANG === 'en' ? 'en-GB' : LANG;
 
@@ -351,7 +352,7 @@ export function pagePrograms() {
     const errs = errorsFor(`dvb.programs.${i}`).length;
     return h('button.svcitem', { type: 'button', class: i === S.prgSel ? 'on' : null, tid: `prg-item-${i}`, onclick: () => { S.prgSel = i; S.render(); } },
       h('i.dot', { style: { background: prgColor(i) } }),
-      h('div.si-main', null, h('b', null, p.name || T('(ohne Namen)')), h('small.mono', null, `LCN ${p.lcn} · ${p.sid} · ${p.type === 'radio' ? 'Radio' : `${STD.VIDEO.CODECS[p.video.codec]?.split(' ')[0]} ${p.video.resolution.toUpperCase()}`} · ${STD.VIDEO.AUDIO[p.audio.codec]?.split(' ')[0]}`)),
+      h('div.si-main', null, h('b', null, p.name || T('(ohne Namen)')), h('small.mono', null, `LCN ${p.lcn} · ${p.sid} · ${p.type === 'radio' ? 'Radio' : `${STD.VIDEO.CODECS[p.video.codec]?.split(' ')[0]} ${p.video.resolution.toUpperCase()}`} · ${p.audio.codec === 'none' ? STD.VIDEO.AUDIO.none : STD.VIDEO.AUDIO[p.audio.codec]?.split(' ')[0]}`)),
       h('span.si-cu', null, (b.items[i].bps / 1e6).toFixed(1), h('small', null, ' Mbit/s')),
       errs ? h('span.errdot', { title: T('{n} Fehler', { n: errs }) }, errs) : null);
   }));
@@ -375,7 +376,9 @@ export function pagePrograms() {
       if (!(await dialog({ title: T('Programm löschen?'), body: h('p', null, T('„{name}“ wird aus dem Transportstrom entfernt.', { name: p.name })), ok: T('Löschen'), danger: true, tid: 'confirm-prg-del' }))) return;
       prgs.splice(S.prgSel, 1); S.prgSel = Math.max(0, S.prgSel - 1); edited('dvb.programs', true);
     } }, icon('trash'), h('span.hide-sm', null, T('Löschen'))));
+  const live = txRunning() && S.server && STD.isDvb(STD.standardOf(S.server)) ? previewStrip(S.server, { tid: 'prg-preview' }) : null;
   return h('div.page-stack', null,
+    live ? card(T('Live-Vorschau'), 'image', [live, h('p.hint', null, icon('info'), previewHint())], { tid: 'card-preview' }) : null,
     card(T('Transportstrom-Belegung'), 'pie', [tsBudgetBar({ big: true, tid: 'ts-bar' }),
       b.over ? h('div.alert.big', { tid: 'ts-over' }, icon('alert'), h('div', null, h('b', null, T('Transportstrom um {rate} überbucht – Übernehmen ist gesperrt.', { rate: fmtMbit(b.used - b.net) })),
         h('p', null, T('Nutzbitrate steigt mit Konstellation/Coderate (DVB-T) bzw. Symbolrate/QAM (DVB-C); sonst Video-/Audiobitraten senken oder ein Programm entfernen. SI-Tabellen brauchen ≈ 60 kbit/s, Rest wird mit Nullpaketen aufgefüllt (CBR).')))) : null], { tid: 'card-ts' }),
@@ -416,7 +419,7 @@ function prgGeneral(p, base) {
 function prgVideo(p, base) {
   const v = p.video, src = v.source, ps = `${base}.video.source`;
   const brs = STD.VIDEO.VIDEO_BR[v.codec]?.[v.resolution] || [3500];
-  const kinds = [['testpattern', T('Testbild'), 'tv'], ['file', T('Datei'), 'file'], ['youtube', 'YouTube', 'download'], ['playlist', T('Video-Playlist'), 'playlist'], ['capture', T('Capture/Webcam'), 'radio'], ['screen', T('Bildschirm'), 'grid']];
+  const kinds = [['testpattern', T('Testbild'), 'tv'], ['file', T('Datei'), 'file'], ['youtube', 'YouTube', 'download'], ['playlist', T('Video-Playlist'), 'playlist'], ['capture', T('Capture/Webcam'), 'radio'], ['screen', T('Bildschirm'), 'grid'], ['folder', T('Bildordner'), 'folder']];
   const params = [];
   const dev = S.state.devices || {};
   if (src.kind === 'capture') {
@@ -448,6 +451,12 @@ function prgVideo(p, base) {
     params.push(field(T('Videodatei'), h('div.inrow', null, fsel, uploadBtn('video', 'video/*,.ts,.mkv,.mpg', 'vid-upload', async path => { src.file = path; edited(`${ps}.file`, true); })), { path: `${ps}.file`, wide: true, hint: T('MP4/TS/MKV … wird per ffmpeg transkodiert') }));
     params.push(field(T('Wiederholen'), toggle(`${ps}.loop`, T('Endlosschleife'), { tid: 'vid-loop' })));
   }
+  if (src.kind === 'folder') {
+    params.push(field(T('Ordner'), input(`${ps}.folder`, { tid: 'vid-folder', mono: true, ph: 'C:\Infoscreen\Kanal1' }),
+      { path: `${ps}.folder`, wide: true, hint: T('Gesendet wird immer das neueste Bild (JPG/PNG/BMP/WebP) im Ordner; dieselbe Datei darf auch überschrieben werden.') }));
+    params.push(field(T('Prüfintervall (s)'), input(`${ps}.poll_s`, { type: 'number', min: 0.2, max: 10, step: 0.1, tid: 'vid-folder-poll', mono: true }),
+      { hint: T('Latenzarm: ohne B-Bilder und Lookahead, kleiner Puffer. Neues Bild nach etwa 1–2 s am TV (je nach Receiver).') }));
+  }
   if (src.kind === 'youtube') params.push(youtubeField(src, ps));
   if (src.kind === 'playlist') {
     const psel = h('select', { tid: 'vid-playlist' }, h('option', { value: '' }, T('Playlist wählen …')), S.playlists.map(pl => h('option', { value: pl.name }, pl.count != null ? `${pl.name} (${pl.count})` : pl.name)));
@@ -456,7 +465,7 @@ function prgVideo(p, base) {
   }
   return h('div.formgrid', null,
     card(T('Videoquelle'), 'tv', [
-      h('div.srcgrid', { tid: 'vid-kind' }, kinds.map(([k, l, ic]) => h('button', { type: 'button', class: src.kind === k ? 'on' : null, tid: `vid-kind-${k}`, onclick: () => { src.kind = k; edited(`${ps}.kind`, true); } }, icon(ic), h('span', null, l)))),
+      h('div.srcgrid', { tid: 'vid-kind' }, kinds.map(([k, l, ic]) => h('button', { type: 'button', class: src.kind === k ? 'on' : null, tid: `vid-kind-${k}`, onclick: () => { src.kind = k; if (k === 'folder') { v.encoder = 'cpu'; if (p.audio.source.kind === 'video') p.audio.source.kind = 'tone'; } edited(`${ps}.kind`, true); } }, icon(ic), h('span', null, l)))),
       params.length ? h('div.grid2', null, params) : null,
     ], { tid: 'card-video-source' }),
     card(T('Videocodierung'), 'wave', [
@@ -468,8 +477,8 @@ function prgVideo(p, base) {
             s.addEventListener('change', () => { if (s.value) { p.video.bitrate_kbps = Number(s.value); edited(`${base}.video.bitrate_kbps`, true); } }); return s; })()),
           { path: `${base}.video.bitrate_kbps`, hint: v.codec === 'mpeg2' && v.resolution !== 'sd' ? T('MPEG-2 HD nur bei neueren Receivern') : '' })),
       h('div.grid2', null,
-        field(T('Encoder'), segmented(`${base}.video.encoder`, Object.entries(STD.VIDEO.ENCODERS).map(([k, l]) => ({ v: k, label: k === 'cpu' ? 'CPU' : 'GPU (NVENC)', disabled: k === 'nvenc' && (v.codec === 'mpeg2' || nvencState() === false) })), { tid: 'vid-encoder' }),
-          { path: `${base}.video.encoder`, hint: nvencHint() }),
+        field(T('Encoder'), segmented(`${base}.video.encoder`, Object.entries(STD.VIDEO.ENCODERS).map(([k, l]) => ({ v: k, label: { cpu: 'CPU', nvenc: 'GPU (NVENC)', amf: 'GPU (AMD)' }[k], title: l, disabled: k !== 'cpu' && (v.codec === 'mpeg2' || src.kind === 'folder' || (k === 'nvenc' && nvencState() === false)) })), { tid: 'vid-encoder' }),
+          { path: `${base}.video.encoder`, hint: v.encoder === 'amf' ? T('AMD AMF über das Windows-ffmpeg (h264_amf/hevc_amf) – ungetestet, Rückmeldungen willkommen') : nvencHint() }),
         field(T('Dynamikumfang'), segmented(`${base}.video.hdr`, Object.entries(STD.VIDEO.HDR).map(([k, l]) => ({ v: k, label: k === 'sdr' ? 'SDR' : k === 'hdr10' ? 'HDR10' : 'HLG', title: l })), { tid: 'vid-hdr', onchange: val => { if (val !== 'sdr') { p.video.codec = 'hevc'; if (nvencState()) p.video.encoder = 'nvenc'; fixVideoBr(p); } } }),
           { path: `${base}.video.hdr`, hint: v.hdr === 'hdr10' ? T('HEVC Main10, PQ, BT.2020, Mastering-Metadaten (SEI)') : v.hdr === 'hlg' ? 'HEVC Main10, HLG (ARIB STD-B67), BT.2020' : 'BT.709, 8 bit' })),
       v.hdr !== 'sdr' && ['testpattern'].includes(v.source.kind) ? h('p.hint', null, icon('info'), T('Testbild in HDR: wird in BT.2020/10 bit gewandelt – für echte HDR-Prüfung eine HDR-Quelle (Datei/YouTube) verwenden.')) : null,
@@ -524,18 +533,21 @@ export function youtubeField(src, ps) {
 
 function prgAudio(p, base) {
   const brs = STD.VIDEO.AUDIO_BR[p.audio.codec] || [192];
+  const none = p.audio.codec === 'none';
+  const codecs = Object.entries(STD.VIDEO.AUDIO).filter(([k]) => k !== 'none' || p.type === 'tv');
   return h('div.formgrid', null,
     card(T('Audiocodierung'), 'wave', h('div.grid2', null,
-      field('Codec', segmented(`${base}.audio.codec`, Object.entries(STD.VIDEO.AUDIO).map(([k, l]) => ({ v: k, label: l.split(' (')[0] })), { tid: 'aud-codec', onchange: () => { const l = STD.VIDEO.AUDIO_BR[p.audio.codec]; if (!l.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = l[2]; } }), { path: `${base}.audio.codec`, hint: T('MP2 = Pflicht-Codec DVB; AC-3 über Deskriptor 0x6A') }),
-      field(T('Bitrate (kbit/s)'), select(`${base}.audio.bitrate_kbps`, brs.map(b => ({ v: b, label: `${b} kbit/s` })), { num: true, tid: 'aud-bitrate' }), { path: `${base}.audio.bitrate_kbps` }))),
-    p.type === 'tv' && ['file', 'youtube', 'playlist'].includes(p.video.source.kind)
+      field('Codec', segmented(`${base}.audio.codec`, codecs.map(([k, l]) => ({ v: k, label: k === 'none' ? l : l.split(' (')[0] })), { tid: 'aud-codec', onchange: () => { const l = STD.VIDEO.AUDIO_BR[p.audio.codec]; if (!l.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = l[Math.min(2, l.length - 1)]; } }),
+        { path: `${base}.audio.codec`, hint: none ? T('Programm ohne Tonspur (z. B. Infoscreen) – spart Bitrate; manche TVs zeigen „kein Ton“') : T('MP2 = Pflicht-Codec DVB; AC-3 über Deskriptor 0x6A') }),
+      none ? null : field(T('Bitrate (kbit/s)'), select(`${base}.audio.bitrate_kbps`, brs.map(b => ({ v: b, label: `${b} kbit/s` })), { num: true, tid: 'aud-bitrate' }), { path: `${base}.audio.bitrate_kbps` }))),
+    none ? null : p.type === 'tv' && ['file', 'youtube', 'playlist'].includes(p.video.source.kind)
       ? card(T('Tonquelle'), 'music', [
           h('div.inrow.wrap', null, (() => { const cb = h('input', { type: 'checkbox', role: 'switch', tid: 'aud-from-video' }); cb.checked = p.audio.source.kind === 'video';
             cb.addEventListener('change', () => { p.audio.source.kind = cb.checked ? 'video' : 'tone'; edited(`${base}.audio.source.kind`, true); });
             return h('label.switch', null, cb, h('span.track', null, h('i')), h('span.sw-label', null, T('Ton aus der Videodatei'))); })()),
           h('p.hint', null, icon('info'), T('SPEC: Tonquelle „tone“ ist auch bei Videodateien ein Sinus; für den Originalton „Ton aus der Videodatei“ wählen.')),
         ], { tid: 'card-prg-audio-video' }) : null,
-    p.audio.source.kind === 'video' ? null : audioSourceCard(p.audio.source, `${base}.audio.source`, { key: p.key, title: p.type === 'radio' ? T('Audioquelle (Radio-Dienst)') : T('Ton (bei Testbild/ohne Tonspur)'), tid: 'card-prg-audio', prefix: 'aud' }));
+    none || p.audio.source.kind === 'video' ? null : audioSourceCard(p.audio.source, `${base}.audio.source`, { key: p.key, title: p.type === 'radio' ? T('Audioquelle (Radio-Dienst)') : T('Ton (bei Testbild/ohne Tonspur)'), tid: 'card-prg-audio', prefix: 'aud' }));
 }
 
 function prgEit(p, base) {

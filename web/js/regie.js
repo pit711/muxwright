@@ -7,6 +7,7 @@ import * as STD from './standards.js';
 import { S, txRunning, rfUpdate, confirmAtten, applyConfig, refreshState, changes, nowPlaying, load, save, apiTxStart } from './core.js';
 import { estDbm } from './pages.js';
 import { APP_NAME } from './brand.js';
+import { previewStrip } from './preview.js';
 import { T } from './i18n.js';
 
 const ICON = { dab: 'radio', fm: 'wave', dvbt: 'antenna', dvbc: 'layers', dvbs: 'star', pal: 'tv', atsc: 'antenna', isdbt: 'antenna', dtmb: 'antenna', dvbt2: 'antenna' };
@@ -147,6 +148,7 @@ export function pageRegie() {
       h('div.tile-prog', null, h('small', null, T('Programm')), h('span', { title: info.prog }, info.prog)),
       np ? h('div.tile-np', { tid: `regie-np-${st.id}` }, icon('music'), h('b', null, np.title || ''), np.artist ? h('span', null, ` – ${np.artist}`) : null,
         h('i', null, h('b', { style: { width: np.duration_s ? `${Math.min(100, np.elapsed_s / np.duration_s * 100)}%` : '0' } }))) : null,
+      isActive && running && STD.isDvb(st.id) ? previewStrip(cfg, { small: true, tid: `regie-preview-${st.id}` }) : null,
       h('footer', null,
         isActive && status === 'onair'
           ? h('button.btn.lg.mute', { type: 'button', tid: `regie-mute-${st.id}`, onclick: async () => { await rfUpdate({ enabled: false }); S.render(true); } }, icon('mute'), T('Stumm schalten'))

@@ -210,7 +210,7 @@ export function fitDatvPrograms(c) {
   if (!progs.length) return c;
   const net = netRate(c), tv = progs.filter(p => p.type === 'tv');
   for (const p of progs) {
-    p.audio.codec = 'aac'; p.audio.bitrate_kbps = 32;
+    if (p.audio.codec !== 'none') { p.audio.codec = 'aac'; p.audio.bitrate_kbps = 32; }
     if (c.dvbs.callsign) p.provider = String(c.dvbs.callsign).split('/')[0];
     if (p.type === 'tv') { p.video.codec = p.video.codec === 'hevc' ? 'hevc' : 'h264'; p.video.resolution = 'sd'; p.video.hdr = 'sdr'; }
   }
@@ -282,16 +282,17 @@ export function requiredPath(cfg) {
 export const VIDEO = {
   CODECS: { mpeg2: 'MPEG-2 (MP@ML/HL)', h264: 'H.264 / AVC', hevc: 'HEVC / H.265' },
   RES: { sd: 'SD 720×576 (25 Hz)', hd720: 'HD 1280×720p (25 Hz)', hd: 'HD 1920×1080p (25 Hz)', uhd: 'UHD 3840×2160p (25/50 Hz)' },
-  AUDIO: { mp2: 'MPEG-1 Layer II', aac: 'AAC (ADTS/LATM)', ac3: 'AC-3 (Dolby Digital)' },
+  AUDIO: { mp2: 'MPEG-1 Layer II', aac: 'AAC (ADTS/LATM)', ac3: 'AC-3 (Dolby Digital)', none: T('ohne Ton') },
   SRC: { file: T('Datei'), testpattern: T('Testbild'), youtube: 'YouTube', playlist: T('Video-Playlist'), capture: T('Capture/Webcam'), screen: T('Bildschirm') },
-  ENCODERS: { cpu: 'CPU (libx264/libx265/mpeg2video)', nvenc: 'GPU (NVIDIA NVENC)' },
+  ENCODERS: { cpu: 'CPU (libx264/libx265/mpeg2video)', nvenc: 'GPU (NVIDIA NVENC)', amf: 'GPU (AMD AMF)' },
+  GPU_ENCODERS: ['nvenc', 'amf'],
   HDR: { sdr: 'SDR (BT.709)', hdr10: 'HDR10 (PQ, BT.2020, Main10)', hlg: 'HLG (BT.2100, Main10)' },
   COOKIES: { none: T('keine'), chrome: T('aus {browser}', { browser: 'Chrome' }), firefox: T('aus {browser}', { browser: 'Firefox' }), edge: T('aus {browser}', { browser: 'Edge' }), file: 'cookies.txt' },
   PATTERNS: { smptebars: T('SMPTE-Farbbalken'), smptehdbars: T('SMPTE-HD-Farbbalken'), pal75bars: T('PAL-Farbbalken 75 %'), testsrc2: T('ffmpeg testsrc2 (Zähler)'), testsrc: 'ffmpeg testsrc', rgbtestsrc: T('RGB-Testbild') },
   VIDEO_BR: { mpeg2: { sd: [2000, 3500, 5000, 8000], hd: [8000, 12000, 15000, 20000], hd720: [6000, 8000, 10000, 12000] },
     h264: { sd: [1000, 1500, 2500, 4000], hd: [4000, 6000, 8000, 12000], hd720: [3000, 4000, 6000, 8000], uhd: [15000, 20000, 25000] },
     hevc: { sd: [800, 1200, 2000], hd720: [2000, 3000, 4000], hd: [3000, 5000, 7000, 10000], uhd: [10000, 14000, 18000, 25000] } },
-  AUDIO_BR: { mp2: [64, 128, 192, 256, 384], aac: [48, 64, 96, 128, 192], ac3: [128, 192, 256, 384, 448] },
+  AUDIO_BR: { mp2: [64, 128, 192, 256, 384], aac: [48, 64, 96, 128, 192], ac3: [128, 192, 256, 384, 448], none: [0] },
 };
 export const SERVICE_TYPES = { tv: T('Fernsehen (0x01 SD / 0x19 HD)'), radio: 'Radio (0x02)' };
 export const SI_OVERHEAD_BPS = 60000;        // PAT/PMT/SDT/NIT/EIT/TDT, grob
@@ -352,11 +353,11 @@ export function regionCodecs(c, std) {
     if (std === 'atsc' || (std === 'dvbc' && isJ83b(c))) {
       // ATSC 1.0: MPEG-2 bis 1080 (A/53), kein HDR; NVENC kann kein MPEG-2 → CPU-Encoder
       if (p.type === 'tv' && std === 'atsc') { p.video.codec = 'mpeg2'; p.video.encoder = 'cpu'; p.video.hdr = 'sdr'; if (p.video.resolution === 'uhd') p.video.resolution = 'hd'; }
-      p.audio.codec = 'ac3'; if (!VIDEO.AUDIO_BR.ac3.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 384;
+      if (p.audio.codec !== 'none') { p.audio.codec = 'ac3'; if (!VIDEO.AUDIO_BR.ac3.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 384; }
     }
     if (std === 'dtmb') { if (p.type === 'tv' && p.video.codec === 'hevc') p.video.codec = 'h264'; if (p.audio.codec === 'aac') p.audio.codec = 'mp2'; }
-    if (std === 'isdbt' && c.isdbt?.region === 'jp') { if (p.type === 'tv' && !p.oneseg) p.video.codec = 'mpeg2'; p.audio.codec = 'aac'; continue; }
-    if (std === 'isdbt') { if (p.type === 'tv') p.video.codec = 'h264'; if (p.video.hdr && p.video.hdr !== 'sdr') p.video.hdr = 'sdr'; p.audio.codec = 'aac'; if (!VIDEO.AUDIO_BR.aac.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 128; }
+    if (std === 'isdbt' && c.isdbt?.region === 'jp') { if (p.type === 'tv' && !p.oneseg) p.video.codec = 'mpeg2'; if (p.audio.codec !== 'none') p.audio.codec = 'aac'; continue; }
+    if (std === 'isdbt') { if (p.type === 'tv') p.video.codec = 'h264'; if (p.video.hdr && p.video.hdr !== 'sdr') p.video.hdr = 'sdr'; if (p.audio.codec !== 'none') { p.audio.codec = 'aac'; if (!VIDEO.AUDIO_BR.aac.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = 128; } }
   }
   return c;
 }
@@ -395,7 +396,7 @@ export function palAutoOffset(p) {
 export function newProgram(key, n = 1) {
   return {
     key, name: `DAB-Lab TV ${n}`, provider: 'DAB-Lab', sid: hex(0x1000 + n, 4), lcn: n, type: 'tv',
-    video: { source: { kind: 'testpattern', pattern: 'smptebars', file: '', url: '', playlist: '', loop: true, cookies: 'none', cookies_file: '', device: '', audio_device: '', size: '1920x1080', fps: 25, display: '', region: '', cursor: true },
+    video: { source: { kind: 'testpattern', pattern: 'smptebars', file: '', url: '', playlist: '', loop: true, cookies: 'none', cookies_file: '', device: '', audio_device: '', size: '1920x1080', fps: 25, display: '', region: '', cursor: true, folder: '', poll_s: 0.5 },
       codec: 'mpeg2', resolution: 'sd', bitrate_kbps: 3500, encoder: 'cpu', hdr: 'sdr' },
     audio: { codec: 'mp2', bitrate_kbps: 192, source: audioSrc() },
     eit: { title: `Testsendung ${n}`, description: 'DAB-Lab Laborsender – Prüfprogramm', duration_min: 60 },
@@ -675,14 +676,17 @@ export function validateStd(c, add) {
         if (!VIDEO.CODECS[v.codec]) add(`${b}.video.codec`, T('{name}: Videocodec', { name: p.name }));
         if (v.hdr && v.hdr !== 'sdr' && v.codec !== 'hevc') add(`${b}.video.hdr`, T('{name}: HDR10/HLG nur mit HEVC (Main10)', { name: p.name }));
         if (v.resolution === 'uhd' && v.codec === 'mpeg2') add(`${b}.video.resolution`, T('{name}: UHD nicht mit MPEG-2', { name: p.name }));
-        if (v.encoder === 'nvenc' && v.codec === 'mpeg2') add(`${b}.video.encoder`, T('{name}: NVENC kann kein MPEG-2', { name: p.name }));
-        if (v.hdr && v.hdr !== 'sdr' && v.encoder !== 'nvenc') add(`${b}.video.encoder`, T('{name}: HDR10/HLG nur mit GPU (NVENC)', { name: p.name }));
+        if (VIDEO.GPU_ENCODERS.includes(v.encoder) && v.codec === 'mpeg2') add(`${b}.video.encoder`, T('{name}: GPU-Encoder können kein MPEG-2', { name: p.name }));
+        if (v.hdr && v.hdr !== 'sdr' && !VIDEO.GPU_ENCODERS.includes(v.encoder)) add(`${b}.video.encoder`, T('{name}: HDR10/HLG nur mit GPU (NVENC/AMF)', { name: p.name }));
+        if (v.source.kind === 'folder' && !String(v.source.folder || '').trim()) add(`${b}.video.source.folder`, T('{name}: Bildordner fehlt', { name: p.name }));
+        if (v.source.kind === 'folder' && v.encoder !== 'cpu') add(`${b}.video.encoder`, T('{name}: Bildordner nur mit CPU-Encoder', { name: p.name }));
         if (v.source.kind === 'capture' && !v.source.device) add(`${b}.video.source.device`, T('{name}: Capture-Gerät wählen', { name: p.name }));
         const vmin = isHam(c) ? 100 : 300;
         if (!(v.bitrate_kbps >= vmin && v.bitrate_kbps <= 30000)) add(`${b}.video.bitrate_kbps`, T('{name}: Videobitrate {min}–30000 kbit/s', { name: p.name, min: vmin }));
       }
       if (!VIDEO.AUDIO[p.audio.codec]) add(`${b}.audio.codec`, T('{name}: Audiocodec', { name: p.name }));
-      if (!(p.audio.bitrate_kbps >= 32 && p.audio.bitrate_kbps <= 640)) add(`${b}.audio.bitrate_kbps`, T('{name}: Audiobitrate 32–640 kbit/s', { name: p.name }));
+      if (p.audio.codec === 'none') { if (p.type === 'radio') add(`${b}.audio.codec`, T('{name}: Radioprogramm braucht Ton', { name: p.name })); }
+      else if (!(p.audio.bitrate_kbps >= 32 && p.audio.bitrate_kbps <= 640)) add(`${b}.audio.bitrate_kbps`, T('{name}: Audiobitrate 32–640 kbit/s', { name: p.name }));
       if (p.audio.source.kind === 'file' && !p.audio.source.file) add(`${b}.audio.source.file`, T('{name}: Audiodatei fehlt', { name: p.name }));
       if ([...(p.eit.title || '')].length > 96) add(`${b}.eit.title`, T('{name}: EIT-Titel maximal 96 Zeichen', { name: p.name }));
     });
