@@ -14,6 +14,7 @@ import threading
 import time
 
 from . import si, sources, nvenc
+from . import config as C
 from . import tables as T
 
 import teletext as TTX
@@ -184,12 +185,21 @@ class DvbChain:
         self.host.atomic_write(os.path.join(self.sdir, "nit.xml"), si.nit_xml(c, self.versions["nit"]))
         self.host.atomic_write(os.path.join(self.sdir, "sdt.xml"), si.sdt_xml(c, self.versions["sdt"], self.names))
         self.host.atomic_write(os.path.join(self.sdir, "time.xml"), si.time_xml(c))
+        for s in self._hbbtv_services():
+            self.host.atomic_write(os.path.join(self.sdir, "ait_%s.xml" % s["key"]), si.ait_xml(s))
+            self.host.atomic_write(os.path.join(self.sdir, "pmt_hbbtv_%s.xml" % s["key"]), si.ait_pmt_patch(s))
         for s in c["services"]:
-            # Playlist: Startwert aus der Konfiguration, der Feeder ueberschreibt ihn beim ersten Titel (neue Version)
+            # Playlist: Startwert aus der Konfiguration, der Feeder ueberschreibt ihn beim ersten Titel (neue Version);
+            # Zeitplan: schreibt p/f und schedule selbst (ScheduleFeeder, noch vor dem Start von tsp)
+            if s["source"]["kind"] == "schedule":
+                continue
             e = s["eit"]
             fol = {"title": e["next_title"], "text": e.get("next_text") or ""} if e.get("next_title") else None
             si.write_eit(self.host, os.path.join(self.sdir, "eit", "eit_%s.xml" % s["key"]), c, s,
                          {"title": e["title"], "text": e["text"]}, fol)
+
+    def _hbbtv_services(self):
+        return [s for s in self.cfg["services"] if (s.get("hbbtv") or {}).get("enable")]
 
     def ffmpeg_cmd(self, seconds=None):
         c = self.cfg
@@ -219,6 +229,15 @@ class DvbChain:
             else:
                 src = sources.build_source(self.host, c, s, self.work, self.sdir, self.log, render=self.render)
             s["_source_info"] = src["info"]
+            ov = None
+            if s["type"] == "tv" and s.get("overlay"):
+                if use_nv or use_ts:
+                    self.log("warn", "%s: Overlay (Logo/Text) nur mit CPU-Encoder, entfaellt" % s["key"])
+                else:
+                    ov = sources.overlay_build(self.host, s, self.sdir, self.log)
+                    if ov and ov["inputs"]:
+                        ov["lin"] = len(src["inputs"])
+                        src["inputs"] = src["inputs"] + ov["inputs"]
             if src["feeder"]:
                 self.feeders[s["key"]] = src["feeder"]
             for a in src["inputs"]:
@@ -235,7 +254,14 @@ class DvbChain:
                 out_idx += 1
                 vi += 1
             elif s["type"] == "tv":
-                fc.append("[%d:v:0]%s[v%d]" % (base + src["vin"], src["vf"], i))
+                post = ("," + ov["text"]) if ov and ov["text"] else ""
+                if ov and ov["logo"]:
+                    # Logo als zweiter Eingang: Quelle -> [pvN], Logo skaliert/Deckkraft -> [lgN], overlay (+ Text) -> [vN]
+                    fc.append("[%d:v:0]%s[pv%d]" % (base + src["vin"], src["vf"], i))
+                    fc.append("[%d:v:0]%s[lg%d]" % (base + ov["lin"], ov["logo"], i))
+                    fc.append("[pv%d][lg%d]%s,format=yuv420p%s[v%d]" % (i, i, ov["place"], post, i))
+                else:
+                    fc.append("[%d:v:0]%s%s[v%d]" % (base + src["vin"], src["vf"], post, i))
                 maps += ["-map", "[v%d]" % i]
                 v = s["video"]
                 br = int(float(v["bitrate_kbps"]) * 1000)
@@ -372,6 +398,13 @@ class DvbChain:
             return []
         return ["--buffer-size-mb", "%.3f" % max(0.05, self.cfg["_rate_bps"] * 0.4 / 8 / 1e6)]
 
+    def _tsp_lead(self):
+        """So weit laeuft das, was tsp per inject einspielt (EIT), der Ausgabe voraus: der tsp-Puffer (Standard 16 MiB) bei
+        der Nutzbitrate. Der Zeitplan schreibt die EIT um diese Zeit frueher (sonst kaeme sie ~10 s nach dem Bildwechsel)."""
+        b = self._tsp_buffer()
+        size = float(b[1]) * 1048576 if b else 16 * 1048576
+        return size * 8 / self.cfg["_rate_bps"]
+
     def tsp_cmd(self, output, regulate):
         c, ts = self.cfg, self.cfg["ts"]
         tsp = self.host.tool("tsp")
@@ -400,8 +433,21 @@ class DvbChain:
             # EIT p/f: je Dienst eine Datei, komplett neu geladen bei Aenderung (ctl, Titelwechsel der Playlist).
             # (eitinject wurde verworfen: es haelt geladene Ereignisse im EPG fest und uebernahm geaenderte Titel
             # eines laufenden Ereignisses nicht.) Wiederholrate: alle Abschnitte mehrmals je Sekunde.
+            # Zeitplan-Dienste: zusaetzlich EIT schedule (0x50) mit eigener Wiederholrate (TR 101 211: 10 s, DATV 30 s);
+            # p/f teilt sich den Rest der EIT-Bitrate
+            rep = 30000 if c["_rate_bps"] < 2e6 else 10000
             cmd += ["-P", "inject", "--pid", "18", "--bitrate", str(ts.get("eit_bitrate", 30000)), "--stuffing",
-                    "--poll-files"] + [os.path.join(self.sdir, "eit", "eit_%s.bin" % s["key"]) for s in c["services"]]
+                    "--poll-files"] + [os.path.join(self.sdir, "eit", "eit_%s.bin" % s["key"]) for s in c["services"]] + \
+                ["%s=%d" % (os.path.join(self.sdir, "eit", "eit_sched_%s.bin" % s["key"]), rep) for s in c["services"]
+                 if s["source"]["kind"] == "schedule"]
+        for s in self._hbbtv_services():
+            # HbbTV (experimentell): PMT um die AIT-PID erweitern (stream_type 0x05 + application_signalling_descriptor),
+            # AIT selbst einmal je Sekunde (=1000 ms) auf eigener PID in Nullpakete einspielen
+            hb = s["hbbtv"]
+            cmd += ["-P", "pmt", "--service", str(s["service_id"]),
+                    "--patch-xml", os.path.join(self.sdir, "pmt_hbbtv_%s.xml" % s["key"]),
+                    "-P", "inject", "--pid", str(hb["_pid"]), "--bitrate", str(C.HBBTV_BPS), "--stuffing",
+                    os.path.join(self.sdir, "ait_%s.xml" % s["key"]) + "=1000"]
         cmd += ["-P", "pcradjust", "--bitrate", R]
         if regulate:
             cmd += ["-P", "regulate", "--bitrate", R, "--packet-burst", "16"]
@@ -421,6 +467,7 @@ class DvbChain:
             t = threading.Thread(target=self._stt_loop, daemon=True, name="stt")
             t.start()
             self.threads.append(t)
+        c["_eit_lead_s"] = 0 if self.render else self._tsp_lead()
         ffcmd = self.ffmpeg_cmd(seconds)  # baut auch Quellen/Feeder
         for f in self.feeders.values():
             f.start()
@@ -478,9 +525,11 @@ class DvbChain:
 
     # ------------------------------------------------------------------ Vorschau
     # Abgriff zwischen Mux-ffmpeg und tsp: Video ist dort schon so kodiert, wie es gesendet wird. Ein zweites ffmpeg
-    # dekodiert nur Keyframes (-skip_frame nokey, ~1-2 Bilder/s je Programm) und schreibt je TV-Dienst
-    # preview/<key>.jpg (atomar). Die Vorschau bremst nie die Sendekette: ist ihre Warteschlange voll, fallen Pakete weg.
-    PREVIEW_H = 270
+    # dekodiert alle Bilder und schreibt je TV-Dienst PREVIEW_FPS Bilder/s als preview/<key>.jpg (atomar) – das Dashboard
+    # zeigt daraus ein flüssiges Vorschauvideo. Die Vorschau bremst nie die Sendekette: ist ihre Warteschlange voll,
+    # fallen Pakete weg.
+    PREVIEW_H = 360
+    PREVIEW_FPS = 12
 
     def _preview_wanted(self):
         return (not self.render and self.cfg["ts"].get("preview", True)
@@ -495,17 +544,23 @@ class DvbChain:
                 os.remove(f)
             except OSError:
                 pass
+        # ffmpeg schreibt ins Arbeitsverzeichnis, _preview_sync kopiert nach preview/: unter WSL liegt die Sitzung auf
+        # /mnt/c, dort scheitert das Umbenennen, solange der Windows-Server das Bild liest – und ffmpeg bricht dann ab
+        wdir = os.path.join(self.work, "preview")
+        os.makedirs(wdir, exist_ok=True)
+        self.preview_dirs = (wdir, pdir)
         cmd = [self.host.tool("ffmpeg"), "-hide_banner", "-loglevel", "error", "-nostats", "-threads", "2",
-               "-skip_frame", "nokey", "-probesize", "4M", "-analyzeduration", "3M", "-f", "mpegts", "-i", "pipe:0"]
+               "-probesize", "4M", "-analyzeduration", "3M", "-f", "mpegts", "-i", "pipe:0"]
         for s in self.cfg["services"]:
             if s["type"] != "tv":
                 continue
-            cmd += ["-map", "0:p:%d:v:0?" % s["service_id"], "-vf", "scale=-2:%d" % self.PREVIEW_H, "-q:v", "6",
-                    "-f", "image2", "-update", "1", "-atomic_writing", "1", os.path.join(pdir, "%s.jpg" % s["key"])]
+            cmd += ["-map", "0:p:%d:v:0?" % s["service_id"], "-vf", "fps=%d,scale=-2:%d" % (self.PREVIEW_FPS, self.PREVIEW_H), "-q:v", "6",
+                    "-f", "image2", "-update", "1", "-atomic_writing", "1", os.path.join(wdir, "%s.jpg" % s["key"])]
         self.preview = self.spawn("preview", cmd, stdin=subprocess.PIPE)
         self.preview_q = queue.Queue(maxsize=64)
         rfd, wfd = os.pipe()
-        for target, args, name in ((self._tee, (self.ffmpeg.stdout, wfd), "tee"), (self._preview_feed, (), "preview")):
+        for target, args, name in ((self._tee, (self.ffmpeg.stdout, wfd), "tee"), (self._preview_feed, (), "preview"),
+                                   (self._preview_sync, (), "preview-sync")):
             t = threading.Thread(target=target, args=args, daemon=True, name=name)
             t.start()
             self.threads.append(t)
@@ -557,6 +612,27 @@ class DvbChain:
                 p.stdin.close()
             except Exception:
                 pass
+
+    def _preview_sync(self):
+        """Neue Vorschaubilder sofort (alle 40 ms nachsehen) nach preview/ kopieren; ist das Ziel gerade gesperrt,
+        beim naechsten Mal."""
+        wdir, pdir = self.preview_dirs
+        done = {}
+        while not self.stop_evt.wait(0.04):
+            for src in glob.glob(os.path.join(wdir, "*.jpg")):
+                try:
+                    t = os.path.getmtime(src)
+                    if done.get(src) == t:
+                        continue
+                    with open(src, "rb") as f:
+                        data = f.read()
+                    dst = os.path.join(pdir, os.path.basename(src))
+                    with open(dst + ".tmp", "wb") as f:
+                        f.write(data)
+                    os.replace(dst + ".tmp", dst)
+                    done[src] = t
+                except OSError:
+                    pass
 
     def _relay(self, pipe, is_iq):
         fd = self.out_fd
@@ -633,6 +709,7 @@ class DvbChain:
              "running": True, "config_name": c.get("name"), "rate_bps": c["_rate_bps"], "output": c["output"]["kind"],
              "services": {s["key"]: {"service_id": s["service_id"], "name": s["name"], "provider": s["provider"],
                                      "lcn": s["lcn"], "playlist": s["source"]["kind"] == "playlist",
+                                     "schedule": s["source"]["kind"] == "schedule",
                                      "eit_file": os.path.join(self.sdir, "eit", "eit_%s.xml" % s["key"]),
                                      "pmt_pid": s.get("_pmt_pid_out", s["_pmt_pid"]), "video_pid": s["_vpid"], "audio_pid": s["_apid"]}
                           for s in c["services"]},

@@ -145,7 +145,7 @@ class Device:
         return lines
 
     # ------------------------------------------------------------------ RX capture
-    def rx_capture(self, lo_hz, samples, gain_db=20, rx_bw_hz=None, settle_s=0.5):
+    def rx_capture(self, lo_hz, samples, gain_db=20, rx_bw_hz=None, settle_s=0.5, block=262144):
         """Capture `samples` complex samples (int16 I/Q) with iio_readdev on the device at the current RX rate.
         Only RX LO, gain mode/gain (and optionally the analog RX bandwidth) are changed and restored afterwards;
         sampling rate and FIR (shared BBPLL with TX) stay untouched. -> (bytes, info dict)."""
@@ -160,7 +160,7 @@ echo {int(lo_hz)} > $PHY/out_altvoltage0_RX_LO_frequency
 echo manual > $PHY/in_voltage0_gain_control_mode; echo {g} > $PHY/in_voltage0_hardwaregain
 sleep {settle_s}
 echo "INFO lo=$(cat $PHY/out_altvoltage0_RX_LO_frequency) rate=$(cat $PHY/in_voltage_sampling_frequency) bw=$(cat $PHY/in_voltage_rf_bandwidth) gain=$(cat $PHY/in_voltage0_hardwaregain) rx_fir=$(cat $PHY/in_voltage_filter_fir_en) txrate=$(cat $PHY/out_voltage_sampling_frequency)" > /tmp/dablab_rx.info
-iio_readdev -u local: -b 262144 -s {samples} cf-ad9361-lpc voltage0 voltage1 > /tmp/dablab_rx.iq 2>/tmp/dablab_rx.err
+mkdir -p /tmp/dablab_rxh; iio_readdev -u local: -b {int(block)} -s {samples} cf-ad9361-lpc voltage0 voltage1 > /tmp/dablab_rxh/rx.iq 2>/tmp/dablab_rx.err
 RC=$?
 [ "$(cat $PHY/tx_path_rates)" = "$TXR0" ] && echo "TXSAME 1" >> /tmp/dablab_rx.info || echo "TXSAME 0" >> /tmp/dablab_rx.info
 {"echo $RXBW0 > $PHY/in_voltage_rf_bandwidth;" if rx_bw_hz else ""}
@@ -169,10 +169,17 @@ echo "RC $RC" >> /tmp/dablab_rx.info
 """
         t0 = time.time()
         self.sh(script, timeout=60 + samples / 1e6)
-        info_txt = self.sh("cat /tmp/dablab_rx.info; wc -c < /tmp/dablab_rx.iq")
+        info_txt = self.sh("cat /tmp/dablab_rx.info; wc -c < /tmp/dablab_rxh/rx.iq")
         t_cap = time.time() - t0
-        rc, blob, err = self.run("cat /tmp/dablab_rx.iq; rm -f /tmp/dablab_rx.iq", timeout=60 + samples * 4 / 2e6)
-        info = {"capture_s": round(t_cap, 2), "transfer_s": round(time.time() - t0 - t_cap, 2), "bytes": len(blob)}
+        try:
+            blob, how = self._fetch_http("rx.iq", timeout=60 + samples * 4 / 2e6), "http"
+        except Exception as e:
+            self.log("warn", f"RX-Mitschnitt per HTTP: {e} – nehme SSH")
+            rc, blob, err = self.run("cat /tmp/dablab_rxh/rx.iq", timeout=60 + samples * 4 / 2e6)
+            how = "ssh"
+        self.sh("rm -f /tmp/dablab_rxh/rx.iq")
+        info = {"capture_s": round(t_cap, 2), "transfer_s": round(time.time() - t0 - t_cap, 2), "bytes": len(blob),
+                "transfer": how}
         m = re.search(r"INFO lo=(\d+) rate=(\d+) bw=(\d+) gain=([-\d.]+)[^ ]* (?:dB )?rx_fir=(\d) txrate=(\d+)", info_txt)
         if m:
             info.update(rx_lo_hz=int(m.group(1)), rx_rate_hz=int(m.group(2)), rx_bw_hz=int(m.group(3)),
@@ -181,6 +188,23 @@ echo "RC $RC" >> /tmp/dablab_rx.info
         if len(blob) < samples * 4 * 0.9:
             raise DeviceError(f"RX-Mitschnitt zu kurz ({len(blob)} B): {info_txt.strip()[-200:]}")
         return blob, info
+
+    def _fetch_http(self, name, timeout=120):
+        """Datei aus /tmp/dablab_rxh per busybox httpd (nur USB-Adresse, kurzlebig) holen: ~4× schneller als SSH,
+        weil der Pluto beim Senden kaum CPU für die Verschlüsselung übrig hat."""
+        import urllib.request
+        port = 8091
+        # SSH-Sitzungen laufen mit umask 077, httpd liefert nur für alle lesbare Dateien aus; ein übrig gebliebener
+        # httpd (abgebrochener Lauf) hielte den Port und lieferte 404 aus einem gelöschten Verzeichnis
+        stop = f"kill $(cat /tmp/dablab_rxh.pid 2>/dev/null) 2>/dev/null; pkill -f 'httpd -f -p {self.host}:{port}'; true"
+        self.sh(f"{stop}; chmod -R a+rX /tmp/dablab_rxh; "
+                f"busybox httpd -f -p {self.host}:{port} -h /tmp/dablab_rxh </dev/null >/dev/null 2>&1 & "
+                f"echo $! > /tmp/dablab_rxh.pid; sleep 0.2")
+        try:
+            with urllib.request.urlopen(f"http://{self.host}:{port}/{name}", timeout=timeout) as r:
+                return r.read()
+        finally:
+            self.sh(stop)
 
 
 _PHY = "PHY=$(dirname $(grep -l '^ad9361-phy$' /sys/bus/iio/devices/iio:device*/name)); "

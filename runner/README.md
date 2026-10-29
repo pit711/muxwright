@@ -280,6 +280,21 @@ falls noch nicht vorhanden; vorab: `dablab_run.py media youtube <url> [--max-hei
 auf gleiche Länge gebracht; EIT present/following aus der Playlist; `ctl playlist next|prev|jump`). Alle Quellen werden auf die
 Zielgröße skaliert (Seitenverhältnis erhalten, schwarze Ränder), 25 fps, yuv420p.
 
+**Overlay** (je TV-Programm, nur CPU-Encoder): `services[].overlay = {"logo": {"file", "position": top-left|top-right|bottom-left|bottom-right|center,
+"size_pct" (der Bildhöhe), "opacity" 0–1, "margin_pct"}, "text": {"text", "position" (zusätzlich top|bottom), "size_pct", "color" #RRGGBB|Name,
+"box", "box_color" (z. B. black@0.6), "margin_pct", "scroll", "speed_pct" (Bildbreite je s)}}` – fehlender Teil oder `"enable": false` = aus.
+Logo als zusätzlicher Eingang (`-loop 1 -i`, `overlay`), Text per `drawtext textfile=sessions/<id>/overlay_<key>.txt:reload=1`;
+`ctl '{"overlay":{"service":"tv1","text":"…"}}'` ersetzt die Datei atomar (wirkt ohne Neustart). `source.text`/`timestamp` bleiben unverändert.
+**Netzwerk-Stream** (`source.kind = "stream"`, nur TV, CPU-Encoder): `{"mode": "pull", "url": "srt://…|udp://@239.1.1.1:1234|rtp://…|rtmp://…|https://…/index.m3u8"}`
+oder `{"mode": "listen", "protocol": "srt|rtmp", "port": 9000, "key": "live"}` (OBS sendet an `srt://<PC-IP>:9000` bzw.
+`rtmp://<PC-IP>:1935/live` mit Schlüssel `key`). Optional `latency_ms` (SRT, 200), `fallback` `slate|testpattern|last|black`,
+`fallback_text`, `hold_s` (letztes Bild halten, 1), `stall_s` (Neuverbindung ohne Bilder, 5), `buffer_ms` (Jitterpuffer, 300),
+`frontend` `auto|windows|local`; Ton aus dem Stream mit `audio.kind = "source"`. Ein Front-End-ffmpeg empfängt und remuxt
+(`-c copy` → MPEG-TS), unter WSL als Windows-ffmpeg (Ports binden unter Windows, LAN/Multicast erreichbar trotz WSL2-NAT);
+ein Dekoder-ffmpeg liefert Rohbild/PCM, `StreamFeeder` gibt nach der Wanduhr (≤ 1 s Vorlauf) lückenlos aus: Live-Bild,
+bei Ausfall Ersatzbild + Stille, automatische Wiederverbindung. Status in `now_playing[].stream`
+(`state` live|lost|waiting, `video`, `audio`, `reconnects`, `dropouts`, Bildzähler).
+
 **Takt**: Bei `stdout`/`modulator` bremst der Leser (Pluto am PC), es gibt keine Echtzeitbremse im Runner. Bei `udp` regelt
 `tsp -P regulate` auf die exakte Nutzbitrate (Systemuhr), der Modulator auf dem Pluto gleicht Restabweichungen mit Nullpaketen aus.
 
@@ -287,6 +302,15 @@ Zielgröße skaliert (Seitenverhältnis erhalten, schwarze Ränder), 25 fps, yuv
 (SDT-Version +1), LCN (NIT-Version +1), EIT-Titel/-Text (EIT-Version +1, bei Playlists gilt der Text für alle folgenden Titel bis
 `"clear": true`), Playlist weiter/zurück/Sprung – alles ohne Neustart der Kette. Die Feeder-Position läuft dem Sendesignal um etwa
 2–3 s voraus (Warteschlangen), `now_playing` und EIT wechseln entsprechend früher.
+
+**Zeitplan** (`source.kind = "schedule"`, `dvb/schedule.py`, Schema in `../SPEC.md`): Einträge mit Startzeit/Wochentagen → Datei,
+Playlist, Testbild oder Bildordner. Der `ScheduleFeeder` nutzt die FIFOs des Playlist-Feeders und schneidet bildgenau an der
+Stromuhr (Startzeit + gelieferte Bilder/fps). EIT p/f folgt live der Wanduhr plus Vorlauf des tsp-Puffers; EIT schedule
+(0x50, 48 h) liegt als `eit/eit_sched_<key>.bin` neben der p/f-Datei und wird von `tsp -P inject` mit eigener Wiederholrate
+(10 s) eingespielt (`tstables` zeigt die segmentierte Tabelle nur mit `--all-sections`). Testhilfe: `DABLAB_SCHEDULE_START=HH:MM[:SS]`
+setzt den Start der Zeitplan-Uhr (nicht TDT/TOT). Tests: `tests/dvb_schedule_test.sh` (render 80 s: Bilder an den Umschaltpunkten,
+Kontinuität, EIT), `tests/dvb_schedule_live.sh` (Echtzeit, Umschaltung gegen die Uhr), `tests/dvb_eit_rates.py` (Abschnitte und
+Wiederholabstände auf PID 18).
 
 ### DVB-Abnahme (WSL1, Ryzen 5 3600, 23.10.2026, `tests/results_wsl/dvb_acceptance.txt`)
 
@@ -337,6 +361,18 @@ Beispiel `examples/datv_qo100.json` (QPSK 2/3, 333 kS/s, H.264 640×360): Ende-z
 - Bei einer Playlist läuft `now_playing`/EIT dem Bild um etwa 2–3 s voraus. Sehr kurze Titel (< 3 s) sind möglich, die EIT ändert sich dann sehr oft.
 - DVB-C-VHF-Kanäle (S02–S20, K05–K11) im 8-MHz-Raster sind eine Annahme; Netze mit 1-MHz-Versatz per `custom`-Frequenz einstellen.
 - `lock` im check-Bericht ist immer `true` (reine TS-Prüfung).
+
+### HbbTV-Signalisierung (experimentell, 29.10.)
+
+Je TV-Programm optional `services[].hbbtv = {enable, url, name, autostart, org_id, app_id}` (Dashboard: `dvb.programs[].hbbtv`,
+Karte „HbbTV (experimentell)“ im Reiter Allgemein). Nur DVB-T/T2/C (Annex A)/S. Die Kette erzeugt je Programm
+`ait_<key>.xml` (AIT 0x74, application_type 0x0010, control_code AUTOSTART 0x01 bzw. PRESENT 0x02, Transport HTTP mit Basis-URL
+bis zum letzten „/“, `simple_application_location` = Rest, Name, Profil 0 / 1.1.1) und spielt sie mit `tsp -P inject … =1000`
+einmal je Sekunde auf PID Video-PID + 2 ein. `tsp -P pmt --service <sid> --patch-xml pmt_hbbtv_<key>.xml` hängt die AIT-PID als
+stream_type 0x05 mit application_signalling_descriptor (0x6F) an die PMT. `check` prüft diesen PMT-Eintrag.
+Beispiel `examples/dvbt_hbbtv.json` (render 8 s: AIT dekodiert, Wiederholung 998 ms, 1,5 kbit/s, 0 CC-Fehler, PMT von Programm 2
+unverändert). Am Fernseher nicht geprüft; der TV braucht Internet bzw. muss die URL selbst erreichen. Eine Demo-App liefert Muxwright
+nicht aus (der Server lauscht nur auf 127.0.0.1).
 
 ### DVB-Nachtrag: nahtlose Schleife und HD-Transkodierung (23.10.)
 

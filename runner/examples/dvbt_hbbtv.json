@@ -1,0 +1,22 @@
+{
+  "name": "DVB-T: zwei TV-Programme, eines mit HbbTV-Signalisierung (AIT, experimentell)",
+  "mode": "dvbt",
+  "dvbt": {"mode": "8k", "constellation": "64-QAM", "code_rate": "2/3", "guard": "1/32", "bandwidth_mhz": 8},
+  "ts": {"transport_stream_id": "0x0101", "original_network_id": "0xFF01", "network_name": "DABLAB", "lcn": true, "eit": true, "tdt": true},
+  "services": [
+    {"key": "tv1", "service_id": "0x0001", "name": "LAB TV 1", "provider": "DABLAB", "lcn": 1, "type": "tv",
+     "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": "auto"},
+     "audio": {"codec": "mp2", "bitrate_kbps": 192, "language": "deu"},
+     "source": {"kind": "testpattern", "pattern": "testsrc2", "text": "LAB TV 1 HbbTV", "audio": {"kind": "sine", "freq_hz": 1000}},
+     "eit": {"title": "HbbTV-Test", "text": "AIT auf PID 0x0102, Anwendung startet automatisch"},
+     "hbbtv": {"enable": true, "url": "http://192.168.1.10:8080/hbbtv/index.html", "name": "Muxwright Demo",
+               "autostart": true, "org_id": "0x00000F00", "app_id": "0x0001"}},
+    {"key": "tv2", "service_id": "0x0002", "name": "LAB TV 2", "provider": "DABLAB", "lcn": 2, "type": "tv",
+     "video": {"codec": "mpeg2", "size": "sd", "bitrate_kbps": "auto"},
+     "audio": {"codec": "mp2", "bitrate_kbps": 192, "language": "deu"},
+     "source": {"kind": "testpattern", "pattern": "smptebars", "text": "LAB TV 2", "audio": {"kind": "sine", "freq_hz": 440}},
+     "eit": {"title": "Ohne HbbTV", "text": "Vergleichsprogramm"}}
+  ],
+  "output": {"kind": "stdout"},
+  "rf": {"channel": "K21", "atten_db": 60, "backoff_db": 12, "enabled": false}
+}

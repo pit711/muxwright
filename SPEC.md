@@ -278,11 +278,14 @@ Kette: `ffmpeg` (Quellen, Codecs, PAT/PMT, `-muxrate` = Nutzbitrate) → `tsp` (
     "video": { "codec": "mpeg2"|"h264", "size": "sd"|"hd"|"720p"|"WxH", "fps": 25, "aspect": "16:9",
                "bitrate_kbps": "auto"|5000, "gop": 12, "preset": "veryfast", "interlaced": false },
     "audio": { "codec": "mp2"|"aac"|"ac3", "bitrate_kbps": 192, "channels": 2, "samplerate": 48000, "language": "deu" },
-    "source": { "kind": "testpattern"|"file"|"youtube"|"slideshow"|"playlist",
+    "source": { "kind": "testpattern"|"file"|"youtube"|"slideshow"|"playlist"|"schedule",
                 "pattern": "testsrc2"|"smptehdbars"|"smptebars"|"pal75bars"|…, "text": "LAB TV 1", "timestamp": true,
                 "file": "media/video/x.mp4", "url": "https://youtu.be/…", "max_height": 1080, "download": true,
                 "images": ["media/slide1.jpg"], "interval_s": 5, "playlist": "videoliste", "shuffle": false,
                 "loop": true, "loop_mode": "feeder"|"stream_loop", "seek_s": 0, "normalize": false,
+                "entries": [{ "time": "20:15", "days": [1, 2, 3, 4, 5], "kind": "file"|"playlist"|"testpattern"|"folder",  // schedule
+                              "file": "…", "playlist": "…", "pattern": "smptebars", "folder": "C:\\Infoscreen",
+                              "title": "…", "text": "…", "loop": true }], "filler": "smptebars",
                 "audio": "source" | { "kind": "sine"|"speech"|"sine+speech"|"silence"|"noise"|"file"|"source",
                                       "freq_hz": 1000, "level_dbfs": -18, "text": "…", "file": "media/x.mp3" } },
     "eit": { "title": "…", "text": "…", "duration_min": 60, "next_title": null, "next_text": "", "language": "deu" }
@@ -299,6 +302,12 @@ Kette: `ffmpeg` (Quellen, Codecs, PAT/PMT, `-muxrate` = Nutzbitrate) → `tsp` (
 - PIDs: PMT = `pmt_start_pid + i`, Video = `start_pid + 16·i`, Audio = Video + 1; PCR auf dem Video (Radio: Audio).
 - Playlist-Quelle: Playlists wie bei DAB (`runtime/playlists/<name>.json`, `dablab_run.py playlist import …`), Einträge sind Videos.
   Jeder Titel wird nahtlos in dieselben Rohdaten-FIFOs dekodiert (Bild/Ton gleich lang aufgefüllt); EIT present/following = aktueller/nächster Titel.
+- Zeitplan-Quelle (`schedule`, TV und Radio): jeder Eintrag läuft ab `time` (Ortszeit `HH:MM[:SS]`; `days` 1 = Mo … 7 = So, leer =
+  täglich) bis zum nächsten Start; Datei/Playlist in Schleife, `loop: false` → danach Füller-Testbild (`filler`). Umgeschaltet wird
+  bildgenau nach der Stromuhr in denselben Rohdaten-FIFOs wie bei der Playlist (kein Neustart, PTS/PCR stetig); startet die Kette mitten
+  in einem Eintrag, springen Datei/Playlist an die passende Stelle. EIT present/following aus dem Zeitplan (Start/Dauer wie geplant,
+  `event_id` aus der Startzeit) und **EIT schedule actual** (0x50, Segmente zu 3 h, 48 h voraus, alle 10 s, DATV 30 s); SDT
+  `EIT_schedule = true`. Dashboard: `video.source.kind = "schedule"`, Einträge in `video.source.schedule[]`, `video.source.filler`.
 - **Dashboard-Format** (`web/js/standards.js`) wird angenommen und intern übersetzt: `dvbt.fft` → `dvbt.mode`; `dvb.si`
   {`network_id`,`network_name`,`onid`,`tsid`,`lcn`,`eit`,`tdt`} → `ts`; `dvb.programs[]` {`key`,`name`,`provider`,`sid`,`lcn`,`type`,
   `video{codec,resolution,bitrate_kbps,source{kind,pattern,file,url,playlist,loop}}`,`audio{codec,bitrate_kbps,source{kind,…}}`,

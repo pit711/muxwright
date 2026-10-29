@@ -381,6 +381,12 @@ def compare(cfg, rep):
             M.append("PMT Dienst %d: Video-Streamtyp %s statt %s" % (s["service_id"], types.get(s["_vpid"]), ST_V[s["video"]["codec"]]))
         if s["_apid"] is not None and types.get(s["_apid"]) not in ST_A[s["audio"]["codec"]]:
             M.append("PMT Dienst %d: Audio-Streamtyp %s statt %s" % (s["service_id"], types.get(s["_apid"]), ST_A[s["audio"]["codec"]]))
+        hb = s.get("hbbtv") or {}
+        if hb.get("enable"):
+            comp = next((x for x in pm["components"] if x["pid"] == hb["_pid"]), None)
+            if not comp or comp["stream_type"] != 0x05 or "application_signalling_descriptor" not in comp["descriptors"]:
+                M.append("PMT Dienst %d: HbbTV-AIT (PID %d, stream_type 0x05 + application_signalling_descriptor) fehlt"
+                         % (s["service_id"], hb["_pid"]))
     if ts.get("eit", True):
         eits = {e["service_id"]: e for e in t.get("eit", []) if e.get("actual") == "true"}
         for s in cfg["services"]:
@@ -441,7 +447,8 @@ def analyze_file(host, cfg, path, log=None, decode_seconds=4):
                       "tsanalyze_bps": an_rate, "null_share": round(null, 4) if null is not None else None,
                       "max_jitter_ns": max([v["jitter_max_ns"] for v in pids.values()] or [None])}
     rep["continuity"] = continuity_pcr(host, path)
-    err, tabs = tstables(host, path, extra_pids=[s.get("_pmt_pid_out", s["_pmt_pid"]) for s in cfg["services"]])
+    err, tabs = tstables(host, path, extra_pids=[s.get("_pmt_pid_out", s["_pmt_pid"]) for s in cfg["services"]]
+                         + [s["hbbtv"]["_pid"] for s in cfg["services"] if (s.get("hbbtv") or {}).get("enable")])
     rep["tables"] = parse_tables(tabs) if not err else {"error": err}
     rep["table_counts"] = {k: len(v) for k, v in tabs.items()}
     progs = {p["program_id"]: p for p in ffprobe_programs(host, path)}

@@ -55,6 +55,10 @@ def cmd_live(args, host):
     stop = {"why": None}
 
     def on_sig(signum, frame):
+        # nur einmal: ein zweites Signal (z. B. timeout an Prozess und Gruppe) traefe den Handler mitten in Event.set()
+        # und wartete dann ewig auf dessen Lock
+        if stop["why"]:
+            return
         stop["why"] = "signal %d" % signum
         chain.stop_evt.set()
 
@@ -246,7 +250,9 @@ def cmd_ctl(args, host, sess):
         if "eit" in req:
             d = req["eit"]
             s = svc_of(d)
-            if sess["services"][s["key"]].get("playlist"):
+            ss = sess["services"][s["key"]]
+            if ss.get("playlist") or ss.get("schedule"):
+                # Feeder schreibt die EIT (Text gilt bis "clear" bzw. beim Zeitplan bis zum naechsten Eintrag)
                 host.atomic_write(os.path.join(sdir, "playlist_%s.cmd" % s["key"]),
                                   json.dumps({"action": "eit", "title": d.get("title"), "text": d.get("text"),
                                               "clear": bool(d.get("clear"))}))
@@ -272,6 +278,16 @@ def cmd_ctl(args, host, sess):
             host.atomic_write(os.path.join(sdir, "sdt.xml"), si.sdt_xml(cfg, versions["sdt"], names))
             res["done"].append("name")
             res["sdt_version"] = versions["sdt"]
+        if "overlay" in req:
+            # Overlay-Text: drawtext liest die Datei mit reload=1 bei jedem Bild neu -> atomar ersetzen
+            d = req["overlay"]
+            s = svc_of(d)
+            tx = (s.get("overlay") or {}).get("text")
+            tf = os.path.join(sdir, "overlay_%s.txt" % s["key"])
+            if not tx or not os.path.isfile(tf):
+                raise host.RunnerError("Dienst '%s' hat keinen Overlay-Text (Einschalten braucht einen Neustart)" % s["key"])
+            host.atomic_write(tf, sources.overlay_text_clean(d.get("text"), tx["scroll"]))
+            res["done"].append("overlay")
         if "lcn" in req:
             d = req["lcn"]
             s = svc_of(d)

@@ -42,3 +42,11 @@ body.protocol { font: 13px/1.45 "Segoe UI", system-ui, Arial, sans-serif; color:
 .protocol .sp-line { fill: none; stroke: #1d4ed8; stroke-width: 1.2; } .protocol .spectrum { width: 100%; height: auto; display: block; }
 .protocol .rx-grid { display: flex; flex-wrap: wrap; gap: 6px; } .protocol .rx-kv { border: 1px solid #ddd; border-radius: 6px; padding: 4px 8px; display: flex; flex-direction: column; }
 .protocol .rx-kv small { font-size: 9px; text-transform: uppercase; color: #666; } .protocol .rx-kv b { font-family: Consolas, monospace; } .protocol .rx-kv.bad b { color: #b91c1c; }
+.pv2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pv2 figure { margin: 0; } .pv2 img { width: 100%; display: block; border: 1px solid #ccc; }
+.pv2 figure.empty div { aspect-ratio: 16 / 9; display: grid; place-items: center; border: 1px dashed #bbb; color: #999; }
+.pv2 figcaption { font-size: 11px; color: #555; }
+.pvq2 { display: flex; gap: 16px; align-items: flex-start; margin-top: 10px; }
+svg.constellation { border: 1px solid #ccc; }
+.cst-bg { fill: #fff; } .cst-grid { stroke: #ddd; stroke-width: .05; } .cst-dot { fill: #0b6b3a; }
+.rep-cst { break-inside: avoid; }

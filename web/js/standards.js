@@ -288,6 +288,8 @@ export const VIDEO = {
   GPU_ENCODERS: ['nvenc', 'amf'],
   HDR: { sdr: 'SDR (BT.709)', hdr10: 'HDR10 (PQ, BT.2020, Main10)', hlg: 'HLG (BT.2100, Main10)' },
   COOKIES: { none: T('keine'), chrome: T('aus {browser}', { browser: 'Chrome' }), firefox: T('aus {browser}', { browser: 'Firefox' }), edge: T('aus {browser}', { browser: 'Edge' }), file: 'cookies.txt' },
+  OVERLAY_POS: { 'top-left': T('oben links'), 'top-right': T('oben rechts'), 'bottom-left': T('unten links'), 'bottom-right': T('unten rechts'), center: T('Mitte') },
+  OVERLAY_TEXT_POS: { top: T('oben'), bottom: T('unten'), 'top-left': T('oben links'), 'top-right': T('oben rechts'), 'bottom-left': T('unten links'), 'bottom-right': T('unten rechts'), center: T('Mitte') },
   PATTERNS: { smptebars: T('SMPTE-Farbbalken'), smptehdbars: T('SMPTE-HD-Farbbalken'), pal75bars: T('PAL-Farbbalken 75 %'), testsrc2: T('ffmpeg testsrc2 (Zähler)'), testsrc: 'ffmpeg testsrc', rgbtestsrc: T('RGB-Testbild') },
   VIDEO_BR: { mpeg2: { sd: [2000, 3500, 5000, 8000], hd: [8000, 12000, 15000, 20000], hd720: [6000, 8000, 10000, 12000] },
     h264: { sd: [1000, 1500, 2500, 4000], hd: [4000, 6000, 8000, 12000], hd720: [3000, 4000, 6000, 8000], uhd: [15000, 20000, 25000] },
@@ -393,14 +395,72 @@ export function palAutoOffset(p) {
   }
   const fs = p.live ? p.live_fs : p.fs; return p.system === 'DK' ? 2675000 : p.system === 'I' ? 2175000 : (Number(fs) === 7000000 ? 2100000 : 2250000);
 }
+/** Netzwerk-Stream (video.source.kind = 'stream'): Listen für OBS (SRT/RTMP) oder Pull einer URL */
+export const streamDefaults = () => ({ mode: 'listen', protocol: 'srt', port: 9000, stream_key: 'live', stream_url: '', latency_ms: 200, fallback: 'slate', fallback_text: T('Kein Signal') });
 export function newProgram(key, n = 1) {
   return {
     key, name: `DAB-Lab TV ${n}`, provider: 'DAB-Lab', sid: hex(0x1000 + n, 4), lcn: n, type: 'tv',
-    video: { source: { kind: 'testpattern', pattern: 'smptebars', file: '', url: '', playlist: '', loop: true, cookies: 'none', cookies_file: '', device: '', audio_device: '', size: '1920x1080', fps: 25, display: '', region: '', cursor: true, folder: '', poll_s: 0.5 },
+    video: { source: { kind: 'testpattern', pattern: 'smptebars', file: '', url: '', playlist: '', loop: true, cookies: 'none', cookies_file: '', device: '', audio_device: '', size: '1920x1080', fps: 25, display: '', region: '', cursor: true, folder: '', poll_s: 0.5, schedule: [], filler: 'smptebars', ...streamDefaults() },
       codec: 'mpeg2', resolution: 'sd', bitrate_kbps: 3500, encoder: 'cpu', hdr: 'sdr' },
     audio: { codec: 'mp2', bitrate_kbps: 192, source: audioSrc() },
     eit: { title: `Testsendung ${n}`, description: 'DAB-Lab Laborsender – Prüfprogramm', duration_min: 60 },
+    hbbtv: defaultHbbtv(),
+    overlay: defaultOverlay(),
   };
+}
+/** HbbTV-Signalisierung je Programm (experimentell, runner/dvb/config.py _hbbtv): AIT mit HTTP-Startseite */
+export const defaultHbbtv = () => ({ enable: false, url: '', name: '', autostart: true, org_id: '0x00000F00', app_id: '0x0001' });
+export function hbbtvBlocked(c) {
+  const std = standardOf(c);
+  if (!['dvbt', 'dvbt2', 'dvbc', 'dvbs'].includes(std) || (std === 'dvbc' && c.dvbc?.annex && c.dvbc.annex !== 'a')) return T('HbbTV gibt es nur bei DVB-T/T2/C/S');
+  return null;
+}
+/** Overlay je TV-Programm (runner/dvb/config.py normalize_overlay): Logo aus der Medienbibliothek + Textzeile (live änderbar) */
+export const defaultOverlay = () => ({
+  logo: { enable: false, file: '', position: 'top-right', size_pct: 12, opacity: 1, margin_pct: 4 },
+  text: { enable: false, text: '', position: 'bottom', size_pct: 5, color: '#ffffff', box: true, scroll: false, speed_pct: 15 },
+});
+/** Zeitplan-Eintrag (Quellenart „schedule“, runner/dvb/schedule.py): Start täglich bzw. an Wochentagen 1 (Mo) … 7 (So) */
+export const newScheduleEntry = (time = '20:00') => ({ time, days: [], kind: 'file', file: '', playlist: '', pattern: 'smptebars', folder: '', title: '', text: '', loop: true });
+/** 'HH:MM[:SS]' → Sekunden seit Mitternacht oder null */
+export function scheduleTimeSec(s) {
+  const m = /^\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$/.exec(String(s ?? ''));
+  if (!m || +m[1] > 23 || +m[2] > 59 || +(m[3] || 0) > 59) return null;
+  return +m[1] * 3600 + +m[2] * 60 + +(m[3] || 0);
+}
+/** Starts aller Einträge von −8 bis +3 Tagen (Ortszeit) wie im Runner: [{t (ms), i}], bei gleicher Zeit gewinnt der spätere Eintrag */
+export function scheduleOccurrences(entries, now = new Date()) {
+  const m = new Map();
+  for (let d = -8; d <= 3; d++) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);
+    const wd = day.getDay() || 7;
+    (entries || []).forEach((e, i) => {
+      const t = scheduleTimeSec(e.time);
+      if (t == null || (e.days?.length && !e.days.includes(wd))) return;
+      m.set(new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(t / 3600), Math.floor(t / 60) % 60, t % 60).getTime(), i);
+    });
+  }
+  return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([t, i]) => ({ t, i }));
+}
+/** → { cur: {t, i} | null (Füller), next: [{t, i}, …] } */
+export function scheduleNow(entries, now = new Date()) {
+  const occ = scheduleOccurrences(entries, now), n = now.getTime();
+  return { cur: occ.filter(o => o.t <= n).pop() || null, next: occ.filter(o => o.t > n) };
+}
+function valSchedule(p, b, add) {
+  const ents = p.video.source.schedule || [];
+  if (!ents.length) add(`${b}.video.source.schedule`, T('{name}: Zeitplan ohne Einträge', { name: p.name }));
+  const seen = new Set();
+  ents.forEach((e, j) => {
+    const eb = `${b}.video.source.schedule.${j}`, n = j + 1, t = scheduleTimeSec(e.time);
+    if (t == null) add(`${eb}.time`, T('{name}: Zeitplan-Eintrag {n}: Uhrzeit HH:MM', { name: p.name, n }));
+    else if ((e.days?.length ? e.days : [1, 2, 3, 4, 5, 6, 7]).some(d => seen.has(`${t}/${d}`))) add(`${eb}.time`, T('{name}: Zeitplan-Eintrag {n}: Startzeit doppelt', { name: p.name, n }));
+    else for (const d of e.days?.length ? e.days : [1, 2, 3, 4, 5, 6, 7]) seen.add(`${t}/${d}`);
+    if (e.kind === 'file' && !e.file) add(`${eb}.file`, T('{name}: Zeitplan-Eintrag {n}: Datei fehlt', { name: p.name, n }));
+    if (e.kind === 'playlist' && !e.playlist) add(`${eb}.playlist`, T('{name}: Zeitplan-Eintrag {n}: Playlist fehlt', { name: p.name, n }));
+    if (e.kind === 'folder' && !String(e.folder || '').trim()) add(`${eb}.folder`, T('{name}: Zeitplan-Eintrag {n}: Bildordner fehlt', { name: p.name, n }));
+  });
+  if (p.type === 'tv' && p.video.encoder !== 'cpu') add(`${b}.video.encoder`, T('{name}: Zeitplan nur mit CPU-Encoder', { name: p.name }));
 }
 /** Teletext (runner/teletext.py): gleiche Struktur für DVB (dvb.teletext) und PAL (pal.teletext) */
 export const defaultTeletext = () => ({ enable: false, header: 'Muxwright', charset: 'de', initial_page: '100', auto_index: true, folder: '', programs: 'all',
@@ -490,6 +550,9 @@ export function normalizeStd(c) {
     r.video = { ...t.video, ...(p.video || {}) }; r.video.source = { ...t.video.source, ...((p.video || {}).source || {}) };
     r.audio = { ...t.audio, ...(p.audio || {}) }; r.audio.source = { ...t.audio.source, ...((p.audio || {}).source || {}) };
     r.eit = { ...t.eit, ...(p.eit || {}) };
+    r.hbbtv = { ...t.hbbtv, ...(p.hbbtv || {}) };
+    const ov = p.overlay || {};
+    r.overlay = { logo: { ...t.overlay.logo, ...(ov.logo || {}) }, text: { ...t.overlay.text, ...(ov.text || {}) } };
     return r;
   });
   if (!c.dvb.programs.length) c.dvb.programs = [newProgram('prg1', 1)];
@@ -708,15 +771,38 @@ export function validateStd(c, add) {
         if (v.hdr && v.hdr !== 'sdr' && !VIDEO.GPU_ENCODERS.includes(v.encoder)) add(`${b}.video.encoder`, T('{name}: HDR10/HLG nur mit GPU (NVENC/AMF)', { name: p.name }));
         if (v.source.kind === 'folder' && !String(v.source.folder || '').trim()) add(`${b}.video.source.folder`, T('{name}: Bildordner fehlt', { name: p.name }));
         if (v.source.kind === 'folder' && v.encoder !== 'cpu') add(`${b}.video.encoder`, T('{name}: Bildordner nur mit CPU-Encoder', { name: p.name }));
+        if (v.source.kind === 'stream') {
+          const src = v.source;
+          if (src.mode === 'pull' && !/^(srt|udp|rtp|rtmps?|https?|rist):\/\/./i.test(String(src.stream_url || '').trim())) add(`${b}.video.source.stream_url`, T('{name}: Stream-URL fehlt (srt://, udp://, rtp://, rtmp://, http(s)://)', { name: p.name }));
+          if (src.mode !== 'pull' && !(Number(src.port) >= 1024 && Number(src.port) <= 65535)) add(`${b}.video.source.port`, T('{name}: Port 1024–65535', { name: p.name }));
+          if (src.mode !== 'pull' && src.protocol === 'rtmp' && !/^[A-Za-z0-9_.-]{1,64}$/.test(src.stream_key || '')) add(`${b}.video.source.stream_key`, T('{name}: Stream-Schlüssel nur A–Z, 0–9, _ . -', { name: p.name }));
+          if (v.encoder !== 'cpu') add(`${b}.video.encoder`, T('{name}: Netzwerk-Stream nur mit CPU-Encoder', { name: p.name }));
+        }
         if (v.source.kind === 'capture' && !v.source.device) add(`${b}.video.source.device`, T('{name}: Capture-Gerät wählen', { name: p.name }));
+        const ol = p.overlay?.logo, ot = p.overlay?.text;
+        if (ol?.enable && !ol.file) add(`${b}.overlay.logo.file`, T('{name}: Overlay-Logo fehlt', { name: p.name }));
+        if (ol?.enable && !(ol.size_pct >= 2 && ol.size_pct <= 100)) add(`${b}.overlay.logo.size_pct`, T('{name}: Logogröße 2–100 %', { name: p.name }));
+        if (ol?.enable && !(ol.opacity >= 0 && ol.opacity <= 1)) add(`${b}.overlay.logo.opacity`, T('{name}: Deckkraft 0–1', { name: p.name }));
+        if (ot?.enable && !(ot.size_pct >= 2 && ot.size_pct <= 25)) add(`${b}.overlay.text.size_pct`, T('{name}: Schriftgröße 2–25 %', { name: p.name }));
+        if (ot?.enable && [...(ot.text || '')].length > 500) add(`${b}.overlay.text.text`, T('{name}: Overlay-Text maximal 500 Zeichen', { name: p.name }));
         const vmin = isHam(c) ? 100 : 300;
         if (!(v.bitrate_kbps >= vmin && v.bitrate_kbps <= 30000)) add(`${b}.video.bitrate_kbps`, T('{name}: Videobitrate {min}–30000 kbit/s', { name: p.name, min: vmin }));
       }
       if (!VIDEO.AUDIO[p.audio.codec]) add(`${b}.audio.codec`, T('{name}: Audiocodec', { name: p.name }));
       if (p.audio.codec === 'none') { if (p.type === 'radio') add(`${b}.audio.codec`, T('{name}: Radioprogramm braucht Ton', { name: p.name })); }
       else if (!(p.audio.bitrate_kbps >= 32 && p.audio.bitrate_kbps <= 640)) add(`${b}.audio.bitrate_kbps`, T('{name}: Audiobitrate 32–640 kbit/s', { name: p.name }));
+      if (p.video.source.kind === 'schedule') valSchedule(p, b, add);
       if (p.audio.source.kind === 'file' && !p.audio.source.file) add(`${b}.audio.source.file`, T('{name}: Audiodatei fehlt', { name: p.name }));
       if ([...(p.eit.title || '')].length > 96) add(`${b}.eit.title`, T('{name}: EIT-Titel maximal 96 Zeichen', { name: p.name }));
+      const hb = p.hbbtv;
+      if (hb?.enable) {
+        const why = hbbtvBlocked(c);
+        if (why) add(`${b}.hbbtv.enable`, why);
+        if (p.type !== 'tv') add(`${b}.hbbtv.enable`, T('{name}: HbbTV nur für TV-Programme', { name: p.name }));
+        if (!/^https?:\/\/[^\s/?#]+(\/\S*)?$/i.test(String(hb.url || '').trim())) add(`${b}.hbbtv.url`, T('{name}: HbbTV-URL muss mit http:// beginnen', { name: p.name }));
+        if (!/^0x[0-9a-f]{1,8}$/i.test(hb.org_id || '') || !parseHex(hb.org_id)) add(`${b}.hbbtv.org_id`, T('{name}: organization_id 1–FFFFFFFF (hex)', { name: p.name }));
+        if (!/^0x[0-9a-f]{1,4}$/i.test(hb.app_id || '') || !parseHex(hb.app_id)) add(`${b}.hbbtv.app_id`, T('{name}: application_id 1–FFFF (hex)', { name: p.name }));
+      }
     });
     if (c.dvb.teletext?.enable) {
       const why = teletextBlocked(c);
@@ -735,7 +821,8 @@ export function validateStd(c, add) {
 export function isLivePathStd(path) {
   return /^fm\.rds\.(ps|rt|rtplus|ta|tp|pty|ms|ct|ptyn|af|af_method|lps|eon|rt_from_tags|level_khz)$/.test(path) || /^fm\.rds\.(rtplus|af|eon)\./.test(path)
     || /^fm\.(deviation_khz|pilot_khz|mpx_power_dbr|audio_gain_db)$/.test(path) || /^fm\.second_carrier\.(level_db|enable)$/.test(path)
-    || path === 'fm.freq_mhz' || /^dvb\.programs\.\d+\.eit\./.test(path);   // PAL: vorgerenderte Schleife auf dem Pluto – Text braucht Neustart
+    || path === 'fm.freq_mhz' || /^dvb\.programs\.\d+\.eit\./.test(path)
+    || /^dvb\.programs\.\d+\.overlay\.text\.text$/.test(path);   // Overlay-Text: Datei mit drawtext reload=1   // PAL: vorgerenderte Schleife auf dem Pluto – Text braucht Neustart
 }
 
 /** Dienst-Vorlage für DAB im Mehrstandard-Kontext (Wiederverwendung) */

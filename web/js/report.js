@@ -2,7 +2,7 @@
 
 import { h, icon, esc, stamp } from './ui.js';
 import { CODECS, PTY, LANGUAGES, protLabel, parseHex, normHex, ltoLabel, capacity, fmtMHz, fmtDb, TOTAL_CU } from './dab.js';
-import { renderFmReport, renderDvbReport, renderPalReport, protocolStdSection } from './report_std.js';
+import { renderFmReport, renderDvbReport, renderPalReport, protocolStdSection, constellationSVG } from './report_std.js';
 import { standardOf, isDvb, stdName, requiredSampleRate } from './standards.js';
 import { APP_NAME } from './brand.js';
 import { T, LANG } from './i18n.js';
@@ -229,6 +229,22 @@ export function protocolData({ cfg, state, plan, results, notes }) {
   };
 }
 
+function previewSection(pv) {
+  const img = (src, cap) => src ? `<figure><img src="${src}" alt="${esc(cap)}"><figcaption>${esc(cap)}</figcaption></figure>`
+    : `<figure class="empty"><div>–</div><figcaption>${esc(cap)}</figcaption></figure>`;
+  const qa = pv.quality;
+  const cst = qa?.constellation ? constellationSVG(qa.constellation, 220)?.outerHTML || '' : '';
+  const progs = (pv.programs || []).map(p => `<h3>${esc(p.name)}</h3><div class="pv2">${img(p.tx, T('Quelle'))}${
+    img(p.rx, T('Empfang (Pluto-RX)') + (p.rx_age_s != null ? ` · ${T('vor {s} s', { s: Math.round(p.rx_age_s) })}` : ''))}</div>`).join('');
+  const q = qa ? `<div class="pvq2">${cst}<table class="kv">${[
+    ['MER', `${fmt1(qa.mer_db, ' dB')}`], [T('Ausreißer'), `${fmt1(qa.outlier_pct)} %`],
+    [T('Transportfehler'), String(qa.transport_errors ?? '–')], [T('TS-Pakete'), String(qa.ts_packets ?? '–')],
+    [T('RX-Verstärkung'), `${qa.rx_gain_db ?? '–'} dB`], [T('Messung'), T('vor {s} s', { s: Math.round(qa.age_s || 0) })]]
+    .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table></div>
+    <p>${esc(T('Schätzung mit dem Pluto als Messempfänger, kein kalibriertes Messgerät'))}</p>` : `<p>${esc(T('Keine RX-Messung vorhanden (Vorschau öffnen, Gerätepfad DVB-T/C/S).'))}</p>`;
+  return `<p>${esc(T('Aufgenommen:'))} ${esc(stamp(new Date(pv.time)))}</p>${progs}${q}`;
+}
+
 export function protocolHTML(data, cssText, sprite = '') {
   const cfg = data.config;
   const cap = data.capacity;
@@ -261,6 +277,7 @@ ${standardOf(cfg) === 'dab' ? `${sec('Ensemble', kv([['EId', cfg.ensemble.eid], 
 ${sec(T('Dienste'), svcTable)}` : protocolStdSection(cfg)}
 ${sec(T('Testplan-Ergebnisse'), results)}
 ${(data.sensitivity_marks || []).length ? sec(T('Empfindlichkeit (markierte Schwellen)'), `<table class="grid"><thead><tr><th>${esc(T('Zeit'))}</th><th>${esc(T('Kanal'))}</th><th>${esc(T('Dämpfung'))}</th><th>${esc(T('Pegel (geschätzt)'))}</th></tr></thead><tbody>${data.sensitivity_marks.map(m => `<tr><td>${esc(stamp(new Date(m.time)))}</td><td>${esc(m.channel)}</td><td>${fmtDb(m.atten_db)} dB</td><td>${m.dbm == null ? '–' : esc(fmtDb(m.dbm)) + ' dBm'}</td></tr>`).join('')}</tbody></table>`) : ''}
+${data.preview ? sec(T('Live-Vorschau und Empfangsqualität'), previewSection(data.preview)) : ''}
 ${sec(T('Offline-Prüfung (Soll/Ist)'), rep(data.check, 'check'))}
 ${sec(T('Kontrollempfang (Soll/Ist)'), rep(data.monitor, 'monitor'))}
 <details><summary>${esc(T('Konfiguration (JSON)'))}</summary><pre>${esc(JSON.stringify(cfg, null, 2))}</pre></details>

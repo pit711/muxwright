@@ -12,7 +12,7 @@ from playwright.sync_api import expect, sync_playwright
 
 T = lambda tid: f"[data-testid='{tid}']"  # noqa: E731
 NOWIN = 0x08000000
-ORDER = ["wsl_distro", "base", "ffmpeg", "tsduck", "odr", "welle", "modulators", "ytdlp"]
+ORDER = ["wsl_distro", "base", "ffmpeg", "tsduck", "odr", "welle", "modulators", "grdtv", "ytdlp"]
 FORBIDDEN = re.compile(r"(ffmpeg|ffprobe|x264|x265|fdk|odr-|welle|tsp\.exe|libavcodec|yt-dlp)", re.I)
 T0 = time.time()
 
@@ -233,6 +233,34 @@ def main():
         say(f"Prüfung {cfg}: ok={ck.get('ok')} Abweichungen {ck.get('mismatches')}")
         if ck.get("ok") is not True:
             raise SystemExit(f"Prüfung {cfg} fehlgeschlagen: {o[-3000:]}")
+
+    # Kontrollempfang DVB-T (Beta 0.6): Modulator → IQ → gr-dtv (Komponente grdtv) → TS, MER aus den entzerrten Zellen.
+    # Der Render liefert volle 16 bit, der Decoder erwartet 12-bit-Werte wie vom Pluto-RX -> vorher um 3 bit verschieben.
+    import numpy as np
+    sys.path.insert(0, str(app / "pc"))
+    import rxdecode
+    iq16 = base / "loop_dvbt.iq"
+    o = run(["wsl", "-d", a.distro, "--", "python3", runner, "render", "--config", w(app / "runner" / "examples" / "dvbt_testbild_sd.json"),
+             "--seconds", "3", "--format", "s16", "--out", w(iq16)], timeout=1800, check=False)
+    if not iq16.exists() or not iq16.stat().st_size:
+        raise SystemExit(f"IQ-Render DVB-T fehlgeschlagen:\n{o[-3000:]}")
+    iq12 = base / "loop_dvbt12.iq"
+    (np.fromfile(iq16, "<i2") >> 3).astype("<i2").tofile(iq12)
+    iq16.unlink()
+    cfg = json.loads((app / "runner" / "examples" / "dvbt_testbild_sd.json").read_text("utf-8"))
+    dec = rxdecode.decode_dvbt(str(iq12), cfg, a.distro)
+    say(f"DVB-T-Loopback (gr-dtv): lock={dec.get('lock')} Dienste {[x.get('name') for x in dec.get('services') or []]} "
+        f"Transportfehler {dec.get('transport_errors')} MER {dec.get('mer_db')} dB, Abweichungen {dec.get('mismatches')}")
+    if not dec.get("ok") or (dec.get("mer_db") or 0) < 28:
+        raise SystemExit(f"DVB-T-Loopback fehlgeschlagen: {dec}")
+    # HbbTV-AIT und Overlay (Beta 0.6): check prüft PMT-Eintrag 0x05/0x6F und die AIT
+    o = run(["wsl", "-d", a.distro, "--", "python3", runner, "check", "--config", w(app / "runner" / "examples" / "dvbt_hbbtv.json"),
+             "--seconds", "6"], timeout=1800, check=False)
+    (base / "check_dvbt_hbbtv.log").write_text(o, "utf-8")
+    ck = first_json(o)
+    say(f"Prüfung dvbt_hbbtv.json: ok={ck.get('ok')} Abweichungen {ck.get('mismatches')}")
+    if ck.get("ok") is not True:
+        raise SystemExit(f"Prüfung dvbt_hbbtv.json fehlgeschlagen: {o[-3000:]}")
 
     if not a.keep:
         say("räume auf (Distro und Installation entfernen; --keep behält beides)")

@@ -4,7 +4,7 @@
 import { h, icon, api, toast, dialog } from './ui.js';
 import * as D from './dab.js';
 import * as STD from './standards.js';
-import { S, txRunning, rfUpdate, confirmAtten, applyConfig, refreshState, changes, nowPlaying, load, save, apiTxStart } from './core.js';
+import { S, txRunning, rfUpdate, confirmAtten, applyConfig, refreshState, changes, nowPlaying, load, save, apiTxStart, txStop } from './core.js';
 import { estDbm } from './pages.js';
 import { APP_NAME } from './brand.js';
 import { previewStrip } from './preview.js';
@@ -151,7 +151,7 @@ export function pageRegie() {
       isActive && running && STD.isDvb(st.id) ? previewStrip(cfg, { small: true, tid: `regie-preview-${st.id}` }) : null,
       h('footer', null,
         isActive && status === 'onair'
-          ? h('button.btn.lg.mute', { type: 'button', tid: `regie-mute-${st.id}`, onclick: async () => { await rfUpdate({ enabled: false }); S.render(true); } }, icon('mute'), T('Stumm schalten'))
+          ? h('button.btn.lg.mute', { type: 'button', tid: `regie-stop-${st.id}`, onclick: async () => { await txStop(); S.render(true); } }, icon('stop'), T('Stopp'))
           : h('button.btn.lg.onair', { type: 'button', tid: `regie-onair-${st.id}`, disabled: status === 'starting', onclick: () => goOnAir(st.id) }, icon('power'), T('Auf Sendung')),
         h('button.btn.ghost', { type: 'button', tid: `regie-edit-${st.id}`, onclick: () => {
           if (STD.standardOf(S.draft) !== st.id) { STD.setStandard(S.draft, st.id); const last = load('lastRf', {})[st.id]; if (plausible(st.id, last) && st.id !== 'dvbs') Object.assign(S.draft.rf, { channel: last.channel, freq_hz: last.freq_hz }); for (const k of ['channel', 'freq_hz']) if (S.draft.rf[k] !== S.server?.rf[k]) S.rfIntent.add(k); }

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""SI-Tabellen als TSDuck-XML: NIT (Delivery-Descriptor, service_list, EACEM-LCN), SDT, EIT p/f, TDT/TOT."""
+"""SI-Tabellen als TSDuck-XML: NIT (Delivery-Descriptor, service_list, EACEM-LCN), SDT, EIT p/f, TDT/TOT, HbbTV-AIT."""
 import os
 import struct
 import subprocess
@@ -88,13 +88,51 @@ def sdt_xml(cfg, version=1, names=None):
          % (_a(version & 31), _hex(ts["transport_stream_id"]), _hex(ts["original_network_id"]))]
     for s in cfg["services"]:
         n = names.get(s["key"], {})
-        L.append('  <service service_id=%s EIT_schedule="false" EIT_present_following=%s running_status="running" '
-                 'CA_mode="false">' % (_hex(s["service_id"]), _a("true" if ts.get("eit", True) else "false")))
+        eit = ts.get("eit", True)
+        sched = eit and (s.get("source") or {}).get("kind") == "schedule"     # Zeitplan: EIT schedule (0x50) im TS
+        L.append('  <service service_id=%s EIT_schedule=%s EIT_present_following=%s running_status="running" '
+                 'CA_mode="false">' % (_hex(s["service_id"]), _a("true" if sched else "false"), _a("true" if eit else "false")))
         L.append('   <service_descriptor service_type=%s service_provider_name=%s service_name=%s/>'
                  % (_a("0x%02X" % s["_service_type"]), _a(n.get("provider") or s["provider"]), _a(n.get("name") or s["name"])))
         L.append("  </service>")
     L += [" </SDT>", "</tsduck>", ""]
     return "\n".join(L)
+
+
+# --------------------------------------------------------------------------------------------- HbbTV (experimentell)
+def ait_xml(svc, version=1):
+    """AIT (ETSI TS 102 809 5.3.4, HbbTV TS 102 796 7.2.3) fuer die HbbTV-Anwendung eines Dienstes:
+    application_type 0x0010, Transport HTTP (Basis-URL + initial_path), Profil 0 / Version 1.1.1."""
+    hb = svc["hbbtv"]
+    return "\n".join([
+        '<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>",
+        ' <AIT version=%s current="true" test_application_flag="false" application_type="0x0010">' % _a(version & 31),
+        '  <metadata PID=%s/>' % _a(hb["_pid"]),
+        '  <application control_code=%s>' % _a("0x01" if hb["autostart"] else "0x02"),   # AUTOSTART / PRESENT
+        '   <application_identifier organization_id=%s application_id=%s/>' % (_a("0x%08X" % hb["org_id"]), _hex(hb["app_id"])),
+        '   <transport_protocol_descriptor transport_protocol_label="1">',
+        '    <http><url base=%s/></http>' % _a(hb["_base"]),
+        '   </transport_protocol_descriptor>',
+        '   <application_descriptor service_bound="true" visibility="3" application_priority="1">',
+        '    <profile application_profile="0x0000" version="1.1.1"/>',
+        '    <transport_protocol label="1"/>',
+        '   </application_descriptor>',
+        '   <application_name_descriptor><language code=%s application_name=%s/></application_name_descriptor>'
+        % (_a(hb["_lang"]), _a(hb["name"])),
+        '   <simple_application_location_descriptor initial_path=%s/>' % _a(hb["_path"]),
+        "  </application>", " </AIT>", "</tsduck>", ""])
+
+
+def ait_pmt_patch(svc, version=1):
+    """XML-Patch fuer 'tsp -P pmt --patch-xml': haengt die AIT-PID als stream_type 0x05 mit
+    application_signalling_descriptor (0x6F) an die PMT des Dienstes."""
+    hb = svc["hbbtv"]
+    return "\n".join([
+        '<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>", " <PMT>",
+        '  <component x-node="add" elementary_PID=%s stream_type="0x05">' % _hex(hb["_pid"]),
+        '   <application_signalling_descriptor>',
+        '    <application application_type="0x0010" AIT_version_number=%s/>' % _a(version & 31),
+        "   </application_signalling_descriptor>", "  </component>", " </PMT>", "</tsduck>", ""])
 
 
 def isdb_ts_information(cfg):
@@ -255,12 +293,19 @@ def dvb_text(s, maxlen=255):
 
 
 def _event(eid, start, dur, running, lang, title, text):
+    """running: True (4 = running), False (1 = not running) oder ein running_status als Zahl (0 = undefiniert)."""
     name = dvb_text(title, 120)
     txt = dvb_text(text, 250 - len(name))
     sed = (lang.encode("ascii", "replace")[:3].ljust(3, b" ") + bytes([len(name)]) + name + bytes([len(txt)]) + txt)
     desc = bytes([0x4D, len(sed)]) + sed
-    rs = 4 if running else 1               # 4 = running, 1 = not running
+    rs = running if type(running) is int else (4 if running else 1)
     return struct.pack(">H", eid) + _mjd_utc(start) + _dur_bcd(dur) + struct.pack(">H", (rs << 13) | len(desc)) + desc
+
+
+def eit_event_id(start):
+    """event_id aus der Startzeit im 5-s-Raster (1..65534): p/f und schedule nennen dasselbe Ereignis gleich; eindeutig fuer
+    Starts >= 5 s Abstand innerhalb von 3,7 Tagen (EIT schedule reicht 48 h voraus)."""
+    return int(start) // 5 % 0xFFFE + 1
 
 
 def eit_pf_sections(cfg, svc, present, following=None, version=0, now=None):
@@ -269,10 +314,11 @@ def eit_pf_sections(cfg, svc, present, following=None, version=0, now=None):
     lang = svc["eit"].get("language", "deu")
     p_start = present.get("start") or (int(now) // 60 * 60)
     p_dur = float(present.get("duration_s") or svc["eit"]["duration_min"] * 60)
-    evs = [_event(1, p_start, p_dur, True, lang, present.get("title"), present.get("text"))]
+    evs = [_event(present.get("event_id", 1), p_start, p_dur, True, lang, present.get("title"), present.get("text"))]
     if following:
         f_dur = float(following.get("duration_s") or svc["eit"]["duration_min"] * 60)
-        evs.append(_event(2, p_start + p_dur, f_dur, False, lang, following.get("title"), following.get("text")))
+        evs.append(_event(following.get("event_id", 2), following.get("start") or p_start + p_dur, f_dur, False, lang,
+                          following.get("title"), following.get("text")))
     else:
         evs.append(b"")
     out = b""
@@ -305,12 +351,69 @@ def eit_xml(cfg, svc, present, following=None, now=None, event_base=1, version=0
                  '</short_event_descriptor>' % (_a(lang), escape(str(e.get("title") or "")), escape(str(e.get("text") or ""))))
         L.append("  </event>")
 
-    ev(event_base, present, p_start, p_dur, True)
+    ev(present.get("event_id", event_base), present, p_start, p_dur, True)
     if following:
         f_dur = float(following.get("duration_s") or svc["eit"]["duration_min"] * 60)
-        ev(event_base + 1, following, p_start + p_dur, f_dur, False)
+        ev(following.get("event_id", event_base + 1), following, following.get("start") or p_start + p_dur, f_dur, False)
     L += [" </EIT>", "</tsduck>", ""]
     return "\n".join(L)
+
+
+# --------------------------------------------------------------------------------------------- EIT schedule
+EIT_SECTION_MAX = 4093 - 4            # EN 300 468: EIT-Abschnitt hoechstens 4096 Byte (inkl. Kopf), ohne CRC
+
+
+def eit_schedule_sections(cfg, svc, events, now, version=0, table_id=0x50):
+    """EIT schedule actual (EN 300 468 5.2.4, TR 101 211 4.1.4) als Binaerabschnitte.
+    events: [{"start","duration_s","title","text","event_id"}]. Die Tabelle 0x50 umfasst 4 Tage ab 00:00 UTC des aktuellen
+    Tages in 32 Segmenten zu 3 h; ein Ereignis gehoert in das Segment seiner Startzeit, Segment n hat die Abschnitte
+    8n..8n+7. Jedes Segment bis zum letzten belegten bekommt mindestens einen (ggf. leeren) Abschnitt."""
+    ts = cfg["ts"]
+    lang = svc["eit"].get("language", "deu")
+    day0 = int(now) // 86400 * 86400
+    segs = {}
+    for e in sorted(events, key=lambda x: x["start"]):
+        n = (int(e["start"]) - day0) // 10800
+        if 0 <= n < 32:
+            segs.setdefault(n, []).append(_event(int(e["event_id"]), e["start"], e["duration_s"], 0, lang,
+                                                 e.get("title"), e.get("text")))
+    last_seg = max(segs) if segs else (int(now) - day0) // 10800
+    plan = []                                   # je Segment: Liste der Ereignis-Bytes je Abschnitt
+    for n in range(last_seg + 1):
+        secs = [b""]
+        for ev in segs.get(n, []):
+            if secs[-1] and 14 + len(secs[-1]) + len(ev) > EIT_SECTION_MAX:
+                if len(secs) == 8:
+                    break                       # mehr als 8 volle Abschnitte in 3 h: Rest entfaellt
+                secs.append(b"")
+            secs[-1] += ev
+        plan.append(secs)
+    last_sn = 8 * last_seg + len(plan[-1]) - 1
+    out = b""
+    for n, secs in enumerate(plan):
+        for i, evb in enumerate(secs):
+            body = struct.pack(">HBBBHHBB", int(svc["service_id"]), 0xC1 | ((int(version) & 31) << 1), 8 * n + i, last_sn,
+                               int(ts["transport_stream_id"]), int(ts["original_network_id"]), 8 * n + len(secs) - 1,
+                               table_id) + evb
+            sec = struct.pack(">BH", table_id, 0xF000 | (len(body) + 4)) + body
+            out += sec + struct.pack(">I", _crc32_mpeg(sec))
+    return out
+
+
+def write_eit_schedule(host, path, cfg, svc, events, now):
+    """EIT schedule eines Dienstes nach <path> (.bin, atomar), Version in <path>.ver weiterzaehlen."""
+    vf = path + ".ver"
+    try:
+        with open(vf) as f:
+            ver = (int(f.read().strip()) + 1) % 32
+    except Exception:
+        ver = 0
+    tmp = path + ".tmp%d" % os.getpid()
+    with open(tmp, "wb") as f:
+        f.write(eit_schedule_sections(cfg, svc, events, now, version=ver))
+    os.replace(tmp, path)
+    host.atomic_write(vf, str(ver))
+    return ver
 
 
 def time_xml(cfg, now=None):

@@ -942,6 +942,8 @@ class H(BaseHTTPRequestHandler):
             return self.send_json(self.state())
         if p == "/api/onboarding":
             return self.send_json(ST["onboarding"])
+        if p == "/api/netinfo":
+            return self.send_json({"ok": True, "ips": ["192.168.1.50", "10.0.0.7"], "host": "MOCK-PC"})
         if p == "/api/firmware":
             return self.send_json(fw_status())
         if p == "/api/setup":
@@ -1249,6 +1251,10 @@ class H(BaseHTTPRequestHandler):
                     for k in ("text", "text2"):
                         if k in d["pal"]:
                             ST["config"]["pal"]["image"][k] = d["pal"][k]
+                if "overlay" in d:
+                    for pr in (ST["config"].get("dvb") or {}).get("programs") or []:
+                        if pr.get("key") == d["overlay"].get("service") and (pr.get("overlay") or {}).get("text"):
+                            pr["overlay"]["text"]["text"] = d["overlay"].get("text", "")
                 if "second_carrier" in d:
                     for k, v in d["second_carrier"].items():
                         if k in ("level_db", "enable"):

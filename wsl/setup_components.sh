@@ -28,6 +28,11 @@ hide_gui_entries() {
 }
 [ "$WHAT" = check ] || trap hide_gui_entries EXIT
 
+# Parallele Compiler-Jobs nach freiem Speicher: ein C++-Job (ODR, welle) braucht bis ~1 GB. make -j$(nproc) brachte
+# Rechner mit 8–16 GB (WSL2 bekommt standardmäßig die Hälfte) beim ODR-Bauen an die Speichergrenze.
+jobs() { local avail n; avail=$(awk '/MemAvailable/ {print int($2/1048576)}' /proc/meminfo)   # GiB
+         n=$(nproc); [ "$avail" -lt "$n" ] && n=$avail; [ "$n" -lt 1 ] && n=1; echo "$n"; }
+
 have_base()   { command -v python3 >/dev/null && python3 -c "import numpy,scipy" 2>/dev/null && command -v git >/dev/null && command -v make >/dev/null; }
 have_ffmpeg() { command -v ffmpeg >/dev/null && [[ "$(ffmpeg -hide_banner -encoders 2>/dev/null)" == *libx264* ]]; }   # ohne Pipe (pipefail/SIGPIPE)
 have_tsduck() { command -v tsp >/dev/null; }
@@ -36,13 +41,14 @@ have_odr()    { for b in odr-audioenc odr-padenc odr-dabmux odr-dabmod; do [ -x 
                 grep -q DABLAB_FIFO $S/ODR-DabMux/src/input/File.cpp 2>/dev/null && grep -q DABLAB_QUEUE $S/ODR-AudioEnc/src/SampleQueue.h 2>/dev/null; }
 have_welle()  { [ -x $P/bin/welle-cli ] && [ -x $P/bin/redsea ] && grep -rqs DABLAB_DLPLUS $S/welle.io/src/welle-cli; }
 have_ytdlp()  { command -v yt-dlp >/dev/null; }
+have_grdtv()  { python3 -c "import gnuradio.dtv" 2>/dev/null; }   # Kontrollempfang DVB-T (RX-Bild, MER)
 have_modulators() { for b in dvbt_mod dvbc_mod dvbs_mod dvbs2_mod rrc_fir_gen; do [ -x $P/mod/src/$b ] || return 1; done; }
 
 case "$WHAT" in
 check)
   printf '{'
   sep=""
-  for c in base ffmpeg tsduck odr welle ytdlp modulators; do
+  for c in base ffmpeg tsduck odr welle ytdlp modulators grdtv; do
     if have_$c; then v=true; else v=false; fi
     printf '%s"%s":%s' "$sep" "$c" "$v"; sep=","
   done
@@ -82,7 +88,7 @@ odr)
     [ -d $r ] || { step "git clone github.com/Opendigitalradio/$r"; git clone -q --depth 1 https://github.com/Opendigitalradio/$r.git || fail "git clone $r"; }
   done
   b() { step "baue $1 (dauert einige Minuten)"; cd $S/$1 && { [ -x configure ] || ./bootstrap* >/dev/null 2>&1 || autoreconf -fi >/dev/null 2>&1; } \
-        && ./configure --prefix=$P $2 >/dev/null && make -j"$(nproc)" >/tmp/odr_build.log 2>&1 && make install >/dev/null 2>&1 \
+        && ./configure --prefix=$P $2 >/dev/null && make -j"$(jobs)" >/tmp/odr_build.log 2>&1 && make install >/dev/null 2>&1 \
         || { tail -5 /tmp/odr_build.log; fail "Bauen von $1"; }; }
   step "Muxwright-Patches anwenden (runner/patches)"
   python3 "$ROOT/runner/patches/patch_audioenc.py" $S/ODR-AudioEnc >/dev/null || fail "Patch ODR-AudioEnc"
@@ -101,13 +107,13 @@ welle)
   python3 "$ROOT/runner/patches/patch_welle.py" $S/welle.io >/dev/null || fail "Patch welle.io"
   step "baue welle-cli"
   cd $S/welle.io && mkdir -p build && cd build && cmake .. -DBUILD_WELLE_IO=OFF -DBUILD_WELLE_CLI=ON -DRTLSDR=OFF -DSOAPYSDR=OFF \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 >/dev/null && make -j"$(nproc)" welle-cli >/tmp/welle_build.log 2>&1 && cp welle-cli $P/bin/ \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 >/dev/null && make -j"$(jobs)" welle-cli >/tmp/welle_build.log 2>&1 && cp welle-cli $P/bin/ \
     || { tail -5 /tmp/welle_build.log; fail "Bauen von welle-cli"; }
   # redsea (MIT): RDS-Decoder für den UKW-Kontrollempfang
   apt_upd; apt_in meson ninja-build libliquid-dev libsndfile1-dev nlohmann-json3-dev
   cd $S; [ -d redsea ] || { step "git clone github.com/windytan/redsea"; git clone -q --depth 1 https://github.com/windytan/redsea.git || fail "git clone redsea"; }
   step "baue redsea"
-  cd $S/redsea && { [ -d build ] || meson setup build >/tmp/redsea_build.log 2>&1; } && ninja -C build >>/tmp/redsea_build.log 2>&1 \
+  cd $S/redsea && { [ -d build ] || meson setup build >/tmp/redsea_build.log 2>&1; } && ninja -j "$(jobs)" -C build >>/tmp/redsea_build.log 2>&1 \
     && cp build/redsea $P/bin/ || { tail -5 /tmp/redsea_build.log; fail "Bauen von redsea"; }
   have_welle || fail "welle-cli/redsea fehlen nach dem Bauen"
   echo "@@OK welle" ;;
@@ -120,9 +126,14 @@ modulators)
   have_base || fail "zuerst „Grundpakete“ installieren"
   step "baue Muxwright-Modulatoren (eigener Code, MIT)"
   rm -rf $P/mod/src && cp -r "$ROOT/pluto_fw/mod" $P/mod/src && cd $P/mod/src && make clean >/dev/null 2>&1
-  make -j"$(nproc)" >/tmp/mod_build.log 2>&1 || { tail -5 /tmp/mod_build.log; fail "make"; }
+  make -j"$(jobs)" >/tmp/mod_build.log 2>&1 || { tail -5 /tmp/mod_build.log; fail "make"; }
   [[ "$(./dvbmod_selftest 2>&1)" == *"SELFTEST OK"* ]] || fail "Selbsttest der Modulatoren"
   have_modulators || fail "Modulatoren fehlen"
   echo "@@OK modulators" ;;
+grdtv)
+  have_grdtv && { echo "@@OK grdtv (vorhanden)"; exit 0; }
+  net; apt_upd; apt_in --no-install-recommends gnuradio
+  have_grdtv || fail "gnuradio.dtv fehlt nach der Installation"
+  echo "@@OK grdtv" ;;
 *) fail "unbekannte Komponente" ;;
 esac

@@ -185,6 +185,24 @@ export function compareDVB(cfg, r) {
   return { mod, si: siRows, programs, extra: svcs.filter(s => !cfg.dvb.programs.some(p => eqHex(p.sid, s.sid))) };
 }
 
+/** Konstellation {levels, points:[[i,q]]} als SVG – Gitterlinien auf den Entscheidungsgrenzen */
+export function constellationSVG(c, size = 260) {
+  if (!c?.points?.length) return null;
+  const L = (c.levels || 7) + 1, ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `${-L} ${-L} ${2 * L} ${2 * L}`);
+  svg.setAttribute('width', size); svg.setAttribute('height', size);
+  svg.setAttribute('class', 'constellation');
+  const add = (tag, attrs) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); svg.append(e); };
+  add('rect', { x: -L, y: -L, width: 2 * L, height: 2 * L, class: 'cst-bg' });
+  for (let k = -L + 2; k < L; k += 2) {
+    add('line', { x1: k, y1: -L, x2: k, y2: L, class: 'cst-grid' });
+    add('line', { x1: -L, y1: k, x2: L, y2: k, class: 'cst-grid' });
+  }
+  for (const [i, q] of c.points) add('circle', { cx: i, cy: -q, r: 0.07, class: 'cst-dot' });
+  return svg;
+}
+
 export function renderDvbReport(report0, cfg, kind) {
   const r = decodeOf(report0);
   const cmp = compareDVB(cfg, r);
@@ -204,6 +222,9 @@ export function renderDvbReport(report0, cfg, kind) {
         kpi('ffprobe', fp.ok == null ? '–' : fp.ok ? T('decodierbar') : T('Fehler'), fp.ok == null ? 'na' : fp.ok ? 'ok' : 'bad'))),
     kind === 'monitor' ? rxCaptureCard(report0) : null,
     r.error ? h('p.alert', null, icon('alert'), String(r.error)) : null,
+    r.constellation ? h('section.rep-block.rep-cst', { tid: `report-${kind}-constellation` }, h('h4', null, icon('target'), T('Konstellation (entzerrte Datenträger)')),
+      constellationSVG(r.constellation),
+      h('p.hint', null, T('MER-Schätzung mit dem Pluto als Messempfänger: {n} Träger in Kanalmitte (DC) und {p} % Ausreißer nicht gewertet.', { n: r.mer_excluded_carriers ?? 0, p: D.fmtNum(r.mer_outlier_pct ?? 0, 2) }))) : null,
     h('div.grid2.repgrid', null,
       h('section.rep-block', null, h('h4', null, icon('wave'), T('Modulation / NIT-Delivery')), rowsTable(cmp.mod, `report-${kind}-mod`)),
       h('section.rep-block', null, h('h4', null, icon('layers'), T('SI-Tabellen')), rowsTable(cmp.si, `report-${kind}-si`))),

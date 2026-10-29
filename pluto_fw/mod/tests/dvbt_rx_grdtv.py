@@ -20,6 +20,9 @@ def main():
     ap.add_argument("--mode", default="8k"); ap.add_argument("--const", default="64qam")
     ap.add_argument("--rate", default="2/3"); ap.add_argument("--guard", default="1/32")
     ap.add_argument("--snr", type=float, default=30.0)
+    ap.add_argument("--cells", help="entzerrte Datenzellen (complex64, je Symbol ncells) für MER/Konstellation")
+    ap.add_argument("--cells-skip", type=int, default=40, help="Symbole Einschwingzeit vor dem Abgriff")
+    ap.add_argument("--cells-every", type=int, default=10, help="nur jedes n-te Symbol abgreifen")
     a = ap.parse_args()
     factor = 4 if a.mode == "8k" else 1
     nfft, carriers, ncells = 2048 * factor, 1705 if factor == 1 else 6817, 1512 * factor
@@ -41,6 +44,11 @@ def main():
     descr = dtv.dvbt_energy_descramble(8)
     sink = blocks.file_sink(gr.sizeof_char, a.out, False)
     tb.connect(src, s2c, acq, fftb, ref, demap, symdeint, bitdeint, v2s, vit, convdeint, rsdec, descr, sink)
+    if a.cells:   # Abgriff nach Entzerrung (Referenzsignale/TPS), vor dem Demapper
+        vsz = gr.sizeof_gr_complex * ncells
+        # kein blocks.head: dessen Ende beendet den ganzen Flowgraph, der TS bliebe unvollständig
+        tb.connect(ref, blocks.skiphead(vsz, a.cells_skip), blocks.keep_m_in_n(vsz, 1, a.cells_every, 0),
+                   blocks.file_sink(vsz, a.cells, False))
     t0 = time.time(); tb.run(); print(f"gr-dtv rx done in {time.time() - t0:.1f} s", file=sys.stderr)
 
 if __name__ == "__main__":

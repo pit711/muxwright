@@ -7,6 +7,7 @@ import {
   setAtten, setChannel, rfUpdate, sendLive, markRfIntent, upload, loadMedia, previewCache, applyConfig, errorsFor, save, load, txRunning, changes,
 } from './core.js';
 import { renderReport, slideSrc, protocolData, protocolHTML } from './report.js';
+import { previewSnapshot } from './preview.js';
 import { TESTPLANS, planCheck } from './testplans.js';
 import * as STD from './standards.js';
 import { freqCardStd, outputPathCard } from './hf_std.js';
@@ -930,22 +931,23 @@ function protocolCard() {
   const notes = h('textarea', { rows: 3, tid: 'protocol-notes', placeholder: T('Prüfling, Seriennummer, Firmware, Messaufbau (Dämpfungsglieder, Kabel) …') });
   notes.value = ps.notes || '';
   notes.addEventListener('change', () => { const s = planState(); s.notes = notes.value; save('plan', s); });
-  const build = () => {
+  const build = async () => {
     const s = planState();
     const plan = TESTPLANS.find(p => p.id === s.id);
     const data = protocolData({ cfg: S.server || S.draft, state: S.state, plan, results: plan ? plan.steps.map((st, i) => ({ title: st.title, ...(s.results[i] || {}) })) : [], notes: s.notes });
     data.sensitivity_marks = load('marks', []);
+    data.preview = await previewSnapshot(S.server || S.draft).catch(() => null);
     return data;
   };
   return card(T('Messprotokoll'), 'print', [
     h('p.hint', null, T('Enthält Zeitstempel, gespeicherte Konfiguration, Kapazität, Testplan-Ergebnisse, letzte Prüf- und Empfangsberichte mit Soll/Ist-Vergleich.')),
     field(T('Bemerkungen'), notes, { wide: true }),
     h('div.inrow.wrap', null,
-      h('button.btn', { type: 'button', tid: 'protocol-json', onclick: () => download(`messprotokoll-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(build(), null, 2)) }, icon('download'), 'JSON'),
+      h('button.btn', { type: 'button', tid: 'protocol-json', onclick: async () => download(`messprotokoll-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`, JSON.stringify(await build(), null, 2)) }, icon('download'), 'JSON'),
       h('button.btn.primary', { type: 'button', tid: 'protocol-html', onclick: async () => {
         const css = await fetch('protocol.css').then(r => r.text()).catch(() => '');
         const sprite = document.getElementById('sprite')?.outerHTML || '';
-        const html = protocolHTML(build(), css, sprite);
+        const html = protocolHTML(await build(), css, sprite);
         const url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
         const w = window.open(url, '_blank');
         if (!w) download('messprotokoll.html', html, 'text/html');

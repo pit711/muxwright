@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Videoquellen: Testbild, Datei, YouTube (yt-dlp), Diashow, Video-Playlist (Feeder wie beim DAB-Teil).
+"""Videoquellen: Testbild, Datei, YouTube (yt-dlp), Diashow, Video-Playlist, Netzwerk-Stream (Feeder wie beim DAB-Teil).
 
 build_source() liefert ffmpeg-Eingaenge und Filterketten je Dienst. Der Playlist-Feeder schreibt Rohvideo (yuv420p) und
 PCM (s16le) in zwei FIFOs, die der Mux-ffmpeg als Eingaenge liest; Titelwechsel sind damit nahtlos und A/V bleibt
@@ -287,6 +287,73 @@ def drawtext_filter(svc, text, timestamp=True):
             "x=%d:y=%d" % (ff, t, max(16, h // 18), max(4, h // 120), w // 20, h // 16))
 
 
+# ---------------------------------------------------------------------------------------------
+# Overlay je TV-Programm: Logo (PNG/JPG mit Alpha) und Textzeile (live aenderbar, optional Lauftext)
+# ---------------------------------------------------------------------------------------------
+def _pos_xy(pos, m, w="w", h="h"):
+    """Position (top-left … center, top/bottom) -> ffmpeg-Ausdruecke x, y mit Rand m (Pixel).
+    W/H = Hauptbild, w/h = Logo bzw. Textbreite/-hoehe (drawtext: text_w/text_h)."""
+    x = {"left": "%d" % m, "right": "W-%s-%d" % (w, m)}.get(pos.split("-")[-1], "(W-%s)/2" % w)
+    y = {"top": "%d" % m, "bottom": "H-%s-%d" % (h, m)}.get(pos.split("-")[0], "(H-%s)/2" % h)
+    return x, y
+
+
+def overlay_text_clean(text, scroll=False):
+    """Text fuer die Overlay-Datei: Steuerzeichen raus, Lauftext einzeilig, nie leer (drawtext braucht Inhalt)."""
+    t = str(text or "").replace("\r", "")
+    t = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", t)
+    if scroll:
+        t = " ".join(t.split())
+    t = t.strip("\n")
+    return t[:500] or " "
+
+
+def overlay_text_file(sdir, svc):
+    return os.path.join(sdir, "overlay_%s.txt" % svc["key"])
+
+
+def overlay_build(host, svc, sdir, log):
+    """-> {"inputs": [[args]], "logo": Filter fuer den Logo-Eingang|None, "place": overlay=…|None, "text": drawtext=…|None}
+    oder None ohne Overlay. Das Logo kommt als eigener Eingang (-loop 1), der Text aus einer Datei im Sitzungsordner
+    (drawtext textfile + reload=1): ctl {"overlay": {...}} ersetzt sie atomar, ohne Neustart der Kette."""
+    ov = svc.get("overlay") or {}
+    lg, tx = ov.get("logo"), ov.get("text")
+    if not lg and not tx:
+        return None
+    w, h = svc["video"]["_wh"]
+    r = {"inputs": [], "logo": None, "place": None, "text": None}
+    if lg:
+        path = host.media_path(lg["file"])
+        if not os.path.isfile(path):
+            raise host.RunnerError("Overlay-Logo fehlt: %s" % lg["file"])
+        r["inputs"].append(["-loop", "1", "-framerate", str(svc["video"]["fps"]), "-thread_queue_size", "16", "-i", path])
+        lh = max(2, int(round(h * lg["size_pct"] / 100.0 / 2)) * 2)
+        r["logo"] = "scale=-2:%d:flags=bicubic,format=rgba,colorchannelmixer=aa=%.3f" % (lh, lg["opacity"])
+        x, y = _pos_xy(lg["position"], int(round(h * lg["margin_pct"] / 100.0)))
+        r["place"] = "overlay=x=%s:y=%s:format=auto:eof_action=repeat" % (x, y)
+    if tx:
+        ff = font_file()
+        if not ff:
+            log("warn", "Overlay-Text: keine Schrift gefunden (DejaVu/Liberation), Text entfaellt")
+        else:
+            tf = overlay_text_file(sdir, svc)
+            host.atomic_write(tf, overlay_text_clean(tx["text"], tx["scroll"]))
+            fs = max(10, int(round(h * tx["size_pct"] / 100.0)))
+            m = int(round(h * tx["margin_pct"] / 100.0))
+            x, y = _pos_xy(tx["position"], m, "text_w", "text_h")
+            if x.startswith("("):
+                x = "max(%d\\,%s)" % (m, x)     # zu langer Text: links buendig statt beidseitig abgeschnitten
+            if tx["scroll"]:
+                # Lauftext: von rechts herein, links hinaus; speed_pct = Bildbreite je Sekunde in %
+                x = "W-mod(t*%.3f\\,W+text_w)" % (w * tx["speed_pct"] / 100.0)
+            f = ("drawtext=fontfile=%s:textfile=%s:reload=1:expansion=none:fontsize=%d:fontcolor=%s:x=%s:y=%s"
+                 % (_lavfi_path(ff), _lavfi_path(tf), fs, tx["color"], x, y))
+            if tx["box"]:
+                f += ":box=1:boxcolor=%s:boxborderw=%d" % (tx["box_color"], max(2, fs // 4))
+            r["text"] = f
+    return r
+
+
 def render_speech(host, work, key, text, with_sine, freq_hz, level_dbfs, log):
     """Sprachansage per ffmpeg-flite (Stimme slt) als WAV; optional leiser Sinus darunter. Wird in Schleife gespielt."""
     out = os.path.join(work, "speech_%s.wav" % key)
@@ -462,9 +529,13 @@ def build_source(host, cfg, svc, work, sdir, log, render=False):
         inputs.append(a_args)
         ain = len(inputs) - 1
         info["folder"] = feeder.folder
-    elif kind == "playlist":
+    elif kind in ("playlist", "schedule"):
         use_a = svc["audio"]["codec"] != "none"
-        feeder = VideoFeeder(host, cfg, svc, work, sdir, log, audio=use_a)
+        if kind == "schedule":
+            from .schedule import ScheduleFeeder
+            feeder = ScheduleFeeder(host, cfg, svc, work, sdir, log, audio=use_a, render=render)
+        else:
+            feeder = VideoFeeder(host, cfg, svc, work, sdir, log, audio=use_a)
         w, h = svc["video"]["_wh"] if is_tv else (0, 0)
         if is_tv:
             inputs.append(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", "%dx%d" % (w, h), "-r", str(svc["video"]["fps"]),
@@ -475,8 +546,30 @@ def build_source(host, cfg, svc, work, sdir, log, render=False):
             inputs.append(["-f", "s16le", "-ar", str(sr), "-ac", "2", "-analyzeduration", "0", "-thread_queue_size", "256", "-i", feeder.fifo_a])
             ain = len(inputs) - 1
         af = "anull"
-        info["playlist"] = feeder.pl.get("name")
-        info["items"] = feeder.n
+        if kind == "schedule":
+            info["entries"] = feeder.n
+        else:
+            info["playlist"] = feeder.pl.get("name")
+            info["items"] = feeder.n
+    elif kind == "stream":
+        # Live-Netzwerkquelle: Feeder liefert Rohbild/PCM mit festem Takt, auch wenn der Stream fehlt oder abreisst
+        use_a = src["audio"]["kind"] == "source" and svc["audio"]["codec"] != "none"
+        feeder = StreamFeeder(host, svc, work, sdir, log, audio=use_a)
+        w, h = svc["video"]["_wh"]
+        inputs.append(["-f", "rawvideo", "-pix_fmt", "yuv420p", "-s", "%dx%d" % (w, h), "-r", str(svc["video"]["fps"]),
+                       "-analyzeduration", "0", "-thread_queue_size", "64", "-i", feeder.fifo_v])
+        vin = 0
+        vf = video_filter(svc, drawtext_filter(svc, src.get("text"), src.get("timestamp", False))
+                          if (src.get("text") or src.get("timestamp")) else None)
+        if use_a:
+            inputs.append(["-f", "s16le", "-ar", str(sr), "-ac", "2", "-analyzeduration", "0", "-thread_queue_size", "256",
+                           "-i", feeder.fifo_a])
+            ain, af = len(inputs) - 1, "anull"
+        else:
+            a_args, af = audio_input(host, svc, src["audio"], work, log)
+            inputs.append(a_args)
+            ain = len(inputs) - 1
+        info.update({"stream": feeder.label, "mode": src.get("mode"), "frontend": "windows" if feeder.windows else "local"})
     return {"inputs": inputs, "vin": vin, "ain": ain, "vf": vf, "af": af, "feeder": feeder, "info": info}
 
 
@@ -490,11 +583,7 @@ class VideoFeeder:
     items: Eintragsliste statt Playlist-Datei; audio=False: Ton kommt nicht aus den Dateien (eigene Tonquelle)."""
 
     def __init__(self, host, cfg, svc, work, sdir, log, items=None, audio=True, name=None):
-        self.host, self.cfg, self.svc, self.log = host, cfg, svc, log
-        self.src = svc["source"]
-        self.key = svc["key"]
-        self.sdir = sdir
-        self.use_audio = bool(audio)
+        self._init_io(host, cfg, svc, work, sdir, log, audio)
         if items is not None:
             self.pl = {"name": name or "loop", "items": [dict(it) for it in items]}
         else:
@@ -508,7 +597,17 @@ class VideoFeeder:
         self.order = list(range(self.n))
         if self.src.get("shuffle"):
             random.shuffle(self.order)
-        self.pos, self.cur, self.proc = 0, None, None
+        self.pos, self.cur = 0, None
+        self.track_start = time.time()
+
+    def _init_io(self, host, cfg, svc, work, sdir, log, audio):
+        """Gemeinsamer Teil (auch ScheduleFeeder): FIFOs, Zaehler, Dateien im Sitzungsordner."""
+        self.host, self.cfg, self.svc, self.log = host, cfg, svc, log
+        self.src = svc["source"]
+        self.key = svc["key"]
+        self.sdir = sdir
+        self.use_audio = bool(audio)
+        self.proc = None
         self.is_tv = svc["type"] == "tv"
         self.w, self.h = svc["video"]["_wh"] if self.is_tv else (0, 0)
         self.fps = float(svc["video"]["fps"]) if self.is_tv else 25.0
@@ -525,7 +624,9 @@ class VideoFeeder:
         self.eitfile = os.path.join(sdir, "eit", "eit_%s.xml" % self.key)
         self.frames = self.samples = 0          # gesamt, fuer A/V-Ausgleich
         self.frames_track = self.samples_track = 0
-        self.track_start = time.time()
+        # Grenze (absolute Bild-/Samplezahl): _drain gibt bis dorthin weiter, verwirft den Rest und setzt hit_v/hit_a
+        self.lim_v = self.lim_a = None
+        self.hit_v = self.hit_a = False
         self.stop_evt = threading.Event()
         self.fv = self.fa = None
         self.threads = []
@@ -659,6 +760,17 @@ class VideoFeeder:
             while pos < len(b) and not self.stop_evt.is_set():
                 part = b[pos:pos + chunk]
                 pos += len(part)
+                lim = self.lim_v if is_video else self.lim_a
+                if lim is not None:
+                    room = max(0, lim - (self.frames if is_video else self.samples))
+                    if len(part) // unit >= room:
+                        part = part[:room * unit]
+                        if is_video:
+                            self.hit_v = True
+                        else:
+                            self.hit_a = True
+                    if not part:
+                        continue        # hinter der Grenze: weiterlesen und verwerfen (Titel-ffmpeg nicht blockieren)
                 while not self.stop_evt.is_set():
                     try:
                         q.put(part, timeout=0.5)
@@ -718,25 +830,36 @@ class VideoFeeder:
             if 0 <= i < self.n:
                 self.pos = self.order.index(i)
 
+    def _open_io(self):
+        # FIFOs mit O_RDWR oeffnen: blockiert nicht. (ffmpeg oeffnet seine Eingaenge nacheinander und liest schon
+        # aus dem ersten, bevor es den zweiten oeffnet - ein blockierendes open() beider FIFOs wuerde verklemmen.)
+        if self.is_tv:
+            self.fv = os.fdopen(os.open(self.fifo_v, os.O_RDWR), "wb", buffering=0)
+        if self.use_audio:
+            self.fa = os.fdopen(os.open(self.fifo_a, os.O_RDWR), "wb", buffering=0)
+        # Hinweis: F_SETPIPE_SZ auf diesen FIFOs NICHT setzen - unter WSL1 liest ffmpeg danach nichts mehr
+        # (gemessen: Feeder fuellt 4 MiB, Leser bleibt leer). 64 KiB reichen, Durchsatz > 1 GB/s.
+        self.qv = queue.Queue(maxsize=max(25, int(round(self.fps * 2))))                  # ~2 s Video
+        self.qa = queue.Queue(maxsize=8)                                                    # 8 x 64 KiB ~ 2,7 s Audio
+        sinks = []
+        if self.is_tv:
+            sinks.append(threading.Thread(target=self._sink, args=(self.qv, self.fv), daemon=True))
+        if self.use_audio:
+            sinks.append(threading.Thread(target=self._sink, args=(self.qa, self.fa), daemon=True))
+        for t in sinks:
+            t.start()
+
+    def _close_io(self):
+        for f in (self.fv, self.fa):
+            try:
+                if f is not None:
+                    f.close()
+            except Exception:
+                pass
+
     def run(self):
         try:
-            # FIFOs mit O_RDWR oeffnen: blockiert nicht. (ffmpeg oeffnet seine Eingaenge nacheinander und liest schon
-            # aus dem ersten, bevor es den zweiten oeffnet - ein blockierendes open() beider FIFOs wuerde verklemmen.)
-            if self.is_tv:
-                self.fv = os.fdopen(os.open(self.fifo_v, os.O_RDWR), "wb", buffering=0)
-            if self.use_audio:
-                self.fa = os.fdopen(os.open(self.fifo_a, os.O_RDWR), "wb", buffering=0)
-            # Hinweis: F_SETPIPE_SZ auf diesen FIFOs NICHT setzen - unter WSL1 liest ffmpeg danach nichts mehr
-            # (gemessen: Feeder fuellt 4 MiB, Leser bleibt leer). 64 KiB reichen, Durchsatz > 1 GB/s.
-            self.qv = queue.Queue(maxsize=max(25, int(round(self.fps * 2))))                  # ~2 s Video
-            self.qa = queue.Queue(maxsize=8)                                                    # 8 x 64 KiB ~ 2,7 s Audio
-            sinks = []
-            if self.is_tv:
-                sinks.append(threading.Thread(target=self._sink, args=(self.qv, self.fv), daemon=True))
-            if self.use_audio:
-                sinks.append(threading.Thread(target=self._sink, args=(self.qa, self.fa), daemon=True))
-            for t in sinks:
-                t.start()
+            self._open_io()
             self._start(self.order[self.pos])
             while not self.stop_evt.is_set():
                 th = []
@@ -787,12 +910,7 @@ class VideoFeeder:
                 self.log("error", "Playlist-Feeder %s: %s" % (self.key, e))
         finally:
             self.kill()
-            for f in (self.fv, self.fa):
-                try:
-                    if f is not None:
-                        f.close()
-                except Exception:
-                    pass
+            self._close_io()
 
     def _idle(self):
         """Nach dem Ende (loop=false): Schwarz und Stille, bis ein ctl kommt. True = weiter mit neuem Titel."""
@@ -937,3 +1055,378 @@ class FolderFeeder:
 
     def stop(self):
         self.stop_evt.set()
+
+
+# ---------------------------------------------------------------------------------------------
+# Netzwerk-Stream (SRT/UDP/RTP/RTMP/HLS, Pull oder Listen fuer OBS)
+# ---------------------------------------------------------------------------------------------
+_RE_IN_V = re.compile(r"Stream #0:\d+.*?: Video: (\w+).*?, (\d{2,5})x(\d{2,5})")
+_RE_FPS = re.compile(r"([\d.]+) (?:fps|tbr)")
+_RE_IN_A = re.compile(r"Stream #0:\d+.*?: Audio: (\w+).*?, (\d+) Hz, ([\w.()]+)")
+_RE_CRED = re.compile(r"(//)[^/@]+@")
+
+
+def in_wsl():
+    try:
+        with open("/proc/version") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
+
+
+def stream_url(src):
+    """-> (Zusatzargumente vor -i, Eingangs-URL) des Front-End-ffmpeg."""
+    if src.get("mode") == "listen":
+        port = int(src["port"])
+        if src["protocol"] == "rtmp":
+            return ["-listen", "1"], "rtmp://0.0.0.0:%d/live/%s" % (port, src.get("key") or "live")
+        return [], "srt://0.0.0.0:%d?mode=listener&transtype=live&latency=%d" % (port, int(src.get("latency_ms", 200)) * 1000)
+    url = str(src["url"]).strip()
+    scheme = url.split(":", 1)[0].lower()
+    pre = []
+    if scheme in ("udp", "rtp") and "fifo_size" not in url:
+        # Ringpuffer im Empfangsthread: kurze Stockungen des Lesers verlieren keine Pakete
+        url += ("&" if "?" in url else "?") + "fifo_size=1000000&overrun_nonfatal=1"
+    if scheme == "srt" and "latency=" not in url:
+        url += ("&" if "?" in url else "?") + "latency=%d" % (int(src.get("latency_ms", 200)) * 1000)
+    if scheme in ("http", "https"):
+        pre = ["-re"]      # HLS laedt Segmente sonst schneller als Echtzeit (der Jitterpuffer liefe ueber)
+    return pre, url
+
+
+def stream_label(src):
+    if src.get("mode") == "listen":
+        return "%s-Listener :%d" % (src["protocol"].upper(), int(src["port"]))
+    return _RE_CRED.sub(r"\1***@", str(src.get("url") or ""))
+
+
+class StreamFeeder:
+    """Live-Netzwerkquelle mit festem Ausgabetakt. Ein Front-End-ffmpeg empfaengt den Stream (Pull: srt/udp/rtp/rtmp/
+    http(s)/HLS; Listen: SRT- oder RTMP-Server fuer OBS) und remuxt ihn unveraendert (-c copy) als MPEG-TS; ein
+    Dekoder-ffmpeg macht daraus Rohbild (yuv420p im Zielformat) und PCM. Unter WSL laeuft das Front-End als
+    Windows-ffmpeg: Ports binden dann direkt unter Windows (aus dem LAN erreichbar, auch bei WSL2-NAT), Multicast kommt an.
+
+    Der Taktgeber gibt Bild fuer Bild nach der Wanduhr aus (hoechstens LEAD_S voraus) und fuellt die FIFOs des Mux-ffmpeg
+    lueckenlos: Live-Bilder aus einem kleinen Jitterpuffer, bei Aussetzern bis hold_s das letzte Bild, danach die
+    Ersatztafel (bzw. Testbild/letztes Bild/Schwarz) und Stille. Die Verbindung wird automatisch neu aufgebaut."""
+    LEAD_S = 1.0          # Vorlauf vor der Wanduhr (genug fuer Encoder-Lookahead und muxdelay)
+    CONNECT_S = 20.0      # Pull: ohne Eingangsdaten nach so vielen Sekunden neu verbinden
+
+    def __init__(self, host, svc, work, sdir, log, audio=True):
+        self.host, self.svc, self.log, self.sdir = host, svc, log, sdir
+        self.key = svc["key"]
+        self.src = svc["source"]
+        self.use_audio = bool(audio)
+        self.w, self.h = svc["video"]["_wh"]
+        self.fps = float(svc["video"]["fps"])
+        self.sr = int(svc["audio"]["samplerate"])
+        self.frame_bytes = self.w * self.h * 3 // 2
+        self.hold_s = float(self.src.get("hold_s", 1.0))
+        self.stall_s = float(self.src.get("stall_s", 5.0))
+        self.pre_n = max(1, int(round(float(self.src.get("buffer_ms", 300)) / 1000.0 * self.fps)))
+        self.max_n = self.pre_n + int(round(self.fps))                   # darueber: aelteste Bilder verwerfen
+        self.fallback = self.src.get("fallback", "slate")
+        self.fifo_v = os.path.join(work, "st_v_%s.yuv" % self.key)
+        self.fifo_a = os.path.join(work, "st_a_%s.pcm" % self.key)
+        os.mkfifo(self.fifo_v)
+        if self.use_audio:
+            os.mkfifo(self.fifo_a)
+        fe = self.src.get("frontend", "auto")
+        from . import nvenc
+        self.windows = fe == "windows" or (fe == "auto" and in_wsl() and nvenc.available())
+        self.fe_exe = nvenc.win_exe() if self.windows else host.tool("ffmpeg")
+        self.label = stream_label(self.src)
+        self.lock = threading.Lock()
+        self.vbuf = []
+        self.abuf = bytearray()
+        self.last = None              # letztes Live-Bild
+        self.last_rx = 0.0            # Zeit des letzten empfangenen Bildes
+        self.live = False             # Live-Bilder werden ausgegeben (Jitterpuffer war gefuellt)
+        self.state = "waiting"        # waiting | live | lost
+        self.since = time.time()
+        self.conns = 0                # Verbindungen, die Bilder geliefert haben
+        self.dropouts = 0
+        self.rx = self.dropped = self.repeated = self.fill = 0
+        self.k = 0
+        self.vinfo = self.ainfo = None
+        self.procs = []
+        self.stop_evt = threading.Event()
+        self.threads = []
+        self.slate = self._render_fallback()
+
+    # -- Ersatzbild --
+    def _render_fallback(self):
+        black = bytes([16]) * (self.w * self.h) + bytes([128]) * (self.w * self.h // 2)
+        if self.fallback == "black":
+            return black
+        w, h = self.w, self.h
+        src = ("smptehdbars=s=%dx%d" if self.fallback == "testpattern" else "color=c=0x1b2230:s=%dx%d") % (w, h)
+        ff = font_file()
+        vf = []
+        if ff:
+            t1 = drawtext_escape(self.src.get("fallback_text") or "Kein Signal")
+            t2 = drawtext_escape(self.svc["name"])
+            box = ":box=1:boxcolor=black@0.6:boxborderw=%d" % max(6, h // 60) if self.fallback == "testpattern" else ""
+            vf += ["drawtext=fontfile=%s:text='%s':fontsize=%d:fontcolor=white:x=(w-tw)/2:y=h/2-th%s" % (ff, t1, h // 9, box),
+                   "drawtext=fontfile=%s:text='%s':fontsize=%d:fontcolor=0xb0b8c8:x=(w-tw)/2:y=h/2+%d%s" % (ff, t2, h // 22, h // 20, box)]
+        cmd = [self.host.tool("ffmpeg"), "-nostdin", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", src,
+               "-frames:v", "1", "-vf", ",".join(vf + ["format=yuv420p"]), "-f", "rawvideo", "pipe:1"]
+        try:
+            r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+            if len(r.stdout) == self.frame_bytes:
+                return r.stdout
+            self.log("warn", "Ersatzbild: %s" % r.stderr.decode("utf-8", "replace")[-200:])
+        except Exception as e:
+            self.log("warn", "Ersatzbild: %s" % e)
+        return black
+
+    # -- Zustand --
+    def now_playing(self):
+        st = {"state": self.state, "mode": self.src.get("mode", "pull"), "url": self.label, "since": int(self.since),
+              "frontend": "windows" if self.windows else "local", "video": self.vinfo, "audio": self.ainfo,
+              "connections": self.conns, "reconnects": max(0, self.conns - 1), "dropouts": self.dropouts,
+              "frames_rx": self.rx, "frames_dropped": self.dropped, "frames_repeated": self.repeated,
+              "frames_fallback": self.fill}
+        return {"service": self.key, "title": self.label, "elapsed_s": round(time.time() - self.since, 1), "stream": st}
+
+    def _set_state(self, s):
+        if s == self.state:
+            return
+        if self.state == "live":
+            self.dropouts += 1
+        self.state, self.since = s, time.time()
+        self.log("info" if s == "live" else "warn",
+                 "Stream %s: %s" % (self.key, {"live": "Live-Bild", "lost": "Signal fehlt, Ersatzbild",
+                                               "waiting": "warte auf Stream"}[s]), now_playing=self.now_playing())
+
+    # -- Empfang --
+    def _fe_cmd(self):
+        pre, url = stream_url(self.src)
+        return ([self.fe_exe, "-hide_banner", "-loglevel", "info", "-nostats", "-fflags", "+genpts+discardcorrupt"] + pre
+                + ["-i", url, "-map", "0:v:0?", "-map", "0:a:0?", "-c", "copy", "-f", "mpegts", "pipe:1"])
+
+    def _fe_stderr(self, p, lf, hdr, ev):
+        """stderr des Front-End: Eingangsformat (Codec, Aufloesung) bis zur Zeile 'Output #0' auswerten."""
+        inp = False
+        try:
+            for raw in iter(p.stderr.readline, b""):
+                lf.write(raw)
+                s = raw.decode("utf-8", "replace").rstrip()
+                if s.startswith("Input #0"):
+                    inp = True
+                elif s.startswith("Output #0") or s.startswith("Stream mapping"):
+                    inp = False
+                    ev.set()
+                elif inp and hdr.get("v") is None and ": Video: " in s:
+                    m, f = _RE_IN_V.search(s), _RE_FPS.search(s)
+                    hdr["v"] = ("%s %sx%s" % m.groups() if m else s.split(": Video: ", 1)[1][:40]) + \
+                        (" %s fps" % f.group(1) if f else "")
+                elif inp and hdr.get("a") is None and ": Audio: " in s:
+                    m = _RE_IN_A.search(s)
+                    hdr["a"] = "%s %s Hz %s" % m.groups() if m else s.split(": Audio: ", 1)[1][:40]
+        except Exception:
+            pass
+        finally:
+            ev.set()
+
+    def _read_video(self, f):
+        while not self.stop_evt.is_set():
+            b = f.read(self.frame_bytes)
+            if not b or len(b) < self.frame_bytes:
+                break
+            with self.lock:
+                self.vbuf.append(b)
+                if len(self.vbuf) > self.max_n:          # Quelle schneller als die Wanduhr: aeltestes Bild weg
+                    del self.vbuf[0]
+                    self.dropped += 1
+                self.rx += 1
+                self.last_rx = time.time()
+
+    def _read_audio(self, f):
+        cap = int(self.max_n / self.fps * self.sr) * 4
+        with f:
+            while not self.stop_evt.is_set():
+                b = f.read(1 << 14)
+                if not b:
+                    break
+                with self.lock:
+                    self.abuf += b
+                    self._trim(cap)
+
+    def _trim(self, keep):
+        """Tonpuffer vorne auf hoechstens keep Byte kuerzen (nur ganze Stereo-Samples, sonst verrutscht der Takt)."""
+        n = len(self.abuf) - keep
+        if n > 0:
+            del self.abuf[:n + (-n) % 4]
+
+    def _kill(self, p, windows=False):
+        if p is None or p.poll() is not None:
+            return
+        if windows:
+            try:
+                p.stdin.write(b"q")      # Windows-ffmpeg sauber beenden (gibt den Port frei)
+                p.stdin.flush()
+                p.wait(timeout=2)
+                return
+            except Exception:
+                pass
+        try:
+            p.kill()
+            p.wait(timeout=3)
+        except Exception:
+            pass
+
+    def _connect_once(self):
+        """Eine Verbindung: Front-End starten, auf Eingangsdaten warten, Dekoder anhaengen, bis Abbruch/Stillstand.
+        -> True, wenn Bilder kamen."""
+        listen = self.src.get("mode") == "listen"
+        lf = open(os.path.join(self.sdir, "stream_%s.log" % self.key), "ab")
+        cmd = self._fe_cmd()
+        lf.write(("\n=== %s %s\n" % (time.strftime("%H:%M:%S"), " ".join(cmd))).encode())
+        lf.flush()
+        fe = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.procs = [fe]
+        hdr, ev = {}, threading.Event()
+        threading.Thread(target=self._fe_stderr, args=(fe, lf, hdr, ev), daemon=True).start()
+        t0 = time.time()
+        dec = None
+        try:
+            while not ev.wait(0.5):
+                if self.stop_evt.is_set() or fe.poll() is not None:
+                    return False
+                if not listen and time.time() - t0 > self.CONNECT_S:
+                    lf.write(b"--- keine Eingangsdaten, neuer Versuch\n")
+                    return False
+            if self.stop_evt.is_set() or fe.poll() is not None:
+                return False
+            has_v, has_a = bool(hdr.get("v")), bool(hdr.get("a")) and self.use_audio
+            self.vinfo, self.ainfo = hdr.get("v"), hdr.get("a")
+            if not has_v and not has_a:
+                return False
+            dcmd = [self.host.tool("ffmpeg"), "-nostdin", "-hide_banner", "-loglevel", "error", "-threads", "2",
+                    "-probesize", "2M", "-analyzeduration", "1500000", "-fflags", "+discardcorrupt",
+                    "-f", "mpegts", "-i", "pipe:0"]
+            ra = wa = None
+            if has_v:
+                dcmd += ["-map", "0:v:0", "-vf", video_filter(self.svc), "-an", "-f", "rawvideo", "pipe:1"]
+            if has_a:
+                ra, wa = os.pipe()
+                dcmd += ["-map", "0:a:0", "-vn", "-af", "aresample=%d:async=1000" % self.sr, "-ac", "2", "-ar", str(self.sr),
+                         "-f", "s16le", "pipe:%d" % wa]
+            lf.write(("=== Dekoder: %s\n" % " ".join(dcmd)).encode())
+            lf.flush()
+            dec = subprocess.Popen(dcmd, stdin=fe.stdout, stdout=subprocess.PIPE if has_v else subprocess.DEVNULL,
+                                   stderr=lf, pass_fds=(wa,) if wa is not None else ())
+            fe.stdout.close()
+            self.procs = [fe, dec]
+            readers = []
+            if has_v:
+                readers.append(threading.Thread(target=self._read_video, args=(dec.stdout,), daemon=True))
+            if has_a:
+                os.close(wa)
+                readers.append(threading.Thread(target=self._read_audio, args=(os.fdopen(ra, "rb", 0),), daemon=True))
+            for t in readers:
+                t.start()
+            self.log("info", "Stream %s: Eingang %s%s" % (self.key, self.vinfo or "ohne Bild",
+                                                          ", Ton %s" % self.ainfo if self.ainfo else ", ohne Ton"))
+            t1, counted = time.time(), False
+            while any(t.is_alive() for t in readers) and not self.stop_evt.is_set():
+                self.stop_evt.wait(0.5)
+                if self.last_rx > t1 and not counted:
+                    counted = True
+                    self.conns += 1
+                ref = self.last_rx if self.last_rx > t1 else t1
+                if has_v and time.time() - ref > (self.stall_s if counted else max(self.stall_s, 10.0)):
+                    lf.write(b"--- keine Bilder mehr, neu verbinden\n")
+                    break
+            return counted
+        finally:
+            self._kill(dec)
+            self._kill(fe, self.windows)
+            try:
+                lf.close()
+            except Exception:
+                pass
+
+    def _conn_loop(self):
+        while not self.stop_evt.is_set():
+            try:
+                ok = self._connect_once()
+            except Exception as e:
+                ok = False
+                self.log("warn", "Stream %s: %s" % (self.key, e))
+            # Listener sofort wieder oeffnen; Pull nach kurzer Pause (nicht im Sekundentakt anklopfen)
+            self.stop_evt.wait(0.3 if self.src.get("mode") == "listen" else (1.0 if ok else 3.0))
+
+    # -- Taktgeber --
+    def _next(self):
+        """-> (Bild, PCM) fuer den naechsten Ausgabeschritt (ein Bild, dazu genau die passende Zahl Samples)."""
+        now = time.time()
+        with self.lock:
+            if not self.live and len(self.vbuf) >= self.pre_n and now - self.last_rx < 1.0:
+                self.live = True
+                # Ton auf die Laenge des Bildpuffers kuerzen: beide Spuren beginnen damit etwa gleichzeitig
+                self._trim(int(len(self.vbuf) / self.fps * self.sr) * 4)
+            frame = None
+            if self.live and self.vbuf:
+                frame = self.vbuf.pop(0)
+                self.last = frame
+            elif self.live and now - self.last_rx < self.hold_s:
+                frame = self.last                       # kurzer Aussetzer: letztes Bild halten
+                self.repeated += 1
+            elif self.live:
+                self.live = False                       # Signal weg: Ersatzbild, Jitterpuffer neu fuellen
+            self.k += 1
+            need = (int(self.k * self.sr / self.fps) - int((self.k - 1) * self.sr / self.fps)) * 4
+            if self.live and len(self.abuf) >= 4:
+                take = min(need, len(self.abuf) // 4 * 4)
+                pcm = bytes(self.abuf[:take]) + bytes(need - take)     # zu wenig Ton: mit Stille auffuellen
+                del self.abuf[:take]
+            else:
+                pcm = bytes(need)
+                if not self.live:
+                    self._trim(int(self.pre_n / self.fps * self.sr) * 4)
+        if frame is None:
+            self.fill += 1
+            frame = self.last if (self.fallback == "last" and self.last is not None) else self.slate
+        self._set_state("live" if self.live else ("lost" if self.conns else "waiting"))
+        return frame, pcm
+
+    def _clock(self):
+        try:
+            self.fv = os.fdopen(os.open(self.fifo_v, os.O_RDWR), "wb", buffering=0)
+            self.fa = os.fdopen(os.open(self.fifo_a, os.O_RDWR), "wb", buffering=0) if self.use_audio else None
+            qv, qa = queue.Queue(maxsize=max(4, int(self.fps))), queue.Queue(maxsize=max(4, int(self.fps)))
+            for q, f in ((qv, self.fv), (qa, self.fa)):
+                if f is not None:
+                    threading.Thread(target=VideoFeeder._sink, args=(self, q, f), daemon=True).start()
+            t0, self.k = time.time(), 0
+            while not self.stop_evt.is_set():
+                wait = t0 + self.k / self.fps - self.LEAD_S - time.time()
+                if wait > 0 and self.stop_evt.wait(wait):
+                    break
+                frame, pcm = self._next()
+                for q, b in ((qv, frame), (qa, pcm if self.use_audio else None)):
+                    while b is not None and not self.stop_evt.is_set():
+                        try:
+                            q.put(b, timeout=0.5)
+                            break
+                        except queue.Full:
+                            pass
+        except Exception as e:
+            if not self.stop_evt.is_set():
+                self.log("error", "Stream-Feeder %s: %s" % (self.key, e))
+
+    def start(self):
+        self.log("info", "Stream %s: %s, Front-End %s" % (self.key, self.label, "Windows-ffmpeg" if self.windows else "ffmpeg"),
+                 now_playing=self.now_playing())
+        for fn in (self._clock, self._conn_loop):
+            t = threading.Thread(target=fn, daemon=True, name="stream-%s" % self.key)
+            t.start()
+            self.threads.append(t)
+
+    def stop(self):
+        self.stop_evt.set()
+        procs = list(self.procs)
+        for i, p in enumerate(procs):
+            self._kill(p, self.windows and i == 0)

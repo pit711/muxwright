@@ -27,6 +27,7 @@ export const CREDITS = [
   ['base', 'yt-dlp', 'yt-dlp contributors', 'optional video sources', 'https://github.com/yt-dlp/yt-dlp'],
   ['check', 'welle.io / welle-cli', 'Albrecht Lohöfener', 'DAB monitoring receiver', 'https://github.com/AlbrechtL/welle.io'],
   ['check', 'redsea', 'Oona Räisänen, OH2EIQ', 'RDS decoder for verification', 'https://github.com/windytan/redsea'],
+  ['check', 'GNU Radio (gr-dtv)', 'GNU Radio project', 'DVB-T monitoring receiver: RX picture, MER, constellation (installed by the user)', 'https://www.gnuradio.org/'],
   ['check', 'GNU Radio gr-dtv', 'Ron Economos, W6RZ, and the GNU Radio project', 'DVB-T/S2 and ATSC reference for bit-exact tests', 'https://github.com/gnuradio/gnuradio'],
   ['check', 'gr-isdbt', 'ARTES group (Universidad de la República, Uruguay)', 'independent ISDB-T receiver for loopback tests', 'https://github.com/git-artes/gr-isdbt'],
   ['check', 'dtmb-sdr', 'ningzichun', 'independent DTMB receiver for loopback tests; source of the LDPC parity-check matrices (MIT)', 'https://github.com/ningzichun/dtmb-sdr'],

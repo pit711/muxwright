@@ -519,6 +519,10 @@ async function pushLiveChanges(prev, cfg, paths) {
       await sendLive({ label: { service: s.key, label: s.label, shortlabel: s.shortlabel } });
     } else if ((m = p.match(/^services\.(\d+)\.pad\.dls\.text$/))) {
       const s = cfg.services[m[1]]; await sendLive({ dls: { service: s.key, text: s.pad.dls.text } });
+    } else if ((m = p.match(/^dvb\.programs\.(\d+)\.overlay\.text\.text$/))) {
+      // Overlay-Text nur live, wenn die laufende Kette die Textzeile schon hat (Einschalten = Strukturänderung)
+      const q = cfg.dvb.programs[m[1]];
+      if (q?.overlay?.text?.enable && prev?.dvb?.programs?.find(x => x.key === q.key)?.overlay?.text?.enable) await sendLive({ overlay: { service: q.key, text: q.overlay.text.text } });
     }
   }
 }

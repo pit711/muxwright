@@ -3,10 +3,11 @@
 import { h, icon, api, toast, dialog } from './ui.js';
 import * as D from './dab.js';
 import * as STD from './standards.js';
-import { S, field, input, textarea, select, toggle, segmented, card, counter, edited, errorsFor, getPath, setPath, upload, previewCache, loadMedia, loadPlaylists, save, load, txRunning } from './core.js';
+import { S, field, input, textarea, select, toggle, segmented, card, counter, edited, errorsFor, getPath, setPath, upload, previewCache, loadMedia, loadPlaylists, save, load, txRunning, sendLive, nowPlaying } from './core.js';
 import { audioSourceCard, uploadBtn } from './pages.js';
 import { T, LANG } from './i18n.js';
 import { previewStrip, previewHint } from './preview.js';
+import { slideSrc } from './report.js';
 
 const LOC = LANG === 'en' ? 'en-GB' : LANG;
 
@@ -413,13 +414,33 @@ function prgGeneral(p, base) {
       STD.standardOf(S.draft) === 'isdbt' && Number(S.draft.isdbt.layers) === 2
         ? field('1seg', toggle(`${base}.oneseg`, T('Handy-Programm in Schicht A (320×240)'), { tid: 'prg-oneseg' }), { hint: T('Teilempfang (partial reception), service_type 0xC0') }) : null,
       STD.standardOf(S.draft) === 'isdbt' ? h('p.hint', null, icon('info'), T('ISDB-Tb: SID wird aus Netzkennung, Diensttyp und Nummer gebildet (ABNT NBR 15603).')) : null,
-    ]));
+    ]),
+    p.type === 'tv' ? hbbtvCard(p, base) : null);
+}
+
+// HbbTV (experimentell): AIT auf eigener PID, in der PMT mit application_signalling_descriptor (runner/dvb/si.py)
+function hbbtvCard(p, base) {
+  const hb = p.hbbtv || {}, b = `${base}.hbbtv`, why = STD.hbbtvBlocked(S.draft);
+  const title = h('span', null, T('HbbTV (experimentell)'), h('span.badge-untested', { title: T('Experimentelle Funktion – an echten Fernsehern noch kaum geprüft') }, 'experimental'));
+  return card(title, 'globe', [
+    field(null, toggle(`${b}.enable`, T('HbbTV-Anwendung signalisieren (AIT)'), { tid: 'prg-hbbtv-enable', rerender: true }), { path: `${b}.enable`, hint: why || T('AIT-Tabelle (0x74) auf eigener PID, in der PMT als stream_type 0x05') }),
+    hb.enable ? [
+      field(T('Startseite (URL)'), input(`${b}.url`, { tid: 'prg-hbbtv-url', mono: true, ph: 'http://192.168.1.10:8080/hbbtv/index.html' }), { path: `${b}.url`, wide: true, hint: T('Basis-URL und Startseite werden am letzten „/“ getrennt') }),
+      h('div.grid2', null,
+        field(T('Anwendungsname'), input(`${b}.name`, { tid: 'prg-hbbtv-name', maxlength: 64, ph: p.name }), { path: `${b}.name` }),
+        field(T('Start'), toggle(`${b}.autostart`, T('Automatisch starten (AUTOSTART)'), { tid: 'prg-hbbtv-autostart' }), { hint: T('Aus = PRESENT: wird angeboten, startet aber nicht selbst') })),
+      h('div.grid2', null,
+        field('organization_id (hex)', input(`${b}.org_id`, { tid: 'prg-hbbtv-org', mono: true, hex: 8 }), { path: `${b}.org_id` }),
+        field('application_id (hex)', input(`${b}.app_id`, { tid: 'prg-hbbtv-app', mono: true, hex: 4 }), { path: `${b}.app_id`, hint: '0x0001–0x3FFF' })),
+      h('p.hint', null, icon('info'), T('Der Fernseher braucht eine Internetverbindung, und die URL muss vom Fernseher aus erreichbar sein (nicht „localhost“). HbbTV muss am Gerät eingeschaltet sein.')),
+    ] : null,
+  ], { tid: 'card-prg-hbbtv' });
 }
 
 function prgVideo(p, base) {
   const v = p.video, src = v.source, ps = `${base}.video.source`;
   const brs = STD.VIDEO.VIDEO_BR[v.codec]?.[v.resolution] || [3500];
-  const kinds = [['testpattern', T('Testbild'), 'tv'], ['file', T('Datei'), 'file'], ['youtube', 'YouTube', 'download'], ['playlist', T('Video-Playlist'), 'playlist'], ['capture', T('Capture/Webcam'), 'radio'], ['screen', T('Bildschirm'), 'grid'], ['folder', T('Bildordner'), 'folder']];
+  const kinds = [['testpattern', T('Testbild'), 'tv'], ['file', T('Datei'), 'file'], ['youtube', 'YouTube', 'download'], ['playlist', T('Video-Playlist'), 'playlist'], ['schedule', T('Zeitplan'), 'clock'], ['capture', T('Capture/Webcam'), 'radio'], ['screen', T('Bildschirm'), 'grid'], ['folder', T('Bildordner'), 'folder'], ['stream', T('Netzwerk-Stream'), 'globe']];
   const params = [];
   const dev = S.state.devices || {};
   if (src.kind === 'capture') {
@@ -457,6 +478,7 @@ function prgVideo(p, base) {
     params.push(field(T('Prüfintervall (s)'), input(`${ps}.poll_s`, { type: 'number', min: 0.2, max: 10, step: 0.1, tid: 'vid-folder-poll', mono: true }),
       { hint: T('Latenzarm: ohne B-Bilder und Lookahead, kleiner Puffer. Neues Bild nach etwa 2–3 s am TV (je nach Receiver).') }));
   }
+  if (src.kind === 'stream') params.push(...streamFields(p, src, ps));
   if (src.kind === 'youtube') params.push(youtubeField(src, ps));
   if (src.kind === 'playlist') {
     const psel = h('select', { tid: 'vid-playlist' }, h('option', { value: '' }, T('Playlist wählen …')), S.playlists.map(pl => h('option', { value: pl.name }, pl.count != null ? `${pl.name} (${pl.count})` : pl.name)));
@@ -465,9 +487,12 @@ function prgVideo(p, base) {
   }
   return h('div.formgrid', null,
     card(T('Videoquelle'), 'tv', [
-      h('div.srcgrid', { tid: 'vid-kind' }, kinds.map(([k, l, ic]) => h('button', { type: 'button', class: src.kind === k ? 'on' : null, tid: `vid-kind-${k}`, onclick: () => { src.kind = k; if (k === 'folder') { v.encoder = 'cpu'; if (p.audio.source.kind === 'video') p.audio.source.kind = 'tone'; } edited(`${ps}.kind`, true); } }, icon(ic), h('span', null, l)))),
+      h('div.srcgrid', { tid: 'vid-kind' }, kinds.map(([k, l, ic]) => h('button', { type: 'button', class: src.kind === k ? 'on' : null, tid: `vid-kind-${k}`, onclick: () => { src.kind = k; if (k === 'folder' || k === 'schedule') { v.encoder = 'cpu'; if (p.audio.source.kind === 'video') p.audio.source.kind = 'tone'; }
+        if (k === 'stream') { v.encoder = 'cpu'; for (const [f, d] of Object.entries(STD.streamDefaults())) if (src[f] == null || src[f] === '') src[f] = d; if (p.audio.source.kind === 'tone') p.audio.source.kind = 'video'; }
+        edited(`${ps}.kind`, true); } }, icon(ic), h('span', null, l)))),
       params.length ? h('div.grid2', null, params) : null,
     ], { tid: 'card-video-source' }),
+    src.kind === 'schedule' ? scheduleCard(p, ps) : null,
     card(T('Videocodierung'), 'wave', [
       h('div.grid3', null,
         field('Codec', segmented(`${base}.video.codec`, Object.entries(STD.VIDEO.CODECS).map(([k, l]) => ({ v: k, label: l.split(' ')[0] })), { tid: 'vid-codec', onchange: () => { if (p.video.codec !== 'hevc') p.video.hdr = 'sdr'; if (p.video.codec === 'mpeg2') { p.video.encoder = 'cpu'; if (p.video.resolution === 'uhd') p.video.resolution = 'hd'; } fixVideoBr(p); } }), { path: `${base}.video.codec`, hint: T('MPEG-2 = maximal kompatibel, H.264 für HD, HEVC für UHD/HDR') }),
@@ -477,13 +502,187 @@ function prgVideo(p, base) {
             s.addEventListener('change', () => { if (s.value) { p.video.bitrate_kbps = Number(s.value); edited(`${base}.video.bitrate_kbps`, true); } }); return s; })()),
           { path: `${base}.video.bitrate_kbps`, hint: v.codec === 'mpeg2' && v.resolution !== 'sd' ? T('MPEG-2 HD nur bei neueren Receivern') : '' })),
       h('div.grid2', null,
-        field(T('Encoder'), segmented(`${base}.video.encoder`, Object.entries(STD.VIDEO.ENCODERS).map(([k, l]) => ({ v: k, label: { cpu: 'CPU', nvenc: 'GPU (NVENC)', amf: 'GPU (AMD)' }[k], title: l, disabled: k !== 'cpu' && (v.codec === 'mpeg2' || src.kind === 'folder' || (k === 'nvenc' && nvencState() === false)) })), { tid: 'vid-encoder' }),
+        field(T('Encoder'), segmented(`${base}.video.encoder`, Object.entries(STD.VIDEO.ENCODERS).map(([k, l]) => ({ v: k, label: { cpu: 'CPU', nvenc: 'GPU (NVENC)', amf: 'GPU (AMD)' }[k], title: l, disabled: k !== 'cpu' && (v.codec === 'mpeg2' || src.kind === 'folder' || src.kind === 'stream' || src.kind === 'schedule' || (k === 'nvenc' && nvencState() === false)) })), { tid: 'vid-encoder' }),
           { path: `${base}.video.encoder`, hint: v.encoder === 'amf' ? T('AMD AMF über das Windows-ffmpeg (h264_amf/hevc_amf) – ungetestet, Rückmeldungen willkommen') : nvencHint() }),
         field(T('Dynamikumfang'), segmented(`${base}.video.hdr`, Object.entries(STD.VIDEO.HDR).map(([k, l]) => ({ v: k, label: k === 'sdr' ? 'SDR' : k === 'hdr10' ? 'HDR10' : 'HLG', title: l })), { tid: 'vid-hdr', onchange: val => { if (val !== 'sdr') { p.video.codec = 'hevc'; if (nvencState()) p.video.encoder = 'nvenc'; fixVideoBr(p); } } }),
           { path: `${base}.video.hdr`, hint: v.hdr === 'hdr10' ? T('HEVC Main10, PQ, BT.2020, Mastering-Metadaten (SEI)') : v.hdr === 'hlg' ? 'HEVC Main10, HLG (ARIB STD-B67), BT.2020' : 'BT.709, 8 bit' })),
       v.hdr !== 'sdr' && ['testpattern'].includes(v.source.kind) ? h('p.hint', null, icon('info'), T('Testbild in HDR: wird in BT.2020/10 bit gewandelt – für echte HDR-Prüfung eine HDR-Quelle (Datei/YouTube) verwenden.')) : null,
-    ]));
+    ]),
+    prgOverlay(p, base));
 }
+
+/** Overlay: Logo (PNG/JPG aus der Medienbibliothek, ffmpeg overlay) und Textzeile (drawtext, live änderbar) */
+function prgOverlay(p, base) {
+  const ov = p.overlay, lg = ov.logo, tx = ov.text, b = `${base}.overlay`;
+  const imgs = S.media.filter(m => m.kind === 'image' || /\.(png|jpe?g)$/i.test(m.name));
+  const fsel = h('select', { tid: 'ov-logo-file' }, h('option', { value: '' }, imgs.length ? T('Bild wählen …') : T('Keine Bilder – hochladen')), imgs.map(m => h('option', { value: m.path }, m.name)));
+  fsel.value = lg.file || ''; if (lg.file && fsel.selectedIndex < 0) { fsel.append(h('option', { value: lg.file }, lg.file)); fsel.value = lg.file; }
+  fsel.addEventListener('change', () => { lg.file = fsel.value; edited(`${b}.logo.file`, true); });
+  const gpu = p.video.encoder !== 'cpu';
+  const sendBtn = h('button.btn.primary.sm', { type: 'button', tid: 'ov-text-send', onclick: async () => {
+    if (!txRunning()) return toast(T('Kette läuft nicht – Text wird beim Start übernommen.'), 'info');
+    if (await sendLive({ overlay: { service: p.key, text: tx.text } }, T('Overlay-Text gesendet'))) {
+      const sp = S.server?.dvb?.programs?.find(x => x.key === p.key); if (sp?.overlay?.text) sp.overlay.text.text = tx.text; edited(`${b}.text.text`);
+    }
+  } }, icon('send'), T('Text live senden'));
+  return card(T('Overlay'), 'layers', [
+    gpu ? h('p.alert', { tid: 'ov-gpu-hint' }, icon('info'), T('Overlay nur mit CPU-Encoder – bei GPU-Encodern wird es nicht eingeblendet.')) : null,
+    h('div.inrow.wrap', null, toggle(`${b}.logo.enable`, T('Logo einblenden'), { tid: 'ov-logo-enable', rerender: true })),
+    lg.enable ? h('div.logo-row', null,
+      h('div.logo-prev', null, lg.file ? h('img', { src: previewCache.get(lg.file) || slideSrc(lg.file), alt: 'Logo', onerror: e => e.target.classList.add('broken') }) : icon('image', 'big')),
+      h('div.formgrid', null,
+        field(T('Bild (PNG mit Transparenz oder JPG)'), h('div.inrow', null, fsel, uploadBtn('logo', 'image/png,image/jpeg', 'ov-logo-upload', async path => { lg.file = path; await loadMedia(); edited(`${b}.logo.file`, true); })), { path: `${b}.logo.file`, wide: true }),
+        h('div.grid2', null,
+          field(T('Position'), select(`${b}.logo.position`, Object.entries(STD.VIDEO.OVERLAY_POS).map(([k, l]) => ({ v: k, label: l })), { tid: 'ov-logo-pos', rerender: false })),
+          field(T('Größe (% der Bildhöhe)'), input(`${b}.logo.size_pct`, { type: 'number', min: 2, max: 100, step: 1, tid: 'ov-logo-size', mono: true }), { path: `${b}.logo.size_pct` }),
+          field(T('Deckkraft (0–1)'), input(`${b}.logo.opacity`, { type: 'number', min: 0, max: 1, step: 0.05, tid: 'ov-logo-opacity', mono: true }), { path: `${b}.logo.opacity` }),
+          field(T('Rand (% der Bildhöhe)'), input(`${b}.logo.margin_pct`, { type: 'number', min: 0, max: 40, step: 1, tid: 'ov-logo-margin', mono: true }))))) : null,
+    h('div.inrow.wrap.mt', null, toggle(`${b}.text.enable`, T('Textzeile einblenden'), { tid: 'ov-text-enable', rerender: true }), h('span.grow'), tx.enable ? sendBtn : null),
+    tx.enable ? h('div.formgrid', null,
+      field(T('Text'), input(`${b}.text.text`, { tid: 'ov-text', maxlength: 500 }), { path: `${b}.text.text`, wide: true, extra: counter(() => [...(tx.text || '')].length, 500), hint: T('live änderbar ohne Neustart (Einschalten braucht einen Neustart)') }),
+      h('div.grid3', null,
+        field(T('Position'), select(`${b}.text.position`, Object.entries(STD.VIDEO.OVERLAY_TEXT_POS).map(([k, l]) => ({ v: k, label: l })), { tid: 'ov-text-pos', rerender: false })),
+        field(T('Schriftgröße (% der Bildhöhe)'), input(`${b}.text.size_pct`, { type: 'number', min: 2, max: 25, step: 0.5, tid: 'ov-text-size', mono: true }), { path: `${b}.text.size_pct` }),
+        field(T('Farbe'), input(`${b}.text.color`, { type: 'color', tid: 'ov-text-color' }))),
+      h('div.inrow.wrap', null,
+        toggle(`${b}.text.box`, T('Hintergrundkasten'), { tid: 'ov-text-box' }),
+        toggle(`${b}.text.scroll`, T('Lauftext'), { tid: 'ov-text-scroll', rerender: true })),
+      tx.scroll ? field(T('Geschwindigkeit (% der Bildbreite je Sekunde)'), input(`${b}.text.speed_pct`, { type: 'number', min: 1, max: 200, step: 1, tid: 'ov-text-speed', mono: true }),
+        { hint: T('Lauftext läuft oben, unten oder in der Mitte (Ecken → oben/unten)') }) : null) : null,
+  ], { tid: 'card-overlay', badge: tx.enable ? h('span.pill.live', null, 'live') : null });
+}
+/** IP-Adressen dieses PCs (GET /api/netinfo), einmal geladen */
+let NETINFO = null;
+function netIps() {
+  if (!NETINFO) NETINFO = api('GET', '/api/netinfo').then(r => r.ips || []).catch(() => []);
+  return NETINFO;
+}
+/** OBS-Ziel für den Listen-Modus: [Server, Stream-Schlüssel oder null] */
+export function obsTarget(src, ip) {
+  const port = Number(src.port) || (src.protocol === 'rtmp' ? 1935 : 9000);
+  return src.protocol === 'rtmp' ? [`rtmp://${ip}:${port}/live`, src.stream_key || 'live'] : [`srt://${ip}:${port}`, null];
+}
+const STREAM_STATE = () => ({ live: T('Live-Bild'), lost: T('Signal fehlt – Ersatzbild'), waiting: T('wartet auf Stream') });
+
+/** Netzwerk-Stream: Pull-URL oder Listener (SRT/RTMP) mit OBS-Ziel, Ersatzbild, Status aus now_playing.stream */
+function streamFields(p, src, ps) {
+  const out = [field(T('Betriebsart'), segmented(`${ps}.mode`, [{ v: 'listen', label: T('Empfangen (OBS sendet hierher)') }, { v: 'pull', label: T('Abrufen (URL)') }], { tid: 'vid-stream-mode' }), { wide: true })];
+  if (src.mode === 'pull') {
+    out.push(field(T('Stream-URL'), input(`${ps}.stream_url`, { tid: 'vid-stream-url', mono: true, ph: 'srt://192.168.1.20:9000' }),
+      { path: `${ps}.stream_url`, wide: true, hint: 'srt://host:port · udp://@239.1.1.1:1234 · rtp://… · rtmp://server/app/key · http(s)://…/index.m3u8' }));
+  } else {
+    const obs = h('div.mono', { tid: 'vid-stream-obs' }, '…');
+    const upd = () => netIps().then(ips => {
+      const [server, key] = obsTarget(src, ips[0] || T('IP-Adresse des PCs'));
+      obs.replaceChildren(h('div', null, T('Server'), ': ', h('b', null, server)), key ? h('div', null, T('Stream-Schlüssel'), ': ', h('b', null, key)) : null,
+        ips.length > 1 ? h('small.muted', null, T('weitere Adressen: {ips}', { ips: ips.slice(1).join(', ') })) : null);
+    });
+    upd();
+    out.push(field(T('Protokoll'), segmented(`${ps}.protocol`, [{ v: 'srt', label: 'SRT' }, { v: 'rtmp', label: 'RTMP' }], { tid: 'vid-stream-proto',
+      onchange: val => { if ([1935, 9000].includes(Number(src.port))) src.port = val === 'rtmp' ? 1935 : 9000; } })));
+    out.push(field('Port', input(`${ps}.port`, { type: 'number', min: 1024, max: 65535, tid: 'vid-stream-port', mono: true, oninput: upd }), { path: `${ps}.port` }));
+    if (src.protocol === 'rtmp') out.push(field(T('Stream-Schlüssel'), input(`${ps}.stream_key`, { tid: 'vid-stream-key', mono: true, ph: 'live', oninput: upd }), { path: `${ps}.stream_key`, hint: T('wie in OBS eingetragen') }));
+    out.push(field(T('Ziel in OBS (Einstellungen → Stream → Benutzerdefiniert)'), obs,
+      { wide: true, hint: T('Erster Start: Windows-Firewall-Abfrage für ffmpeg bestätigen (privates Netz), sonst kommen Streams aus dem LAN nicht an.') }));
+    // Ohne Windows-ffmpeg empfängt das ffmpeg in WSL2 hinter NAT: nur TCP vom selben PC kommt an (RTMP von OBS hier), SRT/UDP nicht
+    out.push(h('p.hint', { tid: 'vid-stream-winffmpeg' }, icon('info'), T('Empfang aus dem LAN und SRT brauchen die Komponente „FFmpeg für Windows“ (Einrichtung → Komponenten). Ohne sie geht nur RTMP von OBS auf diesem PC.')));
+  }
+  if (src.mode !== 'pull' ? src.protocol !== 'rtmp' : /^srt:/i.test(src.stream_url || ''))
+    out.push(field(T('SRT-Latenz (ms)'), input(`${ps}.latency_ms`, { type: 'number', min: 20, max: 5000, step: 10, tid: 'vid-stream-latency', mono: true }), { hint: T('höher = robuster bei WLAN/Internet') }));
+  out.push(field(T('Bei fehlendem Signal'), select(`${ps}.fallback`, [{ v: 'slate', label: T('Tafel „Kein Signal“') }, { v: 'testpattern', label: T('Testbild') }, { v: 'last', label: T('letztes Bild halten') }, { v: 'black', label: T('Schwarzbild') }], { tid: 'vid-stream-fallback' }),
+    { hint: T('Die Sendung läuft immer weiter: Ersatzbild und Stille, automatische Wiederverbindung') }));
+  if (['slate', 'testpattern'].includes(src.fallback)) out.push(field(T('Text auf der Tafel'), input(`${ps}.fallback_text`, { tid: 'vid-stream-fbtext', maxlength: 40 })));
+  // Status der laufenden Sendung (now_playing.stream), wird bei jedem Statusabruf aktualisiert
+  const stat = h('p.hint.wide', { tid: 'vid-stream-status' });
+  let last = null;
+  const showStat = () => {
+    const st = txRunning() ? nowPlaying(p.key)?.stream : null;
+    const k = JSON.stringify(st && [st.state, st.video, st.audio, st.reconnects]);
+    if (k === last) return; last = k;
+    stat.hidden = !st;
+    stat.replaceChildren(...(st ? [icon(st.state === 'live' ? 'check' : 'alert'), h('b', null, STREAM_STATE()[st.state] || st.state),
+      st.video ? ` · ${st.video}` : '', st.audio ? ` · ${st.audio}` : '', ` · ${T('Wiederverbindungen: {n}', { n: st.reconnects || 0 })}`] : []));
+  };
+  showStat();
+  (S.npWatchers ||= []).push(showStat);
+  out.push(stat);
+  return out;
+}
+
+// ---------------------------------------------------------------- Zeitplan (Quellenart „schedule“, runner/dvb/schedule.py)
+const WEEKDAYS = () => [T('Mo'), T('Di'), T('Mi'), T('Do'), T('Fr'), T('Sa'), T('So')];
+
+/** Anzeigename eines Eintrags (wie der EIT-Titel im Runner, ohne Dateitags) */
+function schedLabel(e) {
+  if (!e) return '–';
+  if (e.title) return e.title;
+  if (e.kind === 'file') return String(e.file || '').split('/').pop().replace(/\.[^.]+$/, '') || T('Datei');
+  if (e.kind === 'playlist') return e.playlist || T('Playlist');
+  if (e.kind === 'folder') return String(e.folder || '').split(/[\\/]/).filter(Boolean).pop() || T('Bildordner');
+  return STD.VIDEO.PATTERNS[e.pattern] || T('Testbild');
+}
+
+/** Editierbare Tabelle (Zeit, Wochentage, Inhalt, Titel) mit Vorschau „läuft jetzt / als Nächstes“ */
+function scheduleCard(p, ps) {
+  const src = p.video.source;
+  if (!Array.isArray(src.schedule)) src.schedule = [];
+  const ents = src.schedule, tv = p.type === 'tv';
+  const fmt = t => new Date(t).toLocaleString(LOC, { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+  const nowEl = h('b', { tid: 'sched-now' }), nextEl = h('b', { tid: 'sched-next' });
+  const upd = () => {
+    const st = STD.scheduleNow(ents);
+    nowEl.textContent = st.cur ? `${schedLabel(ents[st.cur.i])} · ${T('seit {t}', { t: fmt(st.cur.t) })}` : T('Füller bis zum ersten Eintrag');
+    nextEl.textContent = st.next[0] ? `${schedLabel(ents[st.next[0].i])} · ${fmt(st.next[0].t)}` : '–';
+  };
+  S.watchers.push(upd); upd();
+  const media = S.media.filter(m => tv ? (m.kind === 'video' || /\.(mp4|ts|mkv|mpg|mpeg|mov|m2ts|webm)$/i.test(m.name)) : (m.kind === 'audio' || m.kind === 'video'));
+  const kinds = [['file', T('Datei')], ['playlist', T('Playlist')], ['testpattern', tv ? T('Testbild') : T('Testton')], ...(tv ? [['folder', T('Bildordner')]] : [])];
+  const pick = (list, val, tid, ph, set) => {
+    const s = h('select', { tid }, h('option', { value: '' }, ph), list.map(([v, l]) => h('option', { value: v }, l)));
+    s.value = val || ''; if (val && s.selectedIndex < 0) { s.append(h('option', { value: val }, val)); s.value = val; }
+    s.addEventListener('change', () => set(s.value)); return s;
+  };
+  const rows = ents.map((e, j) => {
+    const b = `${ps}.schedule.${j}`;
+    if (!Array.isArray(e.days)) e.days = [];
+    const days = h('div.inrow.wrap.sched-days', { tid: `sched-${j}-days` }, WEEKDAYS().map((d, k) => h('button.btn.sm', { type: 'button', class: e.days.includes(k + 1) ? 'accent' : null, tid: `sched-${j}-day-${k + 1}`, 'aria-pressed': String(e.days.includes(k + 1)),
+      onclick: () => { const s = new Set(e.days); if (s.has(k + 1)) s.delete(k + 1); else s.add(k + 1); e.days = [...s].sort((x, y) => x - y); edited(`${b}.days`, true); } }, d)));
+    let what = null;
+    if (e.kind === 'file') what = field(null, h('div.inrow', null, pick(media.map(m => [m.path, m.name]), e.file, `sched-${j}-file`, media.length ? T('Datei wählen …') : T('Keine Dateien – hochladen'), v => { e.file = v; edited(`${b}.file`, true); }),
+      uploadBtn(tv ? 'video' : 'audio', tv ? 'video/*,.ts,.mkv,.mpg' : 'audio/*', `sched-${j}-upload`, async path => { e.file = path; edited(`${b}.file`, true); })), { path: `${b}.file` });
+    else if (e.kind === 'playlist') what = field(null, pick(S.playlists.map(pl => [pl.name, pl.count != null ? `${pl.name} (${pl.count})` : pl.name]), e.playlist, `sched-${j}-playlist`, T('Playlist wählen …'), v => { e.playlist = v; edited(`${b}.playlist`, true); }), { path: `${b}.playlist` });
+    else if (e.kind === 'testpattern' && tv) what = select(`${b}.pattern`, Object.entries(STD.VIDEO.PATTERNS).map(([k, l]) => ({ v: k, label: l })), { tid: `sched-${j}-pattern` });
+    else if (e.kind === 'folder') what = field(null, input(`${b}.folder`, { tid: `sched-${j}-folder`, mono: true, ph: 'C:\\Infoscreen' }), { path: `${b}.folder` });
+    return h('tr', { tid: `sched-row-${j}` },
+      h('td', null, field(null, input(`${b}.time`, { type: 'time', tid: `sched-${j}-time`, mono: true }), { path: `${b}.time` })),
+      h('td', null, days),
+      h('td', null, h('div.sched-what', null, select(`${b}.kind`, kinds.map(([v, l]) => ({ v, label: l })), { tid: `sched-${j}-kind` }), what,
+        ['file', 'playlist'].includes(e.kind) ? toggle(`${b}.loop`, T('wiederholen'), { tid: `sched-${j}-loop` }) : null)),
+      h('td', null, input(`${b}.title`, { tid: `sched-${j}-title`, maxlength: 96, ph: schedLabel({ ...e, title: '' }) })),
+      h('td.r', null, h('button.btn.ghost.danger-text', { type: 'button', tid: `sched-${j}-del`, title: T('Eintrag löschen'), onclick: () => { ents.splice(j, 1); edited(`${ps}.schedule`, true); } }, icon('trash'))));
+  });
+  const add = () => {
+    const last = STD.scheduleTimeSec(ents[ents.length - 1]?.time);
+    const t = last == null ? 20 * 3600 : (last + 3600) % 86400;
+    ents.push(STD.newScheduleEntry(`${String(Math.floor(t / 3600)).padStart(2, '0')}:${String(Math.floor(t / 60) % 60).padStart(2, '0')}`));
+    edited(`${ps}.schedule`, true);
+  };
+  const sort = () => { ents.sort((a, b) => (STD.scheduleTimeSec(a.time) ?? 1e9) - (STD.scheduleTimeSec(b.time) ?? 1e9)); edited(`${ps}.schedule`, true); };
+  return card(T('Zeitplan (Sendeablauf)'), 'clock', [
+    h('div.rx-grid', { tid: 'sched-preview' },
+      h('div.rx-kv', null, h('small', null, T('Läuft jetzt')), nowEl),
+      h('div.rx-kv', null, h('small', null, T('Als Nächstes')), nextEl)),
+    field(null, h('div.tblwrap', null, h('table.tbl.compact.sched', { tid: 'sched-table' },
+      h('thead', null, h('tr', null, h('th', null, T('Zeit')), h('th', null, T('Wochentage')), h('th', null, T('Inhalt')), h('th', null, T('Titel (EIT)')), h('th'))),
+      h('tbody', null, rows.length ? rows : h('tr', null, h('td', { colSpan: 5 }, h('span.muted', null, T('Noch keine Einträge'))))))), { path: `${ps}.schedule`, wide: true }),
+    h('div.inrow.wrap', null,
+      h('button.btn.primary', { type: 'button', tid: 'sched-add', onclick: add }, icon('plus'), T('Eintrag')),
+      h('button.btn', { type: 'button', tid: 'sched-sort', onclick: sort }, icon('clock'), T('Nach Uhrzeit sortieren')),
+      tv ? h('label.inline', null, T('Füller') + ' ', select(`${ps}.filler`, Object.entries(STD.VIDEO.PATTERNS).map(([k, l]) => ({ v: k, label: l })), { tid: 'sched-filler' })) : null),
+    h('p.hint', null, icon('info'), T('Jeder Eintrag läuft ab seiner Startzeit bis zum nächsten (Datei/Playlist in Schleife; ohne Wiederholen danach der Füller). Ohne Wochentage täglich. Umgeschaltet wird nahtlos ohne Neustart; EIT Jetzt/Danach und der Programmführer (EIT schedule, 48 h) kommen aus dem Zeitplan. Ton: aus den Dateien, bei Testbild der Ton aus dem Audio-Reiter.')),
+  ], { tid: 'card-schedule' });
+}
+
 function nvencState() { const d = S.state.devices?.nvenc ?? S.state.runner?.tools?.nvenc ?? S.state.mac?.tools?.nvenc; return d == null ? null : typeof d === 'object' ? !!(d.ok ?? d.available) : !!d; }
 function nvencHint() { const d = S.state.devices?.nvenc; const st = nvencState(); return st === false ? T('Server meldet kein NVENC – CPU verwenden') : st ? T('NVENC verfügbar{gpu}; entlastet die CPU bei HD/UHD', { gpu: d && d.gpu ? ` (${d.gpu})` : '' }) : T('NVENC-Verfügbarkeit noch nicht gemeldet'); }
 function fixVideoBr(p) { const l = STD.VIDEO.VIDEO_BR[p.video.codec]?.[p.video.resolution]; if (l && !l.includes(p.video.bitrate_kbps)) p.video.bitrate_kbps = l[1]; }
@@ -535,16 +734,24 @@ function prgAudio(p, base) {
   const brs = STD.VIDEO.AUDIO_BR[p.audio.codec] || [192];
   const none = p.audio.codec === 'none';
   const codecs = Object.entries(STD.VIDEO.AUDIO).filter(([k]) => k !== 'none' || p.type === 'tv');
+  // Radio: Sendeablauf nach Zeitplan (gleiche Daten wie bei TV unter video.source)
+  const sched = p.type === 'radio' && p.video.source.kind === 'schedule';
+  const radioSched = p.type === 'radio' ? card(T('Sendeablauf'), 'clock', h('div.inrow.wrap', null, (() => {
+    const cb = h('input', { type: 'checkbox', role: 'switch', tid: 'aud-schedule' }); cb.checked = sched;
+    cb.addEventListener('change', () => { p.video.source.kind = cb.checked ? 'schedule' : 'testpattern'; edited(`${base}.video.source.kind`, true); });
+    return h('label.switch', null, cb, h('span.track', null, h('i')), h('span.sw-label', null, T('nach Zeitplan senden (Dateien, Playlists, Testton)')));
+  })()), { tid: 'card-prg-audio-schedule' }) : null;
   return h('div.formgrid', null,
+    radioSched, sched ? scheduleCard(p, `${base}.video.source`) : null,
     card(T('Audiocodierung'), 'wave', h('div.grid2', null,
       field('Codec', segmented(`${base}.audio.codec`, codecs.map(([k, l]) => ({ v: k, label: k === 'none' ? l : l.split(' (')[0] })), { tid: 'aud-codec', onchange: () => { const l = STD.VIDEO.AUDIO_BR[p.audio.codec]; if (!l.includes(p.audio.bitrate_kbps)) p.audio.bitrate_kbps = l[Math.min(2, l.length - 1)]; } }),
         { path: `${base}.audio.codec`, hint: none ? T('Programm ohne Tonspur (z. B. Infoscreen) – spart Bitrate; manche TVs zeigen „kein Ton“') : T('MP2 = Pflicht-Codec DVB; AC-3 über Deskriptor 0x6A') }),
       none ? null : field(T('Bitrate (kbit/s)'), select(`${base}.audio.bitrate_kbps`, brs.map(b => ({ v: b, label: `${b} kbit/s` })), { num: true, tid: 'aud-bitrate' }), { path: `${base}.audio.bitrate_kbps` }))),
-    none ? null : p.type === 'tv' && ['file', 'youtube', 'playlist'].includes(p.video.source.kind)
+    none ? null : p.type === 'tv' && ['file', 'youtube', 'playlist', 'stream'].includes(p.video.source.kind)
       ? card(T('Tonquelle'), 'music', [
           h('div.inrow.wrap', null, (() => { const cb = h('input', { type: 'checkbox', role: 'switch', tid: 'aud-from-video' }); cb.checked = p.audio.source.kind === 'video';
             cb.addEventListener('change', () => { p.audio.source.kind = cb.checked ? 'video' : 'tone'; edited(`${base}.audio.source.kind`, true); });
-            return h('label.switch', null, cb, h('span.track', null, h('i')), h('span.sw-label', null, T('Ton aus der Videodatei'))); })()),
+            return h('label.switch', null, cb, h('span.track', null, h('i')), h('span.sw-label', null, p.video.source.kind === 'stream' ? T('Ton aus dem Stream') : T('Ton aus der Videodatei'))); })()),
           h('p.hint', null, icon('info'), T('SPEC: Tonquelle „tone“ ist auch bei Videodateien ein Sinus; für den Originalton „Ton aus der Videodatei“ wählen.')),
         ], { tid: 'card-prg-audio-video' }) : null,
     none || p.audio.source.kind === 'video' ? null : audioSourceCard(p.audio.source, `${base}.audio.source`, { key: p.key, title: p.type === 'radio' ? T('Audioquelle (Radio-Dienst)') : T('Ton (bei Testbild/ohne Tonspur)'), tid: 'card-prg-audio', prefix: 'aud' }));
@@ -552,6 +759,7 @@ function prgAudio(p, base) {
 
 function prgEit(p, base) {
   return h('div.formgrid', null, card(T('EIT – Jetzt/Danach (Gruppe present/following)'), 'text', [
+    p.video.source.kind === 'schedule' ? h('p.alert', { tid: 'eit-from-schedule' }, icon('clock'), T('Zeitplan aktiv: Jetzt/Danach und der Programmführer (EIT schedule) kommen aus den Einträgen; Titel und Beschreibung hier gelten nur für den Füller.')) : null,
     field(T('Titel (short_event_descriptor)'), input(`${base}.eit.title`, { tid: 'eit-title', maxlength: 96 }), { path: `${base}.eit.title`, extra: counter(() => [...(p.eit.title || '')].length, 96) }),
     field(T('Beschreibung'), textarea(`${base}.eit.description`, { tid: 'eit-desc', rows: 3 }), { wide: true }),
     field(T('Dauer (min)'), input(`${base}.eit.duration_min`, { type: 'number', min: 1, max: 1440, tid: 'eit-duration', mono: true }), { hint: T('Ereignis beginnt beim Start der Kette') }),
@@ -593,5 +801,7 @@ export function pageSI() {
       ], { tid: 'card-si-delivery' }),
       card(T('Tabellen im Transportstrom'), 'layers', h('ul.silist', null,
         ...[['PAT', 'PID 0x0000', true], ['PMT', T('{n} × (je Programm)', { n: S.draft.dvb.programs.length }), true], ['SDT actual', 'PID 0x0011, service_descriptor 0x48', true], ['NIT actual', 'PID 0x0010, Delivery + LCN', true],
-          ['EIT p/f actual', 'PID 0x0012', si.eit], ['TDT/TOT', 'PID 0x0014', si.tdt]].map(([n, d, on]) => h('li', { class: on ? 'on' : 'off' }, icon(on ? 'check' : 'x'), h('b', null, n), h('small.muted', null, d)))))));
+          ['EIT p/f actual', 'PID 0x0012', si.eit],
+          ...(S.draft.dvb.programs.some(p => p.video.source.kind === 'schedule') ? [['EIT schedule actual', T('PID 0x0012, 0x50, 48 h (Zeitplan)'), si.eit]] : []),
+          ['TDT/TOT', 'PID 0x0014', si.tdt]].map(([n, d, on]) => h('li', { class: on ? 'on' : 'off' }, icon(on ? 'check' : 'x'), h('b', null, n), h('small.muted', null, d)))))));
 }

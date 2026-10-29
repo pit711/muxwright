@@ -117,6 +117,38 @@ def _finish(res, cfg):
     return res
 
 
+QAM_LEVELS = {"qpsk": (1, 2), "16qam": (3, 10), "64qam": (7, 42)}     # höchste Stufe, mittlere Leistung des Gitters
+
+
+def cells_metrics(path, const, ncells, npoints=2500):
+    """MER und Konstellation aus den entzerrten Datenzellen von gr-dtv (dvbt_rx_grdtv.py --cells).
+    gr-dtv normiert auf Es = 1; Gitter ±1, ±3 … ±top in Einheiten 1/sqrt(norm). Träger, die überwiegend Ausreißer
+    liefern (DC-Übersprechen des Zero-IF-Empfängers im Pluto, Mitte des Kanals), zählen nicht zur MER – das ist ein
+    Artefakt des Messempfängers, nicht des Senders; ihre Zahl steht im Ergebnis. Dazu kommen einzelne Zellen mit
+    riesigem Fehler (gr-dtv teilt durch eine fast verschwindende Kanalschätzung, gemessen in ~der Hälfte der Symbole):
+    Fehler ≥ 2 Gitterstufen gelten als Ausreißer, ihr Anteil steht in mer_outlier_pct. Die MER ist damit eine robuste
+    Schätzung, bei MER < ~15 dB etwas zu optimistisch."""
+    top, norm = QAM_LEVELS.get(const, QAM_LEVELS["64qam"])
+    x = np.fromfile(path, np.complex64)
+    if x.size < ncells * 4:
+        return {}
+    v = x[:x.size - x.size % ncells].reshape(-1, ncells) * np.sqrt(norm)
+    q = lambda a: np.clip(2 * np.floor(a / 2) + 1, -top, top)
+    ideal = q(v.real) + 1j * q(v.imag)
+    err = np.abs(v - ideal)
+    bad = (err > 2).mean(axis=0) > 0.5                   # Träger mit überwiegend Ausreißern
+    cand = ~bad[None, :] & np.isfinite(err)
+    use = cand & (err < 2)
+    p_sig, p_err = np.mean(np.abs(ideal[use]) ** 2), np.mean(err[use] ** 2)
+    pts = v[:, ~bad].ravel()
+    pts = pts[np.random.default_rng(1).choice(pts.size, min(npoints, pts.size), replace=False)]
+    pts = pts[np.abs(pts) < top + 2]
+    return {"mer_db": round(float(10 * np.log10(p_sig / max(p_err, 1e-12))), 1), "mer_symbols": int(v.shape[0]),
+            "mer_excluded_carriers": int(bad.sum()),
+            "mer_outlier_pct": round(float(100 * (1 - use.sum() / max(cand.sum(), 1))), 2), "constellation": {"levels": top,
+            "points": [[round(float(c.real), 2), round(float(c.imag), 2)] for c in pts]}}
+
+
 def decode_dvbt(iq, cfg, distro="dablab"):
     d = cfg.get("dvbt") or {}
     const = str(d.get("constellation", "64-QAM")).upper().replace("-", "").lower()
@@ -134,11 +166,20 @@ def decode_dvbt(iq, cfg, distro="dablab"):
         f = f"{base}.{variant}.iq"
         x.tofile(f)
         ts = f"{base}.{variant}.ts"
+        cells = f"{base}.{variant}.cells"
         rc, out, err = _wsl(f"nice -n 5 timeout 600 python3 {MODTESTS}/dvbt_rx_grdtv.py --iq {wslpath(f)} --mode {mode} "
-                            f"--const {const} --rate {d.get('code_rate', '2/3')} --guard {d.get('guard', '1/32')} -o {wslpath(ts)}",
-                            distro, 700)
+                            f"--const {const} --rate {d.get('code_rate', '2/3')} --guard {d.get('guard', '1/32')} -o {wslpath(ts)} "
+                            f"--cells {wslpath(cells)}", distro, 700)
         os.remove(f)
         a = ts_analyze(ts, distro)
+        try:
+            a.update(cells_metrics(cells, const, 6048 if mode == "8k" else 1512))
+        except Exception as e:
+            a["mer_error"] = str(e)
+        try:
+            os.remove(cells)
+        except OSError:
+            pass
         tries.append((variant, a))
         if a.get("services"):
             break

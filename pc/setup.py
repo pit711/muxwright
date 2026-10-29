@@ -12,8 +12,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 SCRIPT = os.path.join(ROOT, "wsl", "setup_components.sh")
 WIN_FFMPEG_DIR = os.path.join(ROOT, "tools", "ffmpeg")
-WIN_FFMPEG_URL = ("https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
-                  "ffmpeg-n7.1-latest-win64-lgpl-7.1.zip")   # n7.1: NVENC-SDK ≤ 12.2, läuft auch mit Treiberzweig 580 (GTX 9xx/10xx)
+# BtbN hält unter „latest“ nur die jüngsten Zweige vor (n7.1 ist im Okt. 2026 verschwunden) -> Ausweichliste.
+# n8.1 geprüft: NVENC mit Treiberzweig 580 (GTX 1080, 580.88), srt/rtmp/rist für Netzwerk-Streams, AMF.
+WIN_FFMPEG_URLS = ["https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-win64-lgpl-8.1.zip",
+                   "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-lgpl-9.0.zip"]
 
 # key, Lizenz, Quelle, optional, Abhängigkeiten
 COMPONENTS = [
@@ -27,11 +29,13 @@ COMPONENTS = [
     {"key": "welle", "license": "GPL-2.0 (welle.io) + MIT (redsea)", "source": "https://github.com/AlbrechtL/welle.io", "optional": False,
      "needs": ["base"]},
     {"key": "modulators", "license": "MIT (Muxwright, eigener Code)", "source": "pluto_fw/mod", "optional": False, "needs": ["base"]},
+    {"key": "grdtv", "license": "GPL-3.0 (GNU Radio, gr-dtv)", "source": "https://packages.ubuntu.com/noble/gnuradio", "optional": False,
+     "needs": ["base"]},
     {"key": "ytdlp", "license": "Unlicense", "source": "https://github.com/yt-dlp/yt-dlp", "optional": True, "needs": ["base"]},
     {"key": "win_ffmpeg", "license": "LGPL-2.1+ (BtbN-Build, ohne x264/x265)", "source": "https://github.com/BtbN/FFmpeg-Builds", "optional": True,
      "needs": [], "patents": True},
 ]
-WSL_KEYS = ("base", "ffmpeg", "tsduck", "odr", "welle", "modulators", "ytdlp")
+WSL_KEYS = ("base", "ffmpeg", "tsduck", "odr", "welle", "modulators", "grdtv", "ytdlp")
 
 
 WSL2_HINT = ("WSL 2 nicht verfügbar: im BIOS/UEFI die Virtualisierung (Intel VT-x / AMD-V bzw. SVM) einschalten und in "
@@ -255,10 +259,18 @@ class Setup:
         if self.win_ffmpeg():
             self._line("@@OK win_ffmpeg (vorhanden)")
             return True, None
-        self._line(f"@@STEP lade {WIN_FFMPEG_URL}")
-        req = urllib.request.Request(WIN_FFMPEG_URL, headers={"User-Agent": "Muxwright-Setup"})
-        with urllib.request.urlopen(req, timeout=600) as r:
-            data = r.read()
+        data = None
+        for url in WIN_FFMPEG_URLS:
+            self._line(f"@@STEP lade {url}")
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "Muxwright-Setup"})
+                with urllib.request.urlopen(req, timeout=600) as r:
+                    data = r.read()
+                break
+            except urllib.error.HTTPError as e:
+                self._line(f"@@STEP {e.code} – nächste Quelle")
+        if data is None:
+            return False, "kein FFmpeg-Build bei BtbN gefunden (Quellen geändert?)"
         self._line(f"@@STEP entpacke {len(data) // 1048576} MB nach {WIN_FFMPEG_DIR}")
         with zipfile.ZipFile(io.BytesIO(data)) as z:
             top = z.namelist()[0].split("/")[0]

@@ -1427,7 +1427,7 @@ class App:
             rec = {"service": svc, "index": it.get("index"), "title": it.get("title", ""), "artist": it.get("artist", ""),
                    "file": it.get("file"), "elapsed_s": it.get("elapsed_s"), "duration_s": it.get("duration_s"),
                    "count": it.get("count"), "playlist": it.get("playlist"), "t": now}
-            for k in ("album", "shuffle", "loop", "paused"):
+            for k in ("album", "shuffle", "loop", "paused", "stream"):
                 if k in it:
                     rec[k] = it[k]
             self.now_playing[svc] = rec
@@ -1625,7 +1625,8 @@ class App:
 
     # ---------------------------------------------------------------- Vorschau
     def _preview_dir(self):
-        if self.source != "runner" or not self.session or self.stream is None:
+        # Gerätepfad (Modulator auf dem Pluto) hat keinen USB-Stream, nur den Runner-Prozess
+        if self.source != "runner" or not self.session or self.proc is None:
             return None
         return os.path.join(RUNTIME, "sessions", self.session, "preview")
 
@@ -1652,6 +1653,145 @@ class App:
         fp = os.path.join(d, m.group(0))
         return fp if os.path.isfile(fp) else None
 
+    # ---------------------------------------------------------------- RX-Vorschau (Kontrollempfang über den Pluto)
+    # Solange jemand die Vorschau ansieht (/api/preview?rx=1), schneidet ein Hintergrund-Thread im Gerätepfad nach jedem
+    # Lauf RX_PREVIEW_PAUSE s später ~1,8 s am Pluto-RX mit (iio_readdev, 4-M-Blöcke = je 0,46 s lückenlos), dekodiert
+    # sie wie der Kontrollempfang (rxdecode) und zieht je TV-Programm den ersten Keyframe aus dem empfangenen TS.
+    RX_PREVIEW_STDS = ("dvbt", "dvbc", "dvbs")
+    RX_PREVIEW_PAUSE = 15
+
+    def rx_preview_state(self, want=False):
+        rp = self.__dict__.setdefault("rxprev", {"items": {}, "busy": False, "error": None, "gain": 40.0,
+                                                  "want_t": 0, "thread": None, "cycle_s": None})
+        if want:
+            rp["want_t"] = time.time()
+            if self._rx_preview_ok() and (rp["thread"] is None or not rp["thread"].is_alive()):
+                rp["thread"] = threading.Thread(target=self._rx_preview_loop, daemon=True, name="rx-preview")
+                rp["thread"].start()
+        now = time.time()
+        qa = rp.get("quality")
+        return {"available": self._rx_preview_ok(), "busy": rp["busy"], "error": rp["error"], "error_code": rp.get("error_code"),
+                "gain_db": rp["gain"],
+                "cycle_s": rp["cycle_s"],
+                "quality": dict(qa, age_s=round(now - qa["t"], 1)) if qa and qa.get("session") == self.session else None,
+                "items": [{"key": k, "t": v["t"], "age_s": round(now - v["t"], 1)} for k, v in rp["items"].items()
+                          if v.get("session") == self.session]}
+
+    def _rx_preview_ok(self):
+        return (self.device is not None and self.tx_state == "running" and self.standard in self.RX_PREVIEW_STDS
+                and not self.args.no_device_ssh)
+
+    def _rx_preview_loop(self):
+        import rxdecode
+        rp = self.rxprev
+        os.makedirs(os.path.join(RUNTIME, "rxpreview"), exist_ok=True)
+        while self._rx_preview_ok() and time.time() - rp["want_t"] < 20:
+            if not self.monitor_lock.acquire(blocking=False):      # manueller Kontrollempfang läuft
+                time.sleep(2)
+                continue
+            t0 = time.time()
+            rp["busy"] = True
+            try:
+                self._rx_preview_once(rxdecode)
+                rp["error"] = rp["error_code"] = None
+            except Exception as e:
+                rp["error"] = str(e)[:300]
+                log("warn", f"RX-Vorschau: {e}")
+            finally:
+                rp["busy"] = False
+                rp["cycle_s"] = round(time.time() - t0, 1)
+                self.monitor_lock.release()
+            end = time.time() + self.RX_PREVIEW_PAUSE
+            while time.time() < end and self._rx_preview_ok():
+                time.sleep(0.5)
+
+    def _rx_preview_once(self, rxdecode):
+        rp, std, sess = self.rxprev, self.standard, self.session
+        dev = self.devssh()
+        st = self._poll_agent() or {}
+        rx_rate = int(((st.get("dac") or {}).get("rx_rate_hz")) or self.cfg["rf"].get("sample_rate") or 4096000)
+        lo, _, _ = self.rf_plan(self.cfg["rf"])
+        bw = {"dvbt": int((self.cfg.get("dvbt") or {}).get("bandwidth_mhz") or 8) * 1000000, "dvbc": 8000000,
+              "dvbs": int(min(40e6, int((self.cfg.get("dvbs") or {}).get("symbol_rate") or 22000000) * 1.35))}[std]
+        blob, info = dev.rx_capture(lo, 1 << 24, rp["gain"], rx_bw_hz=bw, block=1 << 22)
+        raw = np.frombuffer(blob, "<i2")
+        peak, clip = int(np.abs(raw).max()), float(np.mean(np.abs(raw) >= 2047))
+        del raw
+        gain = rp["gain"]
+        # Pegel nachführen: übersteuert (>0,5 % Clipping) bzw. zu leise (<25 % Aussteuerung) -> nächster Lauf ±6 dB
+        if clip > 0.005:
+            rp["gain"] = max(0.0, gain - 6)
+        elif peak < 512:
+            rp["gain"] = min(70.0, gain + 6)
+        os.makedirs(RXDIR, exist_ok=True)
+        path = os.path.join(RXDIR, "rxprev.iq")
+        with open(path, "wb") as f:
+            f.write(blob)
+        del blob
+        cfg = self.runner_config()
+        distro = self._rx_distro()
+        if distro is None and std == "dvbt":
+            rp["error_code"] = "grdtv_missing"
+            raise RuntimeError("Komponente „GNU Radio gr-dtv“ fehlt – Einrichtung → Komponenten")
+        distro = distro or self.args.wsl_distro
+        dec = rxdecode.decode(std, path, cfg, info.get("rx_rate_hz") or rx_rate, distro, rx_fir=info.get("rx_fir", 1))
+        ts = dec.get("ts_file")
+        if dec.get("mer_db") is not None:
+            rp["quality"] = {"t": time.time(), "session": sess, "mer_db": dec["mer_db"], "standard": std,
+                             "excluded_carriers": dec.get("mer_excluded_carriers"), "outlier_pct": dec.get("mer_outlier_pct"),
+                             "constellation": dec.get("constellation"),
+                             "ts_packets": dec.get("ts_packets"), "transport_errors": dec.get("transport_errors"),
+                             "rx_gain_db": gain, "peak": peak, "clip_pct": round(clip * 100, 3)}
+        try:
+            if not ts or not os.path.isfile(ts) or os.path.getsize(ts) < 188 * 1000:
+                raise RuntimeError(f"kein Empfang (RX {gain:.0f} dB, Spitze {peak}/2047, Clipping {clip * 100:.2f} %)")
+            out_dir = os.path.join(RUNTIME, "rxpreview")
+            for pg in (cfg.get("dvb") or {}).get("programs") or []:
+                key = pg.get("key") or ""
+                try:
+                    sid = int(str(pg.get("sid")), 0)
+                except ValueError:
+                    continue
+                if pg.get("type") != "tv" or not re.match(r"^[a-z0-9_]+$", key):
+                    continue
+                jpg = rxdecode.wslpath(os.path.join(out_dir, key + ".jpg"))
+                rc, _, _ = rxdecode._wsl(f"ffmpeg -hide_banner -loglevel error -skip_frame nokey -i {rxdecode.wslpath(ts)} "
+                                         f"-map 0:p:{int(sid)}:v:0 -frames:v 1 -q:v 4 -y {jpg}.tmp.jpg && mv -f {jpg}.tmp.jpg {jpg}",
+                                         distro, 60)
+                if rc == 0:
+                    rp["items"][key] = {"t": time.time(), "session": sess}
+        finally:
+            base = os.path.splitext(path)[0]
+            for q in (path, ts, base + ".norm.ts", base + ".conj.ts"):
+                try:
+                    if q:
+                        os.remove(q)
+                except OSError:
+                    pass
+
+    def _rx_distro(self):
+        """WSL-Distro mit GNU Radio (gr-dtv) für den DVB-T-Kontrollempfang: erst die eigene, sonst die Entwickler-Distro."""
+        if getattr(self, "_rxd", "?") == "?":
+            self._rxd = None
+            for d in (self.args.wsl_distro, "dablab"):
+                try:
+                    r = subprocess.run(["wsl", "-d", d, "-e", "python3", "-c", "import gnuradio.dtv"], capture_output=True,
+                                       timeout=30, creationflags=NOWIN)
+                    if r.returncode == 0:
+                        self._rxd = d
+                        break
+                except Exception:
+                    pass
+        return self._rxd
+
+    def rx_preview_file(self, name):
+        m = re.match(r"^([a-z0-9_]+)\.jpg$", name or "")
+        it = m and (getattr(self, "rxprev", None) or {}).get("items", {}).get(m.group(1))
+        if not it or it.get("session") != self.session:
+            return None
+        fp = os.path.join(RUNTIME, "rxpreview", m.group(0))
+        return fp if os.path.isfile(fp) else None
+
     # ---------------------------------------------------------------- state
     def state(self):
         st = self.last_stats or {}
@@ -1663,7 +1803,7 @@ class App:
               "src_stalls": st.get("src_stalls", 0), "src_late": st.get("src_late", 0), "nco_hz": st.get("nco_hz"),
               "error": self.tx_error, "restarts": self.restarts, "ctl_retries": self.pluto.ctl_retries,
               "runner_status": self.runner_status if self.source == "runner" else None,
-              "now_playing": self.now_playing if (self.source == "runner" and self.stream is not None) else {}}
+              "now_playing": self.now_playing if (self.source == "runner" and self.proc is not None) else {}}
         pi = dict(self.pluto.info)
         lo, nco, center = self.rf_plan(self.cfg["rf"])
         pi.update(center_hz=center, nco_enabled=self.nco, min_atten_db=self.args.min_atten,
@@ -1782,8 +1922,8 @@ class App:
     # ---------------------------------------------------------------- runner commands
     LIVE_KEYS = {"dab": {"dls", "slide", "announcement", "label", "playlist", "pty"},
                  "fm": {"rds", "fm", "second_carrier", "playlist", "dls", "pty", "label"},
-                 "dvbt": {"eit", "name", "lcn", "playlist", "status"}, "dvbc": {"eit", "name", "lcn", "playlist", "status"},
-                 "dvbs": {"eit", "name", "lcn", "playlist", "status"}, "pal": set()}
+                 "dvbt": {"eit", "name", "lcn", "playlist", "status", "overlay"}, "dvbc": {"eit", "name", "lcn", "playlist", "status", "overlay"},
+                 "dvbs": {"eit", "name", "lcn", "playlist", "status", "overlay"}, "pal": set()}
     RDS_KEYS = {"ps", "rt", "rtplus", "ta", "tp", "pty", "ms", "ct", "ptyn", "af", "af_method", "af_regional", "lps", "eon", "eon_ta",
                 "rt_auto"}   # wie runner/fm/fm_tx.py (live)
     FM_KEYS = {"audio_gain_db", "mute", "deviation_khz", "pilot_khz", "rds_level_khz", "mpx_power_dbr"}
@@ -2364,6 +2504,24 @@ SETUP = None
 FLASHER = None
 
 
+def lan_ips():
+    """IPv4-Adressen dieses PCs, Adresse der Standardroute zuerst (ohne Loopback/Link-local)."""
+    ips = []
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as u:
+            u.connect(("10.255.255.255", 1))
+            ips.append(u.getsockname()[0])
+    except OSError:
+        pass
+    try:
+        for fam, _, _, _, sa in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            if sa[0] not in ips:
+                ips.append(sa[0])
+    except OSError:
+        pass
+    return [ip for ip in ips if not ip.startswith(("127.", "169.254."))]
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "DABLab/1.0"
 
@@ -2494,6 +2652,8 @@ class Handler(BaseHTTPRequestHandler):
                 if std not in ("dvbt", "dvbc"):
                     return self._send(400, {"ok": False, "errors": ["standard: dvbt|dvbc"]})
                 return self._send(200, {"ok": True, "standard": std, "rates": standards.dvb_rates(std)})
+            if p == "/api/netinfo":                # IP-Adressen dieses PCs (OBS-Ziel-URL für Netzwerk-Stream im Listen-Modus)
+                return self._send(200, {"ok": True, "ips": lan_ips(), "host": socket.gethostname()})
             if p == "/api/standards":
                 return self._send(200, {"ok": True, "standards": list(standards.STANDARDS), "current": APP.standard,
                                         "live_keys": {k: sorted(v) for k, v in APP.LIVE_KEYS.items()}})
@@ -2527,13 +2687,40 @@ class Handler(BaseHTTPRequestHandler):
                 with open(fp, encoding="utf-8") as f:
                     return self._send(200, json.load(f))
             if p == "/api/preview":
-                return self._send(200, APP.preview_list())
+                want = parse_qs(u.query).get("rx", ["0"])[0] == "1"
+                if want and self._foreign_request(write=True):     # rx=1 startet RX-Mitschnitte: wie Schreibzugriff prüfen
+                    return
+                r = APP.preview_list()
+                r["rx"] = APP.rx_preview_state(want=want)
+                return self._send(200, r)
+            if p.startswith("/api/preview/rx/"):
+                fp = APP.rx_preview_file(unquote(p[len("/api/preview/rx/"):]))
+                if not fp:
+                    return self._send(404, {"ok": False, "error": "kein RX-Bild"})
+                with open(fp, "rb") as f:
+                    return self._send(200, f.read(), "image/jpeg")
             if p.startswith("/api/preview/"):
                 fp = APP.preview_file(unquote(p[len("/api/preview/"):]))
                 if not fp:
                     return self._send(404, {"ok": False, "error": "keine Vorschau"})
-                with open(fp, "rb") as f:
-                    return self._send(200, f.read(), "image/jpeg")
+                try:      # Vorschauvideo: ~12 Abfragen/s je Programm, unverändertes Bild nur als 304
+                    tag = '"%x"' % os.stat(fp).st_mtime_ns
+                    if self.headers.get("If-None-Match") == tag:
+                        self.send_response(304)
+                        self.send_header("ETag", tag)
+                        self.end_headers()
+                        return
+                    with open(fp, "rb") as f:
+                        data = f.read()
+                except OSError:
+                    return self._send(404, {"ok": False, "error": "keine Vorschau"})
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("ETag", tag)
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                return self.wfile.write(data)
             if p.startswith("/api/"):
                 return self._send(404, {"ok": False, "error": "unbekannter Pfad"})
             if p.startswith("/media/"):
