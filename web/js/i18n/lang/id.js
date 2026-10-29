@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Bahasa Indonesia
-export default {"Seiten, Ordner, Fastext":"Halaman, folder, Fastext",
+export default {"Muxwright unterstützen":"Dukung Muxwright",
+"Später":"Nanti",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} jam mengudara – waktunya ngopi?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright berjalan di tempat Anda tanpa henti. Perangkat lunak ini gratis dan saya kembangkan di waktu luang. Jika bermanfaat, saya akan senang menerima donasi kecil – agar saya bisa terus mengembangkannya, menambah standar baru, dan membeli perangkat keras uji.",
+"Habe schon unterstützt – danke!":"Sudah mendukung – terima kasih!",
+"Seiten, Ordner, Fastext":"Halaman, folder, Fastext",
 "Seiten in der Austastlücke":"Halaman di interval blanking vertikal (VBI)",
 "ohne Ton":"tanpa audio",
 "Willkommen":"Selamat datang",

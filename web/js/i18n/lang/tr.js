@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Türkçe
-export default {"Seiten, Ordner, Fastext":"Sayfalar, klasör, Fastext",
+export default {"Muxwright unterstützen":"Muxwright'ı destekle",
+"Später":"Sonra",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} saattir yayında – kahve zamanı?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright sizde kesintisiz çalışıyor. Yazılım ücretsizdir ve boş zamanlarımda geliştiriyorum. İşinize yarıyorsa küçük bir bağış beni çok sevindirir – böylece geliştirmeye devam edebilir, yeni standartlar ekleyebilir ve test donanımı alabilirim.",
+"Habe schon unterstützt – danke!":"Zaten destekledim – teşekkürler!",
+"Seiten, Ordner, Fastext":"Sayfalar, klasör, Fastext",
 "Seiten in der Austastlücke":"Söndürme aralığındaki sayfalar",
 "ohne Ton":"sessiz",
 "Willkommen":"Hoş geldiniz",

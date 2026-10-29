@@ -7,7 +7,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'web');
 const AREAS = {
-  a: ['app.js', 'index.html', 'js/core.js', 'js/regie.js', 'js/hf_std.js', 'js/ui.js', 'js/media.js', 'js/standards.js', 'js/settings.js'],
+  a: ['app.js', 'index.html', 'js/core.js', 'js/regie.js', 'js/hf_std.js', 'js/ui.js', 'js/media.js', 'js/standards.js', 'js/settings.js', 'js/support.js'],
   b: ['js/pages.js', 'js/dab.js'],
   c: ['js/dvb.js', 'js/fm.js', 'js/pal.js', 'js/report.js', 'js/report_std.js', 'js/testplans.js', 'js/preview.js', 'js/teletext.js'],
 };

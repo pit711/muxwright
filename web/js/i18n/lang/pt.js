@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Português (Brasil)
-export default {"Seiten, Ordner, Fastext":"Páginas, pasta, Fastext",
+export default {"Muxwright unterstützen":"Apoiar o Muxwright",
+"Später":"Mais tarde",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} horas no ar – hora de um café?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"O Muxwright está a funcionar sem interrupção. O software é gratuito e desenvolvo-o no meu tempo livre. Se lhe é útil, ficaria contente com uma pequena doação – permite-me continuar a desenvolvê-lo, adicionar novos padrões e comprar hardware de teste.",
+"Habe schon unterstützt – danke!":"Já apoiei – obrigado!",
+"Seiten, Ordner, Fastext":"Páginas, pasta, Fastext",
 "Seiten in der Austastlücke":"Páginas no intervalo de apagamento vertical",
 "ohne Ton":"sem áudio",
 "Willkommen":"Bem-vindo",

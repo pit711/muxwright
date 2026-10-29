@@ -853,6 +853,22 @@ dialog.modal h3 .ico { width: 22px; height: 22px; }
 .tile-np span { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-np i { flex: 1; min-width: 40px; height: 4px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
 .tile-np i b { display: block; height: 100%; background: var(--accent); }
+/* Bitte um Unterstützung nach 10 h Sendung (web/js/support.js) – nicht blockierend, über der Übernehmen-Leiste */
+.support-pop { position: fixed; z-index: 60; right: 22px; bottom: 22px; width: min(380px, calc(100vw - 32px)); padding: 16px 18px 12px;
+  border-radius: 14px; background: var(--surface); border: 1px solid var(--accent); box-shadow: var(--shadow-lg); animation: rise .25s ease-out; }
+body.has-applybar .support-pop { bottom: 120px; }
+.support-pop.out { opacity: 0; transform: translateY(12px); transition: all .25s; }
+.support-h { display: flex; align-items: center; gap: 10px; padding-right: 22px; font-size: 15px; }
+.support-ic { font-size: 24px; line-height: 1; }
+.support-pop p { margin: 8px 0 12px; font-size: 13.5px; color: var(--text-2); line-height: 1.45; }
+.support-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.support-btns .btn { flex: 1; justify-content: center; text-decoration: none; font-weight: 650; }
+.support-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.support-foot .linklike, .support-x { background: none; border: 0; padding: 2px 0; color: var(--muted); font-size: 12.5px; cursor: pointer; }
+.support-foot .linklike:hover { color: var(--accent); text-decoration: underline; }
+.support-x { position: absolute; top: 10px; right: 10px; }
+.support-x .ico { width: 16px; height: 16px; }
+@media (max-width: 720px) { .support-pop { right: 16px; left: 16px; width: auto; bottom: 16px; } body.has-applybar .support-pop { bottom: 150px; } }
 /* Teletext (web/js/teletext.js) */
 .ttx-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .ttx-layout { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }

@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: 中文（简体）
-export default {"Seiten, Ordner, Fastext":"页面、文件夹、Fastext",
+export default {"Muxwright unterstützen":"支持 Muxwright",
+"Später":"稍后",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"已连续播出 {h} 小时——来杯咖啡吗？",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright 在您这里一直不间断地运行。本软件免费，是我利用业余时间开发的。如果它对您有帮助，欢迎小额捐赠——这能让我继续开发、加入新标准并购买测试硬件。",
+"Habe schon unterstützt – danke!":"已经支持过了——谢谢！",
+"Seiten, Ordner, Fastext":"页面、文件夹、Fastext",
 "Seiten in der Austastlücke":"场消隐期（VBI）中的页面",
 "ohne Ton":"无音频",
 "Willkommen":"欢迎",

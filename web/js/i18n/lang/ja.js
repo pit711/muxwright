@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: 日本語
-export default {"Seiten, Ordner, Fastext":"ページ、フォルダー、Fastext",
+export default {"Muxwright unterstützen":"Muxwright を支援する",
+"Später":"あとで",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"放送開始から {h} 時間 – コーヒーでもいかがですか？",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright は途切れることなく動作しています。このソフトウェアは無料で、私が空き時間に開発しています。お役に立っているなら、少額のご寄付をいただけるとうれしいです。開発の継続、新しい規格の追加、テスト用ハードウェアの購入に使わせていただきます。",
+"Habe schon unterstützt – danke!":"すでに支援しました – ありがとう！",
+"Seiten, Ordner, Fastext":"ページ、フォルダー、Fastext",
 "Seiten in der Austastlücke":"垂直帰線区間（VBI）内のページ",
 "ohne Ton":"音声なし",
 "Willkommen":"ようこそ",

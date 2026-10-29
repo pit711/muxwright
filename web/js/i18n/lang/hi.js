@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: हिन्दी
-export default {"Seiten, Ordner, Fastext":"पेज, फ़ोल्डर, Fastext",
+export default {"Muxwright unterstützen":"Muxwright का समर्थन करें",
+"Später":"बाद में",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} घंटे से प्रसारण – एक कॉफ़ी का समय?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright आपके यहाँ बिना रुके चल रहा है। यह सॉफ़्टवेयर मुफ़्त है और मैं इसे अपने खाली समय में बनाता हूँ। अगर यह आपके काम आता है, तो एक छोटा सा दान मुझे खुशी देगा – इससे मैं इसे आगे विकसित कर सकता हूँ, नए मानक जोड़ सकता हूँ और परीक्षण हार्डवेयर खरीद सकता हूँ।",
+"Habe schon unterstützt – danke!":"पहले ही समर्थन किया – धन्यवाद!",
+"Seiten, Ordner, Fastext":"पेज, फ़ोल्डर, Fastext",
 "Seiten in der Austastlücke":"VBI (वर्टिकल ब्लैंकिंग) में पेज",
 "ohne Ton":"बिना ऑडियो",
 "Willkommen":"स्वागत है",

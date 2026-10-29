@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Русский
-export default {"Seiten, Ordner, Fastext":"Страницы, папка, Fastext",
+export default {"Muxwright unterstützen":"Поддержать Muxwright",
+"Später":"Позже",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} часов в эфире – время для кофе?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright работает у вас без перерыва. Программа бесплатна, и я разрабатываю её в свободное время. Если она вам полезна, буду рад небольшому пожертвованию – оно помогает развивать программу, добавлять новые стандарты и покупать оборудование для тестов.",
+"Habe schon unterstützt – danke!":"Уже поддержал – спасибо!",
+"Seiten, Ordner, Fastext":"Страницы, папка, Fastext",
 "Seiten in der Austastlücke":"Страницы в интервале гашения",
 "ohne Ton":"без звука",
 "Willkommen":"Добро пожаловать",

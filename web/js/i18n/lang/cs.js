@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Čeština
-export default {"Seiten, Ordner, Fastext":"Stránky, složka, Fastext",
+export default {"Muxwright unterstützen":"Podpořit Muxwright",
+"Später":"Později",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} hodin ve vysílání – čas na kávu?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright u vás běží bez přerušení. Software je zdarma a vyvíjím ho ve volném čase. Pokud vám pomáhá, potěší mě malý dar – díky němu ho mohu dál vyvíjet, přidávat nové standardy a kupovat testovací hardware.",
+"Habe schon unterstützt – danke!":"Už jsem podpořil – děkuji!",
+"Seiten, Ordner, Fastext":"Stránky, složka, Fastext",
 "Seiten in der Austastlücke":"Stránky v zatemňovacím intervalu",
 "ohne Ton":"bez zvuku",
 "Willkommen":"Vítejte",

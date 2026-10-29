@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: 한국어
-export default {"Seiten, Ordner, Fastext":"페이지, 폴더, Fastext",
+export default {"Muxwright unterstützen":"Muxwright 후원하기",
+"Später":"나중에",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h}시간째 송출 중 – 커피 한잔 어때요?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright가 쉬지 않고 실행되고 있습니다. 이 소프트웨어는 무료이며 여가 시간에 개발하고 있습니다. 도움이 되었다면 작은 후원을 부탁드립니다. 계속 개발하고 새 표준을 추가하고 테스트 장비를 구입하는 데 쓰입니다.",
+"Habe schon unterstützt – danke!":"이미 후원했어요 – 감사합니다!",
+"Seiten, Ordner, Fastext":"페이지, 폴더, Fastext",
 "Seiten in der Austastlücke":"수직 귀선 구간(VBI)의 페이지",
 "ohne Ton":"오디오 없음",
 "Willkommen":"환영합니다",

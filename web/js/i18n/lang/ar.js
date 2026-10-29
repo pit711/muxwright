@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: العربية
-export default {"Seiten, Ordner, Fastext":"الصفحات، المجلد، Fastext",
+export default {"Muxwright unterstützen":"ادعم Muxwright",
+"Später":"لاحقًا",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} ساعات على الهواء – وقت لفنجان قهوة؟",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"يعمل Muxwright لديك دون انقطاع. البرنامج مجاني وأطوّره في وقت فراغي. إن كان مفيدًا لك فسأسعد بتبرع صغير – يتيح لي مواصلة تطويره وإضافة معايير جديدة وشراء أجهزة اختبار.",
+"Habe schon unterstützt – danke!":"دعمت بالفعل – شكرًا!",
+"Seiten, Ordner, Fastext":"الصفحات، المجلد، Fastext",
 "Seiten in der Austastlücke":"صفحات في فترة الإطفاء الرأسي (VBI)",
 "ohne Ton":"بدون صوت",
 "Willkommen":"مرحبًا",

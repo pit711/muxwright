@@ -12,6 +12,7 @@ import { pageModulation, pagePrograms, pageSI, tsBudgetBar } from './js/dvb.js';
 import * as STD from './js/standards.js';
 import { pagePAL } from './js/pal.js';
 import { pageTeletext } from './js/teletext.js';
+import { checkSupport } from './js/support.js';
 import { pageRegie, rememberRf } from './js/regie.js';
 import { APP_NAME, APP_SUB, APP_VERSION } from './js/brand.js';
 import { pageFirmware } from './js/firmware.js';
@@ -255,6 +256,7 @@ function liveUpdate() {
     if (k !== regieKey) { regieKey = k; if (!document.querySelector('dialog[open]')) render(true); }
   }
   (S.npWatchers || []).forEach(f => { try { f(); } catch (e) { console.warn(e); } });
+  checkSupport();
   updateNavBadges();
   S.sweepUpd?.();
   S.logDraw?.();

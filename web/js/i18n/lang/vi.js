@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Tiếng Việt
-export default {"Seiten, Ordner, Fastext":"Trang, thư mục, Fastext",
+export default {"Muxwright unterstützen":"Ủng hộ Muxwright",
+"Später":"Để sau",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"Đã phát sóng {h} giờ – đến giờ uống cà phê?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright đang chạy liên tục trên máy của bạn. Phần mềm miễn phí và tôi phát triển nó trong thời gian rảnh. Nếu nó hữu ích, tôi sẽ rất vui khi nhận một khoản ủng hộ nhỏ – để tiếp tục phát triển, thêm chuẩn mới và mua phần cứng thử nghiệm.",
+"Habe schon unterstützt – danke!":"Đã ủng hộ rồi – cảm ơn!",
+"Seiten, Ordner, Fastext":"Trang, thư mục, Fastext",
 "Seiten in der Austastlücke":"Trang trong khoảng xóa dọc (VBI)",
 "ohne Ton":"không có âm thanh",
 "Willkommen":"Chào mừng",

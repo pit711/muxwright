@@ -1,5 +1,10 @@
 // Muxwright-Dashboard: Svenska
-export default {"Seiten, Ordner, Fastext":"Sidor, mapp, Fastext",
+export default {"Muxwright unterstützen":"Stöd Muxwright",
+"Später":"Senare",
+"{h} Stunden auf Sendung – Zeit für einen Kaffee?":"{h} timmar i sändning – dags för en kaffe?",
+"Muxwright läuft bei dir gerade ohne Unterbrechung. Die Software ist kostenlos und entsteht in meiner Freizeit. Wenn sie dir nützt, freue ich mich über eine kleine Spende – damit kann ich sie weiterentwickeln, neue Standards einbauen und Testhardware kaufen.":"Muxwright har körts hos dig utan avbrott. Programvaran är gratis och jag utvecklar den på fritiden. Om den är till nytta blir jag glad för en liten donation – då kan jag fortsätta utveckla den, lägga till nya standarder och köpa testhårdvara.",
+"Habe schon unterstützt – danke!":"Har redan stöttat – tack!",
+"Seiten, Ordner, Fastext":"Sidor, mapp, Fastext",
 "Seiten in der Austastlücke":"Sidor i släckintervallet",
 "ohne Ton":"utan ljud",
 "Willkommen":"Välkommen",
