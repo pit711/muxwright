@@ -67,7 +67,7 @@ def main():
                             wait_scale=0.02)
 
         def wait():
-            for _ in range(500):
+            for _ in range(3000):                                   # bis 60 s (Windows startet Prozesse unter Last langsam)
                 if not f.status()["job"]["running"]:
                     return f.status()["job"]
                 time.sleep(0.02)
