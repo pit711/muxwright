@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//HbbTV//1.1.1//EN" "http://www.hbbtv.org/dtd/HbbTV-1.1.1.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="content-type" content="application/vnd.hbbtv.xhtml+xml; charset=utf-8"/>
+<title>Doom (Freedoom)</title>
+<script type="text/javascript" src="manifest.js"></script>
+<script type="text/javascript" src="inflate.js"></script>
+<style type="text/css">
+body{margin:0;width:1280px;height:720px;overflow:hidden;background:#000;color:#fff;font-family:Tiresias,Arial,sans-serif}
+#doom{position:absolute;left:160px;top:0;width:960px;height:720px;image-rendering:pixelated}
+#msg{position:absolute;left:0;top:300px;width:1280px;text-align:center;font-size:30px}
+#help{position:absolute;left:96px;bottom:36px;width:1088px;padding:10px 16px;background:rgba(0,0,0,0.75);border-radius:10px;font-size:20px;line-height:28px}
+#fps{position:absolute;right:20px;top:10px;font-size:16px;color:#9fb3d1}
+.k{display:inline-block;width:16px;height:16px;border-radius:8px;margin:0 6px -2px 14px}
+</style>
+<script type="text/javascript">//<![CDATA[
+// Doom fuer HbbTV-Fernseher ohne WebAssembly: Chocolate Doom (doomgeneric, GPL-2.0) als asm.js, Spieldaten Freedoom (BSD).
+var DOOM = { UP: 0xad, DOWN: 0xaf, LEFT: 0xac, RIGHT: 0xae, FIRE: 0xa3, USE: 0xa2, ESC: 27, ENTER: 13, RSHIFT: 0x80 + 0x36, TAB: 9 };
+var VK = { RED: window.VK_RED || 403, GREEN: window.VK_GREEN || 404, YELLOW: window.VK_YELLOW || 405, BLUE: window.VK_BLUE || 406,
+  UP: window.VK_UP || 38, DOWN: window.VK_DOWN || 40, LEFT: window.VK_LEFT || 37, RIGHT: window.VK_RIGHT || 39,
+  OK: window.VK_ENTER || 13, BACK: window.VK_BACK || 461 };
+var app = null, ready = false, held = {}, frames = 0, t0 = 0;
+
+function map(k) {
+  if (k == VK.UP) return [DOOM.UP];
+  if (k == VK.DOWN) return [DOOM.DOWN];
+  if (k == VK.LEFT) return [DOOM.LEFT];
+  if (k == VK.RIGHT) return [DOOM.RIGHT];
+  if (k == VK.OK) return [DOOM.FIRE, DOOM.ENTER];        // schiessen, im Menue auswaehlen
+  if (k == VK.GREEN) return [DOOM.USE];                  // Tueren, Schalter
+  if (k == VK.YELLOW) return [DOOM.RSHIFT];              // rennen (halten)
+  if (k == VK.BLUE) return [121];                        // 'y': Abfragen bestaetigen
+  if (k == VK.BACK || k == 8 || k == 27) return [DOOM.ESC];
+  if (k == 48) return [DOOM.TAB];                        // 0: Karte
+  if (k >= 49 && k <= 55) return [k];                    // 1-7: Waffen
+  return null;
+}
+function send(down, codes) { if (!ready) return; for (var i = 0; i < codes.length; i++) Module._dg_key(down ? 1 : 0, codes[i]); }
+// Fernbedienungen schicken nicht immer keyup: Taste gilt als losgelassen, wenn 350 ms keine Wiederholung kommt
+function press(k, codes) {
+  if (!held[k]) { send(true, codes); held[k] = { codes: codes, t: null }; }
+  if (held[k].t) clearTimeout(held[k].t);
+  held[k].t = setTimeout(function () { release(k); }, 350);
+}
+function release(k) { var h = held[k]; if (!h) return; if (h.t) clearTimeout(h.t); delete held[k]; send(false, h.codes); }
+
+document.onkeydown = function (e) {
+  e = e || window.event;
+  var k = e.keyCode;
+  if (k == VK.RED) { quit(); return stop(e); }
+  var c = map(k);
+  if (!c) return true;
+  press(k, c);
+  return stop(e);
+};
+document.onkeyup = function (e) { e = e || window.event; release(e.keyCode); return stop(e); };
+function stop(e) { if (e.preventDefault) e.preventDefault(); return false; }
+function quit() {
+  // aus dem Karussell (dvb://): zurueck ins Portal; aus dem LAN gestartet: Anwendung beenden (AIT startet das Portal)
+  if (String(document.location.protocol).toLowerCase() == 'dvb:') { document.location.href = '../index.html#open'; return; }
+  try { app.destroyApplication(); return; } catch (e) {} try { history.back(); } catch (e2) {}
+}
+
+// ------------------------------------------------------------------ Laden: gepackte Stuecke aus Karussell oder LAN
+// Diagnose an den Muxwright-PC (nur wenn das Portal die Adresse mitgibt: doom.html#log=http://pc:8792/hbbtv/log)
+var LOGURL = (/[#&]log=([^&]+)/.exec(document.location.hash || '') || [])[1], T0 = new Date().getTime();
+function dbg(m) { if (LOGURL) try { new Image().src = decodeURIComponent(LOGURL) + '?m=' + encodeURIComponent('doom +' + ((new Date().getTime() - T0) / 1000).toFixed(1) + 's ' + m); } catch (e) {} }
+window.onerror = function (msg, src, line) { dbg('error ' + msg + ' @' + line); };
+function getBin(url, cb, tries) {
+  var x = new XMLHttpRequest();
+  x.open('GET', url, true);
+  try { x.responseType = 'arraybuffer'; } catch (e) {}
+  x.onreadystatechange = function () {
+    if (x.readyState != 4) return;
+    var r = x.response;
+    if ((x.status == 200 || x.status == 0) && r && r.byteLength) { dbg('ok ' + url + ' ' + r.byteLength + (tries ? ' try' + tries : '')); return cb(new Uint8Array(r)); }
+    if (!tries || tries % 10 == 0) dbg('fail ' + url + ' status ' + x.status + ' len ' + (r ? r.byteLength : 'null') + ' try' + (tries || 0));
+    // Karussell noch nicht geladen o. ae.: nach einer Sekunde neu versuchen
+    setTimeout(function () { getBin(url, cb, (tries || 0) + 1); }, 1000);
+  };
+  x.send(null);
+}
+function loadAll(M, done) {
+  var jobs = [], parts = { js: [], wad: [] }, total = 0, got = 0, running = 0, next = 0, left;
+  ['js', 'wad'].forEach(function (k) { M[k].files.forEach(function (f, i) { jobs.push([k, i, f]); }); total += M[k].packed; });
+  left = jobs.length;
+  function pump() {
+    // alle Stuecke gleichzeitig anfordern: der Fernseher sammelt sie dann in einem Karussell-Umlauf ein
+    while (running < 64 && next < jobs.length) {
+      (function (j) {
+        running++;
+        getBin(j[2], function (u8) {
+          parts[j[0]][j[1]] = u8; got += u8.length; running--; left--;
+          document.getElementById('msg').innerHTML = 'Loading Freedoom from the broadcast … ' + Math.floor(got / total * 100) + ' %';
+          if (left) pump(); else done(parts);
+        });
+      })(jobs[next++]);
+    }
+  }
+  pump();
+}
+function join(list) {
+  var n = 0, i, o, out;
+  for (i = 0; i < list.length; i++) n += list[i].length;
+  out = new Uint8Array(n);
+  for (i = 0, o = 0; i < list.length; i++) { out.set(list[i], o); o += list[i].length; }
+  return out;
+}
+function text(u8) {
+  if (window.TextDecoder) return new TextDecoder('utf-8').decode(u8);
+  var s = '', i;
+  for (i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192));
+  return s;
+}
+function start() {
+  var M = window.DOOM_MANIFEST;
+  dbg('start ' + navigator.userAgent.slice(0, 60) + ' chunks ' + (M.js.files.length + M.wad.files.length));
+  loadAll(M, function (parts) {
+    document.getElementById('msg').innerHTML = 'Unpacking …';
+    setTimeout(function () {
+      dbg('all chunks loaded, unpacking');
+      var js = text(inflate(join(parts.js), M.js.size)), wad = inflate(join(parts.wad), M.wad.size);
+      dbg('unpacked, starting engine');
+      Module.preRun = [function () { Module.FS_createDataFile('/', M.wadname, wad, true, false); }];
+      var s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.text = js;
+      document.body.appendChild(s);
+    }, 50);
+  });
+}
+
+var Module = {
+  arguments: ['-iwad', (window.DOOM_MANIFEST || {}).wadname || 'freedoom1.wad'],
+  print: function () {}, printErr: function () {},
+  setStatus: function (s) {
+    var m = /\((\d+(\.\d+)?)\/(\d+)\)/.exec(s || '');
+    document.getElementById('msg').innerHTML = m ? 'Loading Freedoom … ' + Math.round(m[1] / m[3] * 100) + ' %' : (s ? 'Loading …' : '');
+  },
+  onRuntimeInitialized: function () {
+    ready = true; t0 = new Date().getTime();
+    document.getElementById('msg').innerHTML = '';
+    setTimeout(function () { document.getElementById('help').style.visibility = 'hidden'; }, 12000);
+  },
+  onFrame: function () {
+    frames++;
+    var t = new Date().getTime();
+    if (t - t0 >= 2000) { var f = Math.round(frames * 1000 / (t - t0)); document.getElementById('fps').innerHTML = f + ' fps'; window.lastFps = f; frames = 0; t0 = t; }
+  }
+};
+// Ton: Doom-Soundeffekte (8-Bit-PCM) ueber Web Audio; einmal je Lump auf die Ausgaberate umgerechnet (alte Chrome-
+// Versionen nehmen keine 11025-Hz-Puffer), je Kanal Lautstaerke (0..127) und Stereo-Position (sep 0..254, 128 = Mitte)
+var AC = window.AudioContext || window.webkitAudioContext, actx = null, sfxCache = {}, chans = {};
+function audio() { if (!actx && AC) { try { actx = new AC(); } catch (e) { AC = null; } } return actx; }
+Module.sfxStart = function (ch, pcm, rate, vol, sep, lump) {
+  var a = audio(); if (!a) return;
+  var buf = sfxCache[lump];
+  if (!buf) {
+    var n = Math.max(1, Math.ceil(pcm.length * a.sampleRate / rate)), step = rate / a.sampleRate, i, x, j;
+    buf = a.createBuffer(1, n, a.sampleRate);
+    var d = buf.getChannelData(0);
+    for (i = 0; i < n; i++) { x = i * step; j = Math.floor(x); d[i] = ((pcm[j] || 128) + ((pcm[j + 1] || 128) - (pcm[j] || 128)) * (x - j) - 128) / 128; }
+    sfxCache[lump] = buf;
+  }
+  Module.sfxStop(ch);
+  var src = a.createBufferSource(), g = a.createGain(), p = a.createStereoPanner ? a.createStereoPanner() : null;
+  src.buffer = buf; src.connect(g);
+  if (p) { g.connect(p); p.connect(a.destination); } else g.connect(a.destination);
+  var c = { src: src, g: g, p: p, done: false };
+  src.onended = function () { c.done = true; };
+  chans[ch] = c;
+  Module.sfxParams(ch, vol, sep);
+  src.start(0);
+};
+Module.sfxParams = function (ch, vol, sep) { var c = chans[ch]; if (!c) return; c.g.gain.value = vol / 127 * 0.7; if (c.p) c.p.pan.value = Math.max(-1, Math.min(1, (sep - 128) / 128)); };
+Module.sfxStop = function (ch) { var c = chans[ch]; if (c) { try { c.src.stop(0); } catch (e) {} c.done = true; delete chans[ch]; } };
+Module.sfxPlaying = function (ch) { var c = chans[ch]; return !!(c && !c.done); };
+
+function init() {
+  try { app = document.getElementById('appmgr').getOwnerApplication(document); app.show(); app.privateData.keyset.setValue(0x1 | 0x2 | 0x4 | 0x8 | 0x10 | 0x100); } catch (e) {}
+  // Programm (Bild und Ton) waehrend des Spiels anhalten, sonst laeuft der Fernsehton weiter
+  try { var vb = document.getElementById('vb'); vb.bindToCurrentChannel(); vb.stop(); } catch (e) {}
+  audio();
+  start();
+}
+//]]></script>
+</head>
+<body onload="init()">
+<object type="application/oipfApplicationManager" id="appmgr" style="position:absolute;left:0;top:0;width:0;height:0"></object>
+<object type="video/broadcast" id="vb" style="position:absolute;left:0;top:0;width:0;height:0"></object>
+<canvas id="doom" width="320" height="200"></canvas>
+<div id="msg">Loading …</div>
+<div id="fps"></div>
+<div id="help">▲▼◄► move  ·  OK fire / select<span class="k" style="background:#4caf50"></span>open doors<span class="k" style="background:#ffd600"></span>run<span class="k" style="background:#2979ff"></span>yes<br/>1–7 weapons  ·  0 map  ·  Back menu<span class="k" style="background:#e2231a"></span>exit  ·  Freedoom (BSD) · Chocolate Doom engine (GPL-2.0)</div>
+</body>
+</html>

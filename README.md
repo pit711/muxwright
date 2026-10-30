@@ -6,9 +6,10 @@ on the Pluto's own RX input, expected/actual reports and printable test records.
 DTMB, J.83 B/C, NTSC-M/J, PAL-M/N and RBDS; since Beta 0.4 DVB-T2 (marked *untested* until verified with real
 receivers); since Beta 0.5 teletext and image-folder infoscreens; since Beta 0.6 a monitoring receiver on the Pluto's
 RX path (received picture, MER, constellation), logo/text overlays, network streams (SRT/RTMP/OBS), a schedule with EIT
-programme guide and experimental HbbTV signalling.
+programme guide and experimental HbbTV signalling; since Beta 0.7 HbbTV applications in the broadcast signal itself
+(DSM-CC object carousel) with a built-in TV portal, games and tools.
 
-Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.6**
+Website: **https://muxwright.com** · Windows installer: [request it on the website](https://muxwright.com/download.html) (e-mail confirmation and lab-only commitment required) · Status: **Beta 0.7**
 
 This repository contains the complete source. There are no binary releases here – build it yourself (see [Running from source](#running-from-source) and [Building the installer](#building-the-installer)) or request the installer on the website.
 
@@ -52,6 +53,17 @@ This repository contains the complete source. There are no binary releases here 
 | **20 languages** | Dashboard, setup and website: de en fr es pt it nl pl cs sv ru uk tr ar hi zh ja ko id vi |
 | **Live preview** | Every transmitted TV programme as smooth video (about 12 frames/s) decoded from the finished transport stream, next to the picture received back through the Pluto's RX path – on the Regie tile and the programme page, enlarge with a click |
 | **No codecs shipped** | FFmpeg, x264/x265, ODR-mmbTools with FDK-AAC, TSDuck and welle-cli are installed by the user from the official sources (see [Licences and codecs](#licences-and-codecs)) |
+
+### New in Beta 0.7
+
+| Feature | Details | Verification so far |
+|---|---|---|
+| **HbbTV in the broadcast signal** | DSM-CC object carousel (DSI/DII/DDB, BIOP) on its own PID per TV programme, `hbbtv.transport: "carousel"`; the TV needs no internet. Module versions follow the content, so TVs never keep stale files. Available for DVB-T, DVB-T2, DVB-C (Annex A) and DVB-S/S2 | `tsp -P dsmcc` and the built-in check reassemble every file; DVB-C and DVB-S/S2 checks green; on an LG OLED (webOS 4.5) over DVB-T2 |
+| **TV portal (red button)** | Built-in app: weather (Open-Meteo, MET Norway as fallback), DWD rain radar, RSS news, programme list with switching, LAN video library, picture gallery, info page, live window; app language auto/de/en | all pages on an LG OLED (webOS 4.5, Chrome 53) |
+| **Games** | 10 own games (blocks, snake, 2048, pairs, …) and Freedoom (Doom engine as asm.js for TVs without WebAssembly), Freedoom loaded from the carousel in rotating portions | all games started on the LG; Freedoom: 56 chunks in 37 s over DVB-T2; frame rate and sound not yet confirmed |
+| **Tools** | 70 tools in 9 categories (transmitter & TV, time, calculators, money, RF & electronics, tables, health, lists, random & relax); number forms with OK/►/◄ editing | all 70 tools on the LG without script errors |
+| **SSH terminal on the TV** | Optional terminal to LAN hosts through the PC (`pc/hbbtv_ssh.py`): pairing PIN only on the PC's localhost page, lockout after wrong PINs, targets limited to the private LAN or an allow-list | end to end on the LG to the Pluto |
+| **Own HbbTV apps** | Any folder with an `index.html` (up to 4 MB) is sent and resent automatically when it changes | carousel check |
 
 ### New in Beta 0.6
 

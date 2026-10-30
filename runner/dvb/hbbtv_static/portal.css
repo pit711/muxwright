@@ -1,0 +1,69 @@
+/* Muxwright-HbbTV-Portal: 1280x720, alles im sicheren Bildbereich (Panel ab 96/36), ohne Flexbox (HbbTV 1.x) */
+body{margin:0;padding:0;width:1280px;height:720px;overflow:hidden;background:transparent;font-family:Tiresias,'Tiresias Screenfont',Arial,sans-serif;color:#fff}
+#vb{position:absolute;left:0;top:0;width:1280px;height:720px}
+#av{position:absolute;left:0;top:0;width:1280px;height:720px}
+.box{position:absolute;background:rgba(10,18,34,0.97);border-radius:12px}
+#hint{position:absolute;right:96px;bottom:48px;height:44px;padding:0 18px 0 12px;background:rgba(12,22,40,0.95);border-radius:22px;font-size:24px;line-height:44px;visibility:hidden}
+.rb{display:inline-block;width:22px;height:22px;border-radius:11px;background:#e2231a;margin:0 10px -3px 0}
+.gb{display:inline-block;width:18px;height:18px;border-radius:9px;margin:0 6px -2px 0}
+#portal{position:absolute;left:96px;top:36px;width:1088px;height:648px;visibility:hidden}
+#head{left:0;top:0;width:1088px;height:52px}
+#head .t{position:absolute;left:24px;top:0;font-size:28px;line-height:52px;font-weight:bold}
+#head .c{position:absolute;right:24px;top:0;font-size:26px;line-height:52px;color:#cfe0ff}
+#menu{left:0;top:64px;width:264px;height:400px}
+.mi{position:absolute;left:8px;width:248px;height:36px;font-size:23px;line-height:36px;border-radius:8px;color:#cfe0ff}
+.mi .n{display:inline-block;width:34px;text-align:right;margin-right:10px;color:#6f86a8;font-size:20px}
+.mi.on{background:#24406e;color:#fff}
+.mi.on.f{background:#e8eef7;color:#0a1222}
+.mi.on.f .n{color:#24406e}
+#live{position:absolute;left:0;top:476px;width:264px;height:152px;border-radius:10px;border:2px solid #24406e}
+#livel{position:absolute;left:8px;top:480px;font-size:16px;line-height:20px;padding:0 6px;background:#e2231a;border-radius:4px}
+#main{left:280px;top:64px;width:808px;height:584px;overflow:hidden}
+#ptitle{position:absolute;left:24px;top:14px;font-size:30px;font-weight:bold}
+#pbody{position:absolute;left:24px;top:62px;width:760px;height:470px;overflow:hidden}
+#pfoot{position:absolute;left:24px;top:546px;width:760px;font-size:18px;color:#8ea3c4;height:24px;overflow:hidden}
+#pfoot .r{position:absolute;right:0;top:0}
+.dim{color:#9fb3d1}
+.sel{background:#24406e;border-radius:8px}
+.sel.f{background:#e8eef7;color:#0a1222}
+.sel.f .dim{color:#3a4f70}
+/* Wettersymbole aus CSS-Formen */
+.ic{position:relative;display:inline-block}
+.ic div{position:absolute}
+.ic-sun,.ic-cl,.ic-sn{border-radius:999px}
+.ic-dr{background:#59a8ff;border-radius:2px}
+.ic-sn{background:#fff}
+.ic-st{background:#ffd600}
+.ic-fg{background:#c5ccd6;border-radius:3px}
+.cell{position:absolute;top:0;text-align:center}
+.cell .t{font-size:22px;color:#cfe0ff}
+.cell .v{font-size:28px}
+.cell .p{font-size:18px;color:#59a8ff;height:22px}
+/* Listen */
+.row{position:absolute;left:0;width:760px;overflow:hidden}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thumb{position:absolute;width:240px;height:135px;background:#1b2a44;border-radius:6px;overflow:hidden}
+.thumb img{width:240px;height:135px}
+.tile{position:absolute;width:236px;height:150px;border-radius:12px;background:#1b2a44;text-align:center}
+.tile .g{font-size:30px;font-weight:bold;margin-top:36px}
+.tile .d{font-size:18px;color:#9fb3d1;margin-top:8px}
+.tile.on{background:#24406e}
+.tile.on.f{background:#e8eef7;color:#0a1222}
+.tile.on.f .d{color:#3a4f70}
+/* Spiele */
+#game{position:absolute;left:0;top:0;width:760px;height:470px}
+.gs{position:absolute;left:520px;top:0;width:240px;font-size:22px;line-height:34px}
+.gs b{font-size:30px}
+.t2048{position:absolute;width:96px;height:96px;border-radius:8px;text-align:center;line-height:96px;font-weight:bold}
+.card{position:absolute;width:104px;height:104px;border-radius:10px;background:#24406e}
+.card.c{border:4px solid #fff;width:96px;height:96px}
+.card .s{position:absolute;left:22px;top:22px;width:60px;height:60px}
+.card.c .s{left:18px;top:18px}
+/* Werkzeuge: Vollbild, Bildschirmtastatur, Terminal */
+#full{position:absolute;left:0;top:0;width:1280px;height:720px;background:#0a1222;visibility:hidden;overflow:hidden}
+#osk{position:absolute;left:146px;top:418px;width:1000px;height:280px;padding:10px;background:rgba(10,18,34,0.97);border-radius:12px;visibility:hidden}
+.term{position:absolute;left:64px;top:20px;width:1152px;height:672px;background:#000;font-family:'DejaVu Sans Mono','Liberation Mono','Courier New',monospace;font-size:24px;line-height:28px;overflow:hidden}
+.tl{white-space:pre;height:28px}
+#osd{position:absolute;left:96px;bottom:48px;width:1088px;height:64px;background:rgba(10,18,34,0.9);border-radius:12px;font-size:24px;line-height:64px;visibility:hidden}
+#osd .t{position:absolute;left:24px;top:0;width:760px}
+#osd .r{position:absolute;right:24px;top:0;color:#cfe0ff}

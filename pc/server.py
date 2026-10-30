@@ -6,6 +6,7 @@ Safety: the Pluto starts muted (-89.75 dB). Every error, tx/stop and server exit
 """
 import argparse
 import atexit
+import base64
 import collections
 import copy
 import ctypes
@@ -14,6 +15,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import shlex
 import shutil
 import signal
@@ -47,6 +49,13 @@ ROOT = os.path.dirname(HERE)
 WEB = os.path.join(ROOT, "web")
 RUNTIME = os.path.join(ROOT, "runtime")
 MEDIA = os.path.join(RUNTIME, "media")
+HBBTV_MEDIA_PREFIX = "/hbbtv/media/"      # Mediathek des HbbTV-Portals (nur im LAN-Modus erreichbar)
+HBBTV_MEDIA_EXT = (".mp4", ".m4v")
+HBBTV_APPS_PREFIX = "/hbbtv/apps/"        # Anwendungen fuer Fernseher im LAN (runtime/hbbtv_apps, z. B. Doom)
+HBBTV_APP_TYPES = {".html": "application/vnd.hbbtv.xhtml+xml; charset=utf-8", ".js": "application/javascript",
+                   ".mem": "application/octet-stream", ".data": "application/octet-stream", ".bin": "application/octet-stream", ".css": "text/css",
+                   ".png": "image/png", ".jpg": "image/jpeg", ".txt": "text/plain; charset=utf-8"}
+HBBTV_PIXEL = base64.b64decode("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==")   # 1x1-GIF fuer /hbbtv/report
 RXDIR = os.path.join(RUNTIME, "rx")
 EXAMPLE_MEDIA = os.path.join(ROOT, "media")
 PRESETS = os.path.join(HERE, "presets")
@@ -607,6 +616,19 @@ class Backend:
         return {}
 
 
+def lan_ip():
+    """IPv4-Adresse der Schnittstelle mit der Standardroute (kein Paket wird gesendet)."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+        finally:
+            s.close()
+    except OSError:
+        return socket.gethostbyname(socket.gethostname())
+
+
 class LocalBackend(Backend):
     """Runner as a local Python script (`--backend local --runner path`), runtime = local folder. Used for tests."""
     name = "local"
@@ -845,6 +867,12 @@ class App:
                     c["output"]["via"] = "stdout"
             else:
                 c["output"] = {"kind": "modulator"}
+            if self.args.lan:
+                # HbbTV-Portal: Fernseher holen Mediathek-Videos per HTTP von diesem PC (LAN-Adresse, nicht localhost)
+                base = f"http://{lan_ip()}:{self.args.port}{HBBTV_MEDIA_PREFIX}"
+                for p in (c.get("dvb") or {}).get("programs") or []:
+                    if (p.get("hbbtv") or {}).get("enable"):
+                        p["hbbtv"]["media_base"] = base
         return c
 
     def path(self):
@@ -2500,6 +2528,29 @@ def _preset_path(name):
 
 # ============================================================================ HTTP
 APP = None
+SSH_GW = None
+SSH_RESET_KEY = __import__("secrets").token_urlsafe(16)    # Schluessel fuer "Sperren aufheben" (nur auf der localhost-Seite)
+
+
+def hbbtv_ssh_hosts():
+    """Optionale Liste erlaubter SSH-Ziele (portal.ssh_hosts, durch Komma/Leerzeichen getrennt)."""
+    out = []
+    try:
+        for p in (APP.cfg.get("dvb") or {}).get("programs") or []:
+            h = ((p.get("hbbtv") or {}).get("portal") or {}).get("ssh_hosts") or ""
+            out += h.replace(",", " ").split() if isinstance(h, str) else list(h)
+    except Exception:
+        pass
+    return out
+
+
+def hbbtv_ssh_allowed():
+    """SSH-Terminal nur, wenn ein Programm mit HbbTV-Portal es ausdruecklich erlaubt (portal.ssh)."""
+    try:
+        return any(((p.get("hbbtv") or {}).get("portal") or {}).get("ssh") and (p.get("hbbtv") or {}).get("enable")
+                   for p in (APP.cfg.get("dvb") or {}).get("programs") or [])
+    except Exception:
+        return False
 SETUP = None
 FLASHER = None
 
@@ -2587,6 +2638,164 @@ class Handler(BaseHTTPRequestHandler):
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def _hbbtv_report(self, q):
+        """Faehigkeiten eines Fernsehers, gemeldet vom HbbTV-Portal (Bild-Abruf): ins Log und in /api/state."""
+        if not APP.args.lan:
+            return self._send(404, {"ok": False, "error": "nur im LAN-Modus"})
+        g = lambda k: (q.get(k) or [""])[0]                                          # noqa: E731
+        r = {k: "1" if g(k) == "1" else "0" for k in ("wasm", "canvas", "webgl", "ls", "video")}
+        r.update({k: re.sub(r"\D", "", g(k))[:5] for k in ("w", "h")})
+        r["ua"] = re.sub(r"[^\x20-\x7e]", "", g("ua"))[:200]                         # keine Steuerzeichen/Zeilenumbrueche im Log
+        ip, now = self.client_address[0], time.time()
+        seen = getattr(APP, "hbbtv_seen", {})
+        APP.hbbtv_seen = seen
+        last = seen.get(ip)
+        r["ip"], r["t"] = ip, now
+        APP.hbbtv_tv = r
+        if not last or last[1] != {k: v for k, v in r.items() if k != "t"} or now - last[0] > 60:   # je IP hoechstens 1x/min
+            seen[ip] = (now, {k: v for k, v in r.items() if k != "t"})
+            log("info", "HbbTV-Fernseher %s: WebAssembly %s, Canvas %s, WebGL %s, HTML5-Video %s, %sx%s, %s" % (
+                ip, r["wasm"], r["canvas"], r["webgl"], r["video"], r["w"], r["h"], r["ua"]))
+        return self._send(200, HBBTV_PIXEL, "image/gif")
+
+    def _hbbtv_ssh(self, method):
+        """Terminal und LAN-Test des HbbTV-Portals (pc/hbbtv_ssh.py): nur LAN-Modus; die App kommt aus dem Karussell
+        (Herkunft dvb://), daher eigene Pruefung (PIN/Token) statt Origin, Antworten mit CORS."""
+        u = urlparse(self.path)
+        cmd = u.path[len("/hbbtv/ssh/"):]
+        ip = self.client_address[0]
+        origin = (self.headers.get("Origin") or "").strip()
+        # Herkunft der Karussell-Apps: "dvb://..." (Norm) oder "hbbtv-carousel://<org>:<app>" (LG webOS)
+        hbb_scheme = origin.lower().startswith(("dvb:", "hbbtv-carousel:"))
+        hbb_origin = not origin or origin == "null" or hbb_scheme
+
+        def reply(code, obj, ctype="application/json; charset=utf-8"):
+            body = obj if isinstance(obj, (bytes, bytearray)) else json.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            # CORS nur fuer HbbTV-Apps aus dem Karussell (Herkunft dvb: oder "null"), nicht fuer beliebige Webseiten
+            if hbb_origin:      # nie "null" zurueckgeben; ohne Cookies/Anmeldedaten genuegt "*"
+                self.send_header("Access-Control-Allow-Origin", origin if hbb_scheme else "*")
+            self.end_headers()
+            self.wfile.write(body)
+
+        if not APP.args.lan:
+            return reply(404, {"ok": False, "error": "nur im LAN-Modus"})
+        host = (self.headers.get("Host") or "").strip().lower()
+        hostname = host.split("]")[0] + "]" if host.startswith("[") else host.rsplit(":", 1)[0]
+        if hostname not in self.allowed_hosts():       # DNS-Rebinding: nur eigene Namen/IPs dieses PCs
+            log("warn", "HbbTV-SSH: Anfrage von %s abgelehnt (Host %r)" % (ip, host[:60]))
+            return reply(403, {"ok": False, "error": "Host"})
+        if not hbb_origin:                             # fremde Webseiten (CSRF) abweisen
+            log("warn", "HbbTV-SSH: Anfrage von %s abgelehnt (Herkunft %r)" % (ip, re.sub(r"[^\x20-\x7e]", "", origin)[:80]))
+            return reply(403, {"ok": False, "error": "Herkunft"})
+        try:
+            if method == "GET" and cmd == "ping":
+                return reply(200, {"ok": True, "t": time.time()})
+            if method == "GET" and cmd == "speed":
+                n = max(1, min(20_000_000, int((parse_qs(u.query).get("n") or ["1000000"])[0])))
+                return reply(200, b"x" * n, "text/plain")
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            if method == "GET" and cmd == "read":
+                return reply(200, SSH_GW.read(ip, q))
+            if method == "POST" and cmd in ("open", "write", "resize", "close"):
+                j = json.loads(self._body(limit=65536).decode("utf-8") or "{}")
+                return reply(200, getattr(SSH_GW, cmd)(ip, j))
+            return reply(404, {"ok": False, "error": "unbekannt"})
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass
+        except Exception as e:
+            log("warn", f"HbbTV-SSH: {e.__class__.__name__}")
+            try:
+                reply(500, {"ok": False, "error": "Fehler am PC"})
+            except Exception:
+                pass
+
+    def _hbbtv_ssh_pin(self):
+        """Offene SSH-PINs fuer Fernseher - nur am PC selbst (127.0.0.1/::1), nie im LAN und nie im Protokoll."""
+        host = (self.headers.get("Host") or "").strip().lower()
+        hostname = host.split("]")[0] + "]" if host.startswith("[") else host.rsplit(":", 1)[0]
+        if self.client_address[0] not in ("127.0.0.1", "::1") or hostname not in ("127.0.0.1", "localhost", "[::1]"):
+            return self._send(403, {"ok": False, "error": "nur am PC selbst"})
+        # Sperren aufheben nur mit dem Zufallsschluessel dieser Seite (eine fremde Webseite kann ihn nicht lesen) und nicht
+        # von fremden Seiten aus (Sec-Fetch-Site)
+        reset = parse_qs(urlparse(self.path).query).get("reset", [""])[0]
+        if reset and secrets.compare_digest(reset, SSH_RESET_KEY) and self.headers.get("Sec-Fetch-Site", "same-origin") in ("same-origin", "none"):
+            SSH_GW.reset_locks()
+        rows = "".join("<tr><td>%s</td><td style='font-size:48px;letter-spacing:6px'><b>%s</b></td><td>%d:%02d</td></tr>"
+                       % (ip, pin, left // 60, left % 60) for ip, pin, left in SSH_GW.pending())
+        locked, fails = SSH_GW.locks()
+        lock_html = ("<p style='color:#b00'>Gesperrt: %s · Fehlversuche in der letzten Stunde: %d · <a href='/hbbtv/ssh-pin?reset=%s'>Sperren aufheben</a></p>"
+                     % (", ".join("%s (%d min)" % (ip, s // 60 + 1) for ip, s in locked) or "–", fails, SSH_RESET_KEY)) if locked or fails else ""
+        html = ("<!doctype html><meta charset='utf-8'><meta http-equiv='refresh' content='5'><title>HbbTV-SSH-PIN</title>"
+                "<body style='font-family:sans-serif;padding:24px'><h2>HbbTV-Terminal: PIN für den Fernseher</h2>"
+                + ("<table cellpadding='10'><tr><th>Fernseher</th><th>PIN</th><th>gültig</th></tr>%s</table>" % rows if rows else "<p>Keine offene Anfrage.</p>")
+                + lock_html + "<p style='color:#666'>Nur an diesem PC sichtbar. Die Seite aktualisiert sich alle 5 s.</p></body>")
+        return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
+
+    def _hbbtv_log(self, q):
+        """Diagnose-Zeilen von HbbTV-Anwendungen (Bild-Abruf ?m=...): nur LAN-Modus, nur druckbare Zeichen, je IP
+        hoechstens 20 Zeilen pro Sekunde."""
+        if not APP.args.lan:
+            return self._send(404, {"ok": False, "error": "nur im LAN-Modus"})
+        ip, now = self.client_address[0], time.time()
+        rate = getattr(APP, "hbbtv_lograte", {})
+        APP.hbbtv_lograte = rate
+        t0, n = rate.get(ip, (now, 0))
+        if now - t0 >= 1:
+            t0, n = now, 0
+        rate[ip] = (t0, n + 1)
+        if n < 20:
+            log("info", "HbbTV %s: %s" % (ip, re.sub(r"[^\x20-\x7e]", "", (q.get("m") or [""])[0])[:200]))
+        return self._send(200, HBBTV_PIXEL, "image/gif")
+
+    def _hbbtv_media(self, rel, apps=False):
+        """Videos fuer die Mediathek des HbbTV-Portals (Fernseher im LAN): nur lesen, nur MP4 aus runtime/media,
+        Range-Anfragen fuer Spulen/Fortsetzen (A/V-Control-Objekt). Mit apps=True: Anwendungen aus runtime/hbbtv_apps
+        (z. B. Doom), nur die Dateitypen aus HBBTV_APP_TYPES."""
+        root = os.path.realpath(os.path.join(RUNTIME, "hbbtv_apps") if apps else MEDIA)
+        path = os.path.realpath(os.path.join(root, rel))
+        ext = os.path.splitext(path)[1].lower()
+        if not path.startswith(root + os.sep) or not os.path.isfile(path) or \
+                (ext not in HBBTV_APP_TYPES if apps else not path.lower().endswith(HBBTV_MEDIA_EXT)):
+            return self._send(404, {"ok": False, "error": "nicht gefunden"})
+        ctype = HBBTV_APP_TYPES[ext] if apps else "video/mp4"
+        size = os.path.getsize(path)
+        start, end = 0, size - 1
+        m = re.match(r"bytes=(\d*)-(\d*)$", self.headers.get("Range") or "")
+        if m and (m.group(1) or m.group(2)):
+            if m.group(1):
+                start = int(m.group(1))
+                end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+            else:
+                start = max(0, size - int(m.group(2)))
+            if start > end or start >= size:
+                self.send_response(416)
+                self.send_header("Content-Range", f"bytes */{size}")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+        self.send_response(206 if m else 200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Accept-Ranges", "bytes")
+        self.send_header("Content-Length", str(end - start + 1))
+        if m:
+            self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+        self.end_headers()
+        if self.command == "HEAD":
+            return
+        with open(path, "rb") as f:
+            f.seek(start)
+            left = end - start + 1
+            while left > 0:
+                chunk = f.read(min(1 << 20, left))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                left -= len(chunk)
+
     def _body(self, limit=512 * 1024 * 1024):
         n = int(self.headers.get("Content-Length") or 0)
         if n > limit:
@@ -2614,6 +2823,10 @@ class Handler(BaseHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        if urlparse(self.path).path == "/hbbtv/ssh-pin":
+            return self._hbbtv_ssh_pin()
+        if urlparse(self.path).path.startswith("/hbbtv/ssh/"):
+            return self._hbbtv_ssh("GET")
         if self._foreign_request(write=False):
             return
         try:
@@ -2621,6 +2834,14 @@ class Handler(BaseHTTPRequestHandler):
             p = u.path
             if p == "/api/state":
                 return self._send(200, APP.state())
+            if p.startswith(HBBTV_MEDIA_PREFIX):
+                return self._hbbtv_media(unquote(p[len(HBBTV_MEDIA_PREFIX):]))
+            if p.startswith(HBBTV_APPS_PREFIX):
+                return self._hbbtv_media(unquote(p[len(HBBTV_APPS_PREFIX):]), apps=True)
+            if p == "/hbbtv/log":
+                return self._hbbtv_log(parse_qs(u.query))
+            if p == "/hbbtv/report":
+                return self._hbbtv_report(parse_qs(u.query))
             if p == "/api/onboarding":
                 return self._send(200, onboarding_load())
             if p == "/api/logs":
@@ -2792,6 +3013,8 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"ok": False, "error": "unbekannter Pfad"})
 
     def do_POST(self):
+        if urlparse(self.path).path.startswith("/hbbtv/ssh/"):
+            return self._hbbtv_ssh("POST")
         if self._foreign_request(write=True):
             return
         try:
@@ -2979,11 +3202,14 @@ def main():
 
     if not args.no_priority and plutomod.set_process_priority(0x8000):
         log("info", "Prozesspriorität ABOVE_NORMAL, TX-Thread HIGHEST")
-    global APP
+    global APP, SSH_GW
     global SETUP
     SETUP = setupmod.Setup(distro=args.wsl_distro, runtime=RUNTIME, log=log,
                            distro_dir=os.environ.get("DABLAB_WSL_DIR") or None)
     APP = App(args)
+    import hbbtv_ssh
+    SSH_GW = hbbtv_ssh.Gateway(RUNTIME, log, hbbtv_ssh_allowed, hbbtv_ssh_hosts)
+    SSH_GW.port = args.port
     if args.setup_components:
         SETUP.install_all(via="installer")
     global FLASHER

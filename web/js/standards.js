@@ -310,7 +310,7 @@ export function programRate(p) {
 export function tsBudget(cfg) {
   const net = netRate(cfg);
   const items = (cfg.dvb?.programs || []).map(p => ({ key: p.key, name: p.name, bps: programRate(p), prg: p }));
-  const si = siOverhead(net) + (cfg.dvb?.teletext?.enable ? teletextBps(cfg) : 0);
+  const si = siOverhead(net) + (cfg.dvb?.teletext?.enable ? teletextBps(cfg) : 0) + (cfg.dvb?.programs || []).reduce((a, p) => a + hbbtvRate(p), 0);
   const used = items.reduce((a, b) => a + b.bps, 0) + si;
   return { net, items, si, used, nulls: Math.max(0, net - used), over: used > net, pct: net ? used / net : 0 };
 }
@@ -408,8 +408,16 @@ export function newProgram(key, n = 1) {
     overlay: defaultOverlay(),
   };
 }
-/** HbbTV-Signalisierung je Programm (experimentell, runner/dvb/config.py _hbbtv): AIT mit HTTP-Startseite */
-export const defaultHbbtv = () => ({ enable: false, url: '', name: '', autostart: true, org_id: '0x00000F00', app_id: '0x0001' });
+/** HbbTV-Signalisierung je Programm (experimentell, runner/dvb/config.py _hbbtv): AIT mit HTTP-Startseite
+ *  oder Anwendung im Objektkarussell (transport 'carousel': eingebaute Wetter-App oder eigener Ordner) */
+export const defaultHbbtv = () => ({ enable: false, transport: 'http', lang: 'auto', url: '', name: '', autostart: true, org_id: '0x00000F00', app_id: '0x0001',
+  app: 'portal', app_dir: '', bitrate_kbps: 1500, weather: { place: 'Berlin', refresh_min: 15 }, portal: defaultPortal() });
+export const defaultPortal = () => ({ title: '', pages: { weather: true, radar: true, news: true, epg: true, media: false, gallery: false, games: true, tools: true, info: true }, ssh: false, ssh_hosts: '',
+  feeds: ['https://www.tagesschau.de/index~rss2.xml'], gallery_dir: 'media/bilder', info_title: '', info_text: '', live: true, share: true });
+export const HBBTV_AIT_BPS = 3008;
+/** Rate fuer AIT und Karussell eines Programms (wie runner/dvb/config.py _budget) */
+export const hbbtvRate = p => (p.hbbtv?.enable && p.type === 'tv'
+  ? HBBTV_AIT_BPS + (p.hbbtv.transport === 'carousel' ? (Number(p.hbbtv.bitrate_kbps) || 0) * 1000 : 0) : 0);
 export function hbbtvBlocked(c) {
   const std = standardOf(c);
   if (!['dvbt', 'dvbt2', 'dvbc', 'dvbs'].includes(std) || (std === 'dvbc' && c.dvbc?.annex && c.dvbc.annex !== 'a')) return T('HbbTV gibt es nur bei DVB-T/T2/C/S');
@@ -550,7 +558,9 @@ export function normalizeStd(c) {
     r.video = { ...t.video, ...(p.video || {}) }; r.video.source = { ...t.video.source, ...((p.video || {}).source || {}) };
     r.audio = { ...t.audio, ...(p.audio || {}) }; r.audio.source = { ...t.audio.source, ...((p.audio || {}).source || {}) };
     r.eit = { ...t.eit, ...(p.eit || {}) };
-    r.hbbtv = { ...t.hbbtv, ...(p.hbbtv || {}) };
+    r.hbbtv = { ...t.hbbtv, ...(p.hbbtv || {}) }; r.hbbtv.weather = { ...t.hbbtv.weather, ...((p.hbbtv || {}).weather || {}) };
+    const pp = (p.hbbtv || {}).portal || {};
+    r.hbbtv.portal = { ...t.hbbtv.portal, ...pp, pages: { ...t.hbbtv.portal.pages, ...(pp.pages || {}) } };
     const ov = p.overlay || {};
     r.overlay = { logo: { ...t.overlay.logo, ...(ov.logo || {}) }, text: { ...t.overlay.text, ...(ov.text || {}) } };
     return r;
@@ -799,7 +809,18 @@ export function validateStd(c, add) {
         const why = hbbtvBlocked(c);
         if (why) add(`${b}.hbbtv.enable`, why);
         if (p.type !== 'tv') add(`${b}.hbbtv.enable`, T('{name}: HbbTV nur für TV-Programme', { name: p.name }));
-        if (!/^https?:\/\/[^\s/?#]+(\/\S*)?$/i.test(String(hb.url || '').trim())) add(`${b}.hbbtv.url`, T('{name}: HbbTV-URL muss mit http:// beginnen', { name: p.name }));
+        if (hb.transport === 'carousel') {
+          if (!(hb.bitrate_kbps >= 8 && hb.bitrate_kbps <= 10000)) add(`${b}.hbbtv.bitrate_kbps`, T('{name}: Karussell-Bitrate 8–10000 kbit/s', { name: p.name }));
+          if (hb.app === 'folder' && !String(hb.app_dir || '').trim()) add(`${b}.hbbtv.app_dir`, T('{name}: Ordner der HbbTV-Anwendung fehlt', { name: p.name }));
+          if (hb.app === 'portal') {
+            if (hb.portal?.pages?.gallery && !String(hb.portal.gallery_dir || '').trim()) add(`${b}.hbbtv.portal.gallery_dir`, T('{name}: Bilderordner fehlt', { name: p.name }));
+            if ((hb.portal?.feeds || []).some(f => !/^https?:\/\/\S+$/i.test(f))) add(`${b}.hbbtv.portal.feeds`, T('{name}: Feed-Adressen müssen mit http:// oder https:// beginnen', { name: p.name }));
+          }
+          if (hb.app !== 'folder') {
+            if (!String(hb.weather?.place || '').trim()) add(`${b}.hbbtv.weather.place`, T('{name}: Ort für das Wetter fehlt', { name: p.name }));
+            if (!(hb.weather?.refresh_min >= 5 && hb.weather?.refresh_min <= 180)) add(`${b}.hbbtv.weather.refresh_min`, T('{name}: Wetter-Aktualisierung 5–180 min', { name: p.name }));
+          }
+        } else if (!/^https?:\/\/[^\s/?#]+(\/\S*)?$/i.test(String(hb.url || '').trim())) add(`${b}.hbbtv.url`, T('{name}: HbbTV-URL muss mit http:// beginnen', { name: p.name }));
         if (!/^0x[0-9a-f]{1,8}$/i.test(hb.org_id || '') || !parseHex(hb.org_id)) add(`${b}.hbbtv.org_id`, T('{name}: organization_id 1–FFFFFFFF (hex)', { name: p.name }));
         if (!/^0x[0-9a-f]{1,4}$/i.test(hb.app_id || '') || !parseHex(hb.app_id)) add(`${b}.hbbtv.app_id`, T('{name}: application_id 1–FFFF (hex)', { name: p.name }));
       }

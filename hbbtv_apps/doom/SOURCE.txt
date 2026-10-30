@@ -1,0 +1,8 @@
+Doom fuer HbbTV-Fernseher (Muxwright)
+
+Programm: Chocolate Doom ueber doomgeneric (https://github.com/ozkl/doomgeneric), GPL-2.0 oder spaeter.
+  Muxwright-Anbindung: doomgeneric_hbbtv.c (Canvas 2D, Fernbedienung, kein Ton), Startseite doom.html,
+  Bau mit Emscripten 3.1.47 als asm.js (kein WebAssembly): build.sh.
+  Den vollstaendigen Quellcode gibt es im Muxwright-Repository (hbbtv_apps/doom) und bei doomgeneric.
+Spieldaten: Freedoom Phase 1, Version 0.13.0 (https://freedoom.github.io/), BSD-Lizenz (COPYING-freedoom.txt).
+Es werden keine Spieldaten von id Software mitgeliefert.

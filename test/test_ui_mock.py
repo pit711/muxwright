@@ -517,6 +517,28 @@ def functional(page: Page, base: str):
     expect(page.locator(T("apply"))).to_be_disabled()                            # URL fehlt
     page.fill(T("prg-hbbtv-url"), "http://192.168.1.10:8080/hbbtv/index.html")
     expect(page.locator(T("apply"))).to_be_enabled()
+    page.click(T("prg-hbbtv-transport-carousel"))                                # Objektkarussell: Wetter statt URL
+    expect(page.locator(T("prg-hbbtv-url"))).to_have_count(0)
+    expect(page.locator(T("prg-hbbtv-place"))).to_have_value("Berlin")
+    expect(page.locator(T("prg-hbbtv-oc-rate"))).to_have_value("1500")             # Vorgabe: Portal
+    expect(page.locator(T("prg-hbbtv-feeds"))).to_have_value("https://www.tagesschau.de/index~rss2.xml")
+    page.fill(T("prg-hbbtv-feeds"), "ftp://falsch")
+    expect(page.locator(T("apply"))).to_be_disabled()                            # Feed muss http(s) sein
+    page.fill(T("prg-hbbtv-feeds"), "https://www.tagesschau.de/index~rss2.xml")
+    page.locator(T("prg-hbbtv-page-gallery")).click(force=True)
+    expect(page.locator(T("prg-hbbtv-gallery"))).to_have_value("media/bilder")
+    expect(page.locator(T("apply"))).to_be_enabled()
+    page.fill(T("prg-hbbtv-place"), "")
+    expect(page.locator(T("apply"))).to_be_disabled()                            # Ort fehlt
+    page.fill(T("prg-hbbtv-place"), "Hamburg")
+    expect(page.locator(T("apply"))).to_be_enabled()
+    page.click(T("prg-hbbtv-app-kind-folder"))
+    expect(page.locator(T("apply"))).to_be_disabled()                            # Ordner fehlt
+    page.fill(T("prg-hbbtv-dir"), "media/hbbtv")
+    expect(page.locator(T("apply"))).to_be_enabled()
+    page.click(T("prg-hbbtv-app-kind-weather"))
+    page.click(T("prg-hbbtv-transport-http"))                                    # zurueck zur URL (Rest des Tests)
+    expect(page.locator(T("prg-hbbtv-url"))).to_have_value("http://192.168.1.10:8080/hbbtv/index.html")
     goto(page, "modulation")
     rate_before = page.inner_text(T("dvb-netrate"))
     page.click(T("dvbt-constellation-16-QAM"))

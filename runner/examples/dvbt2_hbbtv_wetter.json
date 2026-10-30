@@ -1,0 +1,18 @@
+{
+ "name": "DVB-T2-Testsender mit HbbTV-Wetter im Sendesignal (Objektkarussell, experimentell)",
+ "mode": "dvbt2",
+ "dvbt2": {"preset": "de"},
+ "ts": {"transport_stream_id": "0x0201", "original_network_id": "0xFF01", "network_name": "MUXWRIGHT", "lcn": true, "eit": true, "tdt": true},
+ "services": [
+  {"key": "wetter", "service_id": "0x0001", "name": "Muxwright Wetter", "provider": "MUXWRIGHT", "lcn": 1, "type": "tv",
+   "video": {"codec": "hevc", "size": "hd", "bitrate_kbps": "auto"},
+   "audio": {"codec": "aac", "bitrate_kbps": 128, "language": "deu"},
+   "source": {"kind": "testpattern", "pattern": "testsrc2", "text": "Muxwright Wetter - rote Taste", "audio": {"kind": "sine", "freq_hz": 1000}},
+   "eit": {"title": "HbbTV-Wetter", "text": "Wetter-App im Sendesignal (DSM-CC-Objektkarussell), rote Taste druecken"},
+   "hbbtv": {"enable": true, "transport": "carousel", "app": "weather", "name": "Wetter", "autostart": true,
+             "weather": {"place": "Berlin", "refresh_min": 15, "provider": "auto"},
+             "bitrate_kbps": 500, "org_id": "0x00000F00", "app_id": "0x0001"}}
+ ],
+ "output": {"kind": "stdout"},
+ "rf": {"channel": "K21", "atten_db": 60, "enabled": false}
+}

@@ -1,0 +1,25 @@
+{
+ "name": "DVB-T2-Testsender mit HbbTV-Portal im Sendesignal (Objektkarussell, experimentell)",
+ "mode": "dvbt2",
+ "dvbt2": {"preset": "de"},
+ "ts": {"transport_stream_id": "0x0201", "original_network_id": "0xFF01", "network_name": "MUXWRIGHT", "lcn": true, "eit": true, "tdt": true},
+ "services": [
+  {"key": "portal", "service_id": "0x0001", "name": "Muxwright TV", "provider": "MUXWRIGHT", "lcn": 1, "type": "tv",
+   "video": {"codec": "hevc", "size": "hd", "bitrate_kbps": "auto"},
+   "audio": {"codec": "aac", "bitrate_kbps": 128, "language": "deu"},
+   "source": {"kind": "testpattern", "pattern": "testsrc2", "text": "Muxwright TV - rote Taste", "audio": {"kind": "sine", "freq_hz": 1000}},
+   "eit": {"title": "Muxwright-Portal", "text": "Rote Taste: Wetter, Nachrichten, Mediathek, Spiele", "next_title": "Testbild am Abend"},
+   "hbbtv": {"enable": true, "transport": "carousel", "app": "portal", "name": "Muxwright Portal", "autostart": true,
+             "weather": {"place": "Berlin", "refresh_min": 15},
+             "portal": {"title": "Muxwright TV", "pages": {"gallery": true, "media": true}, "gallery_dir": "media/bilder",
+                        "info_title": "Willkommen", "info_text": "Dieses Programm sendet Muxwright mit einem ADALM-Pluto.\nDas Portal kommt komplett aus dem Sendesignal (DSM-CC-Objektkarussell)."},
+             "org_id": "0x00000F00", "app_id": "0x0001"}},
+  {"key": "film", "service_id": "0x0002", "name": "Muxwright Film", "provider": "MUXWRIGHT", "lcn": 2, "type": "tv",
+   "video": {"codec": "hevc", "size": "hd", "bitrate_kbps": "auto"},
+   "audio": {"codec": "aac", "bitrate_kbps": 128, "language": "deu"},
+   "source": {"kind": "testpattern", "pattern": "smptebars", "text": "Muxwright Film", "audio": {"kind": "sine", "freq_hz": 440}},
+   "eit": {"title": "Big Buck Bunny", "text": "Kurzfilm der Blender Foundation", "next_title": "Sintel"}}
+ ],
+ "output": {"kind": "stdout"},
+ "rf": {"channel": "K21", "atten_db": 60, "enabled": false}
+}

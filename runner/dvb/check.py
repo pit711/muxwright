@@ -36,6 +36,31 @@ def _run(cmd, timeout=300, stdin=None):
 
 
 # ---------------------------------------------------------------------------------------------
+def dsmcc_files(host, path, pid):
+    """Objektkarussell einer PID mit 'tsp -P dsmcc' auspacken (nur Liste) -> {"files": n, "names": [...], "complete": bool}."""
+    rc, out, err = _run([host.tool("tsp"), "-I", "file", path, "-P", "dsmcc", "--pid", str(int(pid)), "-O", "drop"], timeout=600)
+    txt = out + err
+    names, stack = [], []
+    tree = False
+    for line in txt.splitlines():
+        if line.strip() == "* Carousel Tree":
+            tree = True
+            continue
+        if not tree or not line.strip() or line.strip().startswith(("Files:", "Total size:")):
+            continue
+        depth = (len(line) - len(line.lstrip(" "))) // 2 - 1
+        name = line.strip()
+        if name == "/":
+            continue
+        if name.endswith("/"):
+            stack[depth - 1:] = [name[:-1]]
+        else:
+            names.append("/".join(stack[:depth - 1] + [re.sub(r"\s*\([\d,]+ bytes\)$", "", name)]))
+    m = re.search(r"Files:\s*(\d+)", txt)
+    return {"files": int(m.group(1)) if m else 0, "names": names, "complete": "Group complete: yes" in txt,
+            "error": None if m else (err.strip()[-200:] or "kein Karussell gefunden")}
+
+
 def tsanalyze(host, path):
     rc, out, err = _run([host.tool("tsanalyze"), "--json", path], timeout=600)
     try:
@@ -387,6 +412,16 @@ def compare(cfg, rep):
             if not comp or comp["stream_type"] != 0x05 or "application_signalling_descriptor" not in comp["descriptors"]:
                 M.append("PMT Dienst %d: HbbTV-AIT (PID %d, stream_type 0x05 + application_signalling_descriptor) fehlt"
                          % (s["service_id"], hb["_pid"]))
+            if hb.get("transport") == "carousel":
+                oc = next((x for x in pm["components"] if x["pid"] == hb["_oc_pid"]), None)
+                if not oc or oc["stream_type"] != 0x0B or "stream_identifier_descriptor" not in oc["descriptors"]:
+                    M.append("PMT Dienst %d: HbbTV-Karussell (PID %d, stream_type 0x0B + stream_identifier_descriptor) fehlt"
+                             % (s["service_id"], hb["_oc_pid"]))
+                k = (rep.get("carousels") or {}).get(s["key"]) or {}
+                if not k.get("files"):
+                    M.append("HbbTV-Karussell Dienst %d: nicht vollstaendig empfangen (%s)" % (s["service_id"], k.get("error") or "keine Dateien"))
+                elif hb["start"] not in k.get("names", []):
+                    M.append("HbbTV-Karussell Dienst %d: Startseite %s fehlt" % (s["service_id"], hb["start"]))
     if ts.get("eit", True):
         eits = {e["service_id"]: e for e in t.get("eit", []) if e.get("actual") == "true"}
         for s in cfg["services"]:
@@ -484,6 +519,8 @@ def analyze_file(host, cfg, path, log=None, decode_seconds=4):
             d["decode"] = decode_test(host, path, s["service_id"], decode_seconds, s["type"] == "tv")
         svcs.append(d)
     rep["services"] = svcs
+    rep["carousels"] = {s["key"]: dsmcc_files(host, path, s["hbbtv"]["_oc_pid"]) for s in cfg["services"]
+                        if (s.get("hbbtv") or {}).get("enable") and s["hbbtv"].get("transport") == "carousel"}
     rep["mismatches"] = compare(cfg, rep)
     rep["ok"] = not rep["mismatches"]
     dashboard_fields(cfg, rep)

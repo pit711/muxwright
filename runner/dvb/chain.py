@@ -13,7 +13,7 @@ import tempfile
 import threading
 import time
 
-from . import si, sources, nvenc
+from . import si, sources, nvenc, carousel, hbbtv_app, hbbtv_portal
 from . import config as C
 from . import tables as T
 
@@ -188,6 +188,8 @@ class DvbChain:
         for s in self._hbbtv_services():
             self.host.atomic_write(os.path.join(self.sdir, "ait_%s.xml" % s["key"]), si.ait_xml(s))
             self.host.atomic_write(os.path.join(self.sdir, "pmt_hbbtv_%s.xml" % s["key"]), si.ait_pmt_patch(s))
+            if s["hbbtv"]["transport"] == "carousel":
+                self._carousel_start(s)
         for s in c["services"]:
             # Playlist: Startwert aus der Konfiguration, der Feeder ueberschreibt ihn beim ersten Titel (neue Version);
             # Zeitplan: schreibt p/f und schedule selbst (ScheduleFeeder, noch vor dem Start von tsp)
@@ -200,6 +202,90 @@ class DvbChain:
 
     def _hbbtv_services(self):
         return [s for s in self.cfg["services"] if (s.get("hbbtv") or {}).get("enable")]
+
+    # ------------------------------------------------------------------ HbbTV-Objektkarussell
+    def _carousel_start(self, s):
+        """Erstes Karussell vor dem Start von tsp schreiben, danach Aktualisierung im Hintergrund:
+        Wetter alle refresh_min Minuten (bei Fehlern jede Minute neu versuchen), Ordner bei Aenderung (alle 5 s geprueft),
+        Portal alle 30 s (Netzdaten holt es selbst nur alle refresh_min Minuten; neue Version nur bei geaendertem Inhalt)."""
+        hb = s["hbbtv"]
+        car = carousel.Carousel(hb["_carousel_id"], hb["_oc_tag"], hb["start"], cold=("doom/",))
+        lang = "de" if hb["_lang"] in ("deu", "ger") else "en"
+        if hb["app"] == "folder":
+            src = self.host.media_path(hb["app_dir"])
+
+            def files():
+                return hbbtv_app.folder_files(src), True
+        elif hb["app"] == "portal":
+            files = hbbtv_portal.PortalApp(hb, self.cfg, s, lang, self.log, self.host, self.sdir).files
+        else:
+            wapp = hbbtv_app.WeatherApp(hb["weather"], lang, self.log)
+            files = wapp.files
+        try:
+            f, ok = files()
+        except Exception as e:
+            raise self.host.RunnerError("HbbTV-Karussell %s: %s" % (s["key"], e))
+        if hb["app"] == "folder" and hb["start"] not in f:
+            self.log("warn", "HbbTV-Karussell %s: Startseite %s fehlt im Ordner" % (s["key"], hb["start"]))
+        self._carousel_write(s, car, f)
+        if self.render:
+            return
+
+        def loop():
+            ok_now, sig = ok, None
+            while True:
+                if hb["app"] == "folder":
+                    if self.stop_evt.wait(5.0):
+                        return
+                    try:
+                        st = sorted((os.path.relpath(os.path.join(r, n), src), os.path.getmtime(os.path.join(r, n)),
+                                     os.path.getsize(os.path.join(r, n))) for r, _, ns in os.walk(src) for n in ns)
+                    except OSError:
+                        continue
+                    if sig is None:
+                        sig = st
+                    if st == sig:
+                        continue
+                    sig = st
+                else:
+                    # Portal: alle 5 s (Doom-Portionen wechseln alle 12 s; ohne Aenderung keine neue Karussellversion)
+                    wait = 5 if hb["app"] == "portal" else hb["weather"]["refresh_min"] * 60 if ok_now else 60
+                    if self.stop_evt.wait(wait):
+                        return
+                try:
+                    f, ok_now = files()
+                    self._carousel_write(s, car, f)
+                except Exception as e:
+                    self.log("warn", "HbbTV-Karussell %s: %s" % (s["key"], e))
+
+        t = threading.Thread(target=loop, daemon=True, name="carousel-%s" % s["key"])
+        t.start()
+        self.threads.append(t)
+
+    def _carousel_write(self, s, car, files):
+        hb = s["hbbtv"]
+        data, info = car.build(files)
+        path = os.path.join(self.sdir, "oc_%s.bin" % s["key"])
+        if getattr(car, "_written", None) == info["version"] and os.path.exists(path):
+            return                     # unveraendert: tsp sendet die bisherige Datei weiter
+        car._written = info["version"]
+        tmp = path + ".tmp%d" % os.getpid()
+        with open(tmp, "wb") as fh:
+            fh.write(data)
+        os.replace(tmp, path)          # tsp inject --poll-files laedt bei geaendertem Zeitstempel neu
+        # Kopie der Anwendung fuer die Vorschau im Browser (Sitzungsordner)
+        adir = os.path.join(self.sdir, "hbbtv_%s" % s["key"])
+        for rel, b in files.items():
+            p = os.path.join(adir, *rel.split("/"))
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, "wb") as fh:
+                fh.write(b)
+        cyc = carousel.cycle_seconds(len(data), hb["_oc_bps"])
+        self.log("info", "HbbTV-Karussell %s: %d Dateien, %.1f kB, Version %d, Umlauf %.1f s bei %d kbit/s (PID %d)"
+                 % (s["key"], len(files), info["bytes"] / 1000.0, info["version"], cyc, hb["bitrate_kbps"], hb["_oc_pid"]))
+        if cyc > 30:
+            self.log("warn", "HbbTV-Karussell %s: ein Umlauf dauert %.0f s - Fernseher warten so lange auf den Start; "
+                     "Bitrate erhoehen oder Anwendung verkleinern" % (s["key"], cyc))
 
     def ffmpeg_cmd(self, seconds=None):
         c = self.cfg
@@ -448,6 +534,14 @@ class DvbChain:
                     "--patch-xml", os.path.join(self.sdir, "pmt_hbbtv_%s.xml" % s["key"]),
                     "-P", "inject", "--pid", str(hb["_pid"]), "--bitrate", str(C.HBBTV_BPS), "--stuffing",
                     os.path.join(self.sdir, "ait_%s.xml" % s["key"]) + "=1000"]
+            for sid in hb.get("_share") or []:
+                # Portal auch in den anderen TV-Programmen: gleiche AIT- und Karussell-PID in deren PMT
+                cmd += ["-P", "pmt", "--service", str(sid), "--patch-xml", os.path.join(self.sdir, "pmt_hbbtv_%s.xml" % s["key"])]
+            if hb["transport"] == "carousel":
+                # Objektkarussell: alle Sektionen (DSI/DII mehrfach, DDB) zyklisch mit fester Rate; neu geladen,
+                # sobald _carousel_write eine neue Version ablegt
+                cmd += ["-P", "inject", "--pid", str(hb["_oc_pid"]), "--bitrate", str(hb["_oc_bps"]), "--stuffing",
+                        "--poll-files", os.path.join(self.sdir, "oc_%s.bin" % s["key"])]
         cmd += ["-P", "pcradjust", "--bitrate", R]
         if regulate:
             cmd += ["-P", "regulate", "--bitrate", R, "--packet-burst", "16"]

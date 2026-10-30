@@ -102,8 +102,13 @@ def sdt_xml(cfg, version=1, names=None):
 # --------------------------------------------------------------------------------------------- HbbTV (experimentell)
 def ait_xml(svc, version=1):
     """AIT (ETSI TS 102 809 5.3.4, HbbTV TS 102 796 7.2.3) fuer die HbbTV-Anwendung eines Dienstes:
-    application_type 0x0010, Transport HTTP (Basis-URL + initial_path), Profil 0 / Version 1.1.1."""
+    application_type 0x0010, Transport HTTP (Basis-URL + initial_path) oder Objektkarussell im eigenen Dienst
+    (component_tag, ohne remote_connection), Profil 0 / Version 1.1.1."""
     hb = svc["hbbtv"]
+    if hb.get("transport") == "carousel":
+        tp = '    <object_carousel component_tag=%s/>' % _a("0x%02X" % hb["_oc_tag"])
+    else:
+        tp = '    <http><url base=%s/></http>' % _a(hb["_base"])
     return "\n".join([
         '<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>",
         ' <AIT version=%s current="true" test_application_flag="false" application_type="0x0010">' % _a(version & 31),
@@ -111,7 +116,7 @@ def ait_xml(svc, version=1):
         '  <application control_code=%s>' % _a("0x01" if hb["autostart"] else "0x02"),   # AUTOSTART / PRESENT
         '   <application_identifier organization_id=%s application_id=%s/>' % (_a("0x%08X" % hb["org_id"]), _hex(hb["app_id"])),
         '   <transport_protocol_descriptor transport_protocol_label="1">',
-        '    <http><url base=%s/></http>' % _a(hb["_base"]),
+        tp,
         '   </transport_protocol_descriptor>',
         '   <application_descriptor service_bound="true" visibility="3" application_priority="1">',
         '    <profile application_profile="0x0000" version="1.1.1"/>',
@@ -125,14 +130,21 @@ def ait_xml(svc, version=1):
 
 def ait_pmt_patch(svc, version=1):
     """XML-Patch fuer 'tsp -P pmt --patch-xml': haengt die AIT-PID als stream_type 0x05 mit
-    application_signalling_descriptor (0x6F) an die PMT des Dienstes."""
+    application_signalling_descriptor (0x6F) an die PMT des Dienstes; beim Karussell zusaetzlich dessen PID als
+    stream_type 0x0B (DSM-CC U-N) mit stream_identifier (component_tag), carousel_identifier und data_broadcast_id
+    0x0123 (HbbTV, TS 102 796 7.2.5)."""
     hb = svc["hbbtv"]
-    return "\n".join([
-        '<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>", " <PMT>",
-        '  <component x-node="add" elementary_PID=%s stream_type="0x05">' % _hex(hb["_pid"]),
-        '   <application_signalling_descriptor>',
-        '    <application application_type="0x0010" AIT_version_number=%s/>' % _a(version & 31),
-        "   </application_signalling_descriptor>", "  </component>", " </PMT>", "</tsduck>", ""])
+    L = ['<?xml version="1.0" encoding="UTF-8"?>', "<tsduck>", " <PMT>",
+         '  <component x-node="add" elementary_PID=%s stream_type="0x05">' % _hex(hb["_pid"]),
+         '   <application_signalling_descriptor>',
+         '    <application application_type="0x0010" AIT_version_number=%s/>' % _a(version & 31),
+         "   </application_signalling_descriptor>", "  </component>"]
+    if hb.get("transport") == "carousel":
+        L += ['  <component x-node="add" elementary_PID=%s stream_type="0x0B">' % _hex(hb["_oc_pid"]),
+              '   <stream_identifier_descriptor component_tag=%s/>' % _a("0x%02X" % hb["_oc_tag"]),
+              '   <carousel_identifier_descriptor carousel_id=%s/>' % _a(hb["_carousel_id"]),
+              '   <data_broadcast_id_descriptor data_broadcast_id="0x0123"/>', "  </component>"]
+    return "\n".join(L + [" </PMT>", "</tsduck>", ""])
 
 
 def isdb_ts_information(cfg):

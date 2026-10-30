@@ -425,6 +425,9 @@ function hbbtvCard(p, base) {
   return card(title, 'globe', [
     field(null, toggle(`${b}.enable`, T('HbbTV-Anwendung signalisieren (AIT)'), { tid: 'prg-hbbtv-enable', rerender: true }), { path: `${b}.enable`, hint: why || T('AIT-Tabelle (0x74) auf eigener PID, in der PMT als stream_type 0x05') }),
     hb.enable ? [
+      field(T('Anwendung kommt'), segmented(`${b}.transport`, [{ v: 'http', label: T('aus dem Internet (URL)') }, { v: 'carousel', label: T('im Sendesignal (Karussell)') }], { tid: 'prg-hbbtv-transport', rerender: true }),
+        { hint: hb.transport === 'carousel' ? T('DSM-CC-Objektkarussell auf eigener PID (stream_type 0x0B) – der Fernseher braucht kein Internet') : null }),
+      hb.transport === 'carousel' ? hbbtvCarousel(p, hb, b) :
       field(T('Startseite (URL)'), input(`${b}.url`, { tid: 'prg-hbbtv-url', mono: true, ph: 'http://192.168.1.10:8080/hbbtv/index.html' }), { path: `${b}.url`, wide: true, hint: T('Basis-URL und Startseite werden am letzten „/“ getrennt') }),
       h('div.grid2', null,
         field(T('Anwendungsname'), input(`${b}.name`, { tid: 'prg-hbbtv-name', maxlength: 64, ph: p.name }), { path: `${b}.name` }),
@@ -432,9 +435,52 @@ function hbbtvCard(p, base) {
       h('div.grid2', null,
         field('organization_id (hex)', input(`${b}.org_id`, { tid: 'prg-hbbtv-org', mono: true, hex: 8 }), { path: `${b}.org_id` }),
         field('application_id (hex)', input(`${b}.app_id`, { tid: 'prg-hbbtv-app', mono: true, hex: 4 }), { path: `${b}.app_id`, hint: '0x0001–0x3FFF' })),
+      hb.transport === 'carousel' ? null :
       h('p.hint', null, icon('info'), T('Der Fernseher braucht eine Internetverbindung, und die URL muss vom Fernseher aus erreichbar sein (nicht „localhost“). HbbTV muss am Gerät eingeschaltet sein.')),
     ] : null,
   ], { tid: 'card-prg-hbbtv' });
+}
+
+// Objektkarussell (runner/dvb/carousel.py): eingebaute Wetter-App oder eigener Ordner, Rate fest auf eigener PID
+function hbbtvCarousel(p, hb, b) {
+  const w = hb.weather || {};
+  return [
+    field(T('Inhalt'), segmented(`${b}.app`, [{ v: 'portal', label: T('Portal (eingebaut)') }, { v: 'weather', label: T('Wetter (eingebaut)') }, { v: 'folder', label: T('Eigener Ordner') }], { tid: 'prg-hbbtv-app-kind', rerender: true })),
+    hb.app !== 'folder' ? field(T('Sprache der App'), segmented(`${b}.lang`, [{ v: 'auto', label: T('wie Tonspur') }, { v: 'de', label: 'Deutsch' }, { v: 'en', label: 'English' }], { tid: 'prg-hbbtv-lang' })) : null,
+    hb.app === 'portal' ? hbbtvPortal(p, hb, b) : null,
+    hb.app === 'folder'
+      ? field(T('Ordner mit der Anwendung'), input(`${b}.app_dir`, { tid: 'prg-hbbtv-dir', mono: true, ph: 'media/hbbtv' }), { path: `${b}.app_dir`, wide: true, hint: T('Startseite index.html; Änderungen im Ordner werden automatisch neu gesendet (höchstens 4 MB)') })
+      : h('div.grid2', null,
+        field(T('Ort'), input(`${b}.weather.place`, { tid: 'prg-hbbtv-place', maxlength: 80, ph: 'Berlin' }), { path: `${b}.weather.place`, hint: T('Wetterdaten: Open-Meteo, ersatzweise MET Norway – der PC braucht Internet, der Fernseher nicht') }),
+        field(T('Aktualisieren alle'), input(`${b}.weather.refresh_min`, { type: 'number', min: 5, max: 180, tid: 'prg-hbbtv-refresh', mono: true }), { path: `${b}.weather.refresh_min`, hint: T('Minuten') })),
+    field(T('Karussell-Bitrate (kbit/s)'), input(`${b}.bitrate_kbps`, { type: 'number', min: 8, max: 10000, tid: 'prg-hbbtv-oc-rate', mono: true }), { path: `${b}.bitrate_kbps`, hint: T('Sender nutzen meist 200–1000 kbit/s; 1 MB braucht bei 500 kbit/s etwa 17 s') }),
+  ];
+}
+
+// Portal (runner/dvb/hbbtv_portal.py): Seiten, Nachrichten-Feeds, Bilder, Mediathek (LAN), Info-Text
+function hbbtvPortal(p, hb, b) {
+  const pc = hb.portal || {}, pg = pc.pages || {}, pb = `${b}.portal`;
+  const PORTAL_PAGES = [['weather', T('Wetter')], ['radar', T('Regenradar (DWD, nur Deutschland)')], ['news', T('Nachrichten (RSS)')], ['epg', T('Programm mit Umschalten')],
+    ['media', T('Mediathek (Videos über LAN)')], ['gallery', T('Bilder')], ['games', T('Spiele')], ['tools', T('Werkzeuge (70)')], ['info', T('Info-Seite')]];
+  return [
+    field(T('Titel im Portal'), input(`${pb}.title`, { tid: 'prg-hbbtv-portal-title', maxlength: 40, ph: p.name }), { path: `${pb}.title` }),
+    field(T('Seiten'), h('div.grid2', null, PORTAL_PAGES.map(([k, l]) =>
+      toggle(`${pb}.pages.${k}`, l, { tid: `prg-hbbtv-page-${k}`, rerender: true }))), { wide: true }),
+    pg.news ? field(T('Nachrichten-Feeds (RSS, eine Adresse je Zeile)'), textarea(`${pb}.feeds`, { tid: 'prg-hbbtv-feeds', rows: 3,
+      fmt: v => (v || []).join('\n'), parse: v => v.split(/\s+/).filter(Boolean) }), { path: `${pb}.feeds`, wide: true }) : null,
+    pg.gallery ? field(T('Bilderordner'), input(`${pb}.gallery_dir`, { tid: 'prg-hbbtv-gallery', mono: true, ph: 'media/bilder' }), { path: `${pb}.gallery_dir`, hint: T('JPEG/PNG, höchstens 30 Bilder – werden für den Fernseher verkleinert') }) : null,
+    pg.media ? h('p.hint', null, icon('info'), T('Mediathek: MP4-Videos (H.264 + AAC) aus media/video. Der Fernseher lädt sie per LAN von diesem PC – Muxwright muss dafür mit --lan laufen.')) : null,
+    pg.info ? h('div.grid2', null,
+      field(T('Info: Überschrift'), input(`${pb}.info_title`, { tid: 'prg-hbbtv-info-title', maxlength: 60, ph: p.name })),
+      field(T('Info: Text'), textarea(`${pb}.info_text`, { tid: 'prg-hbbtv-info-text', rows: 3 }))) : null,
+    h('div.grid2', null,
+      field(null, toggle(`${pb}.live`, T('Live-Bild im Fenster'), { tid: 'prg-hbbtv-live' })),
+      field(null, toggle(`${pb}.share`, T('In allen TV-Programmen anbieten'), { tid: 'prg-hbbtv-share' }), { hint: T('Portal bleibt beim Umschalten im Multiplex offen') })),
+    pg.tools ? h('div.grid2', null,
+      field(null, toggle(`${pb}.ssh`, T('SSH-Terminal erlauben (über diesen PC)'), { tid: 'prg-hbbtv-ssh', rerender: true }),
+        { hint: T('Nur im LAN-Modus. Der Fernseher wird per PIN freigeschaltet, die nur an diesem PC unter /hbbtv/ssh-pin erscheint.') }),
+      pc.ssh ? field(T('Erlaubte Rechner (leer = alle im eigenen LAN)'), input(`${pb}.ssh_hosts`, { tid: 'prg-hbbtv-ssh-hosts', mono: true, ph: '192.168.1.10, nas.local' })) : null) : null,
+  ];
 }
 
 function prgVideo(p, base) {

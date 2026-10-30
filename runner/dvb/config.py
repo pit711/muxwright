@@ -289,7 +289,8 @@ def from_dashboard(raw):
                                    **({"preset": v["preset"]} if v.get("preset") else {}),
                                    **({"bit_depth": v["bit_depth"]} if v.get("bit_depth") else {})},
                          "audio": {"codec": a.get("codec", "mp2"), "bitrate_kbps": a.get("bitrate_kbps"),
-                                   "channels": a.get("channels", 2), "samplerate": a.get("samplerate", 48000)},
+                                   "channels": a.get("channels", 2), "samplerate": a.get("samplerate", 48000),
+                                   **({"language": a["language"]} if a.get("language") else {})},
                          "source": src, "eit": e, "hbbtv": dict(p.get("hbbtv") or {}),
                          "overlay": _dash_overlay(p.get("overlay"))})
         c["services"] = svcs
@@ -795,6 +796,13 @@ def normalize(raw):
         s["_apid"] = ts["start_pid"] + 16 * i + 1 if a["codec"] != "none" else None
         s["_pcr_pid"] = s["_vpid"] if s["type"] == "tv" else s["_apid"]
         _hbbtv(cfg, s, i, E, W)
+    # Portal mit share: AIT und Karussell auch in die PMT der anderen TV-Programme ohne eigenes HbbTV
+    free = [x for x in svcs if x.get("type") == "tv" and not (x.get("hbbtv") or {}).get("enable")]
+    for s in svcs:
+        hb = s.get("hbbtv") or {}
+        if hb.get("enable") and hb.get("app") == "portal" and hb.get("transport") == "carousel" and (hb.get("portal") or {}).get("share"):
+            hb["_share"] = [x["service_id"] for x in free]
+            free = []
 
     # -- Teletext (EN 300 472): ein Teletext-Strom, in den PMTs der gewaehlten Programme --
     tt = cfg.get("teletext") or {}
@@ -837,9 +845,24 @@ HBBTV_URL_RE = re.compile(r"^https?://[^\s/?#]+(/[^\s]*)?$", re.I)
 HBBTV_BPS = 3008                           # AIT-PID hoechstens 2 TS-Pakete/s: AIT jede Sekunde, auch mit langer URL (bis 2 Pakete)
 
 
+HBBTV_TRANSPORTS = ("http", "carousel")
+HBBTV_APPS = ("weather", "portal", "folder")
+PORTAL_PAGES = ("weather", "radar", "news", "epg", "media", "gallery", "games", "tools", "info")
+OC_TAG = 0x10                              # component_tag/association_tag des Karussells (je PMT eindeutig)
+
+
+def oc_default_kbps(rate_bps):
+    """Karussell-Rate: 500 kb/s (wie Sender ueblich), bei DATV-Raten 5 % der Nutzbitrate (mind. 16 kb/s)."""
+    return 500 if rate_bps >= 4e6 else max(16, int(rate_bps * 0.05 / 1000))
+
+
 def _hbbtv(cfg, s, i, E, W):
-    """HbbTV-Signalisierung (experimentell): services[].hbbtv = {enable, url, name, autostart, org_id, app_id}.
-    Abgeleitet: _pid (AIT, Video-PID + 2), _base/_path (Basis-URL bis zum letzten '/' und Startseite), _lang."""
+    """HbbTV-Signalisierung (experimentell): services[].hbbtv = {enable, transport, url, name, autostart, org_id, app_id,
+    app, app_dir, start, bitrate_kbps, weather}.
+    transport "http": Anwendung aus dem Internet (url). transport "carousel": Anwendung im Sendesignal als DSM-CC-
+    Objektkarussell (runner/dvb/carousel.py) - eingebaute Wetter-App (app "weather") oder ein Ordner (app "folder").
+    Abgeleitet: _pid (AIT, Video-PID + 2), _base/_path (Basis-URL bis zum letzten '/' und Startseite), _lang;
+    Karussell: _oc_pid (Video-PID + 3), _oc_tag, _carousel_id, _oc_bps."""
     hb = s.get("hbbtv") or {}
     s["hbbtv"] = hb
     hb["enable"] = bool(hb.get("enable"))
@@ -850,13 +873,22 @@ def _hbbtv(cfg, s, i, E, W):
         E.append("services[%d].hbbtv: nur DVB-T/T2/C/S (DVB-SI)" % i)
     if s["type"] != "tv":
         E.append("services[%d].hbbtv: nur fuer TV-Programme" % i)
+    hb["transport"] = str(hb.get("transport") or "http").strip().lower()
+    if hb["transport"] not in HBBTV_TRANSPORTS:
+        E.append("services[%d].hbbtv.transport: http oder carousel" % i)
+        hb["transport"] = "http"
     url = str(hb.get("url") or "").strip()
     hb["url"] = url
-    if not HBBTV_URL_RE.match(url):
-        E.append("services[%d].hbbtv.url: http(s)://host/pfad/startseite.html" % i)
-    path_part = url.split("?", 1)[0].split("#", 1)[0]
-    cut = path_part.rfind("/") + 1 if path_part.count("/") >= 3 else 0
-    hb["_base"], hb["_path"] = (url[:cut], url[cut:]) if cut else (url.rstrip("/") + "/", "")
+    if hb["transport"] == "carousel":
+        _hbbtv_carousel(cfg, s, i, E, W)
+    else:
+        if not HBBTV_URL_RE.match(url):
+            E.append("services[%d].hbbtv.url: http(s)://host/pfad/startseite.html" % i)
+        path_part = url.split("?", 1)[0].split("#", 1)[0]
+        cut = path_part.rfind("/") + 1 if path_part.count("/") >= 3 else 0
+        hb["_base"], hb["_path"] = (url[:cut], url[cut:]) if cut else (url.rstrip("/") + "/", "")
+        if url.lower().startswith("https://"):
+            W.append("services[%d].hbbtv: HTTPS-Startseiten laden aeltere TVs oft nicht (Zertifikate) - im Labor http:// nutzen" % i)
     hb["name"] = str(hb.get("name") or s["name"]).strip()[:64]
     hb["autostart"] = bool(hb.get("autostart", True))
     try:
@@ -871,10 +903,88 @@ def _hbbtv(cfg, s, i, E, W):
         E.append("services[%d].hbbtv.app_id: 1..0xFFFF" % i)
     elif hb["app_id"] > 0x3FFF:
         W.append("services[%d].hbbtv.app_id > 0x3FFF: Bereich fuer signierte Anwendungen (TS 102 809)" % i)
-    if url.lower().startswith("https://"):
-        W.append("services[%d].hbbtv: HTTPS-Startseiten laden aeltere TVs oft nicht (Zertifikate) - im Labor http:// nutzen" % i)
     hb["_lang"] = (str(s["audio"].get("language") or "deu") + "   ")[:3]
+    # Sprache der eingebauten Apps: auto = nach Tonsprache (deu/ger -> Deutsch, sonst Englisch)
+    hb["lang"] = str(hb.get("lang") or "auto").lower()
+    if hb["lang"] not in ("auto", "de", "en"):
+        E.append("services[%d].hbbtv.lang: auto, de oder en" % i)
+        hb["lang"] = "auto"
+    if hb["lang"] == "en":
+        hb["_lang"] = "eng"
+    elif hb["lang"] == "de":
+        hb["_lang"] = "deu"
     hb["_pid"] = cfg["ts"]["start_pid"] + 16 * i + 2
+
+
+def _hbbtv_carousel(cfg, s, i, E, W):
+    hb = s["hbbtv"]
+    hb["app"] = str(hb.get("app") or "weather").strip().lower()
+    if hb["app"] not in HBBTV_APPS:
+        E.append("services[%d].hbbtv.app: weather, portal oder folder" % i)
+    if hb["app"] == "folder":
+        hb["app_dir"] = str(hb.get("app_dir") or "").strip()
+        if not hb["app_dir"]:
+            E.append("services[%d].hbbtv.app_dir: Ordner mit der Anwendung (index.html …)" % i)
+        hb["start"] = str(hb.get("start") or "index.html").strip().lstrip("/")
+    else:
+        hb["start"] = "index.html"
+        w = hb.get("weather") or {}
+        hb["weather"] = w
+        w["place"] = str(w.get("place") or "Berlin").strip()[:80]
+        for k in ("lat", "lon"):
+            if w.get(k) in ("", None):
+                w[k] = None
+            else:
+                try:
+                    w[k] = float(str(w[k]).replace(",", "."))
+                except ValueError:
+                    E.append("services[%d].hbbtv.weather.%s: Zahl (Grad, z. B. 52.52)" % (i, k))
+                    w[k] = None
+        if (w["lat"] is None) != (w["lon"] is None):
+            E.append("services[%d].hbbtv.weather: lat und lon zusammen angeben (oder beide leer = Ort suchen)" % i)
+        w["refresh_min"] = min(180, max(5, _int(w.get("refresh_min"), 15)))
+        w["provider"] = str(w.get("provider") or "auto").lower()
+        if w["provider"] not in ("auto", "open-meteo", "met.no"):
+            E.append("services[%d].hbbtv.weather.provider: auto, open-meteo oder met.no" % i)
+        w["timezone"] = str(w.get("timezone") or "").strip() or None
+        if hb["app"] == "portal":
+            _hbbtv_portal(cfg, s, i, E, W)
+    hb["bitrate_kbps"] = _int(hb.get("bitrate_kbps"), oc_default_kbps(cfg["_rate_bps"]) * (3 if hb["app"] == "portal" else 1))
+    if not (8 <= hb["bitrate_kbps"] <= 10000):
+        E.append("services[%d].hbbtv.bitrate_kbps: 8..10000" % i)
+    hb["_base"], hb["_path"] = "", hb["start"]
+    hb["_oc_pid"] = cfg["ts"]["start_pid"] + 16 * i + 3
+    hb["_oc_tag"] = OC_TAG
+    hb["_carousel_id"] = i + 1
+    hb["_oc_bps"] = hb["bitrate_kbps"] * 1000
+
+
+def _hbbtv_portal(cfg, s, i, E, W):
+    """Portal (runner/dvb/hbbtv_portal.py): Seiten an/aus, RSS-Feeds, Bilder- und Videoordner, Info-Text, Live-Fenster.
+    share: das Portal auch in den anderen TV-Programmen ohne eigenes HbbTV signalisieren (gleiche AIT-/Karussell-PID),
+    damit es beim Umschalten im Multiplex weiterlaeuft."""
+    hb = s["hbbtv"]
+    pc = hb.get("portal") or {}
+    hb["portal"] = pc
+    pages = pc.get("pages") or {}
+    pc["pages"] = {k: bool(pages.get(k, k not in ("gallery", "media"))) for k in PORTAL_PAGES}
+    feeds = pc.get("feeds")
+    if isinstance(feeds, str):
+        feeds = feeds.split()
+    pc["feeds"] = [f.strip() for f in (feeds if feeds is not None else ["https://www.tagesschau.de/index~rss2.xml"]) if f and f.strip()]
+    for f in pc["feeds"]:
+        if not re.match(r"^https?://\S+$", f):
+            E.append("services[%d].hbbtv.portal.feeds: %s ist keine http(s)-Adresse" % (i, f))
+    pc["title"] = str(pc.get("title") or s["name"]).strip()[:40]
+    pc["gallery_dir"] = str(pc.get("gallery_dir") or "").strip()
+    if pc["pages"]["gallery"] and not pc["gallery_dir"]:
+        E.append("services[%d].hbbtv.portal.gallery_dir: Bilderordner fehlt" % i)
+    pc["media_dir"] = str(pc.get("media_dir") or "media/video").strip()
+    pc["info_title"] = str(pc.get("info_title") or "").strip()[:60]
+    pc["info_text"] = str(pc.get("info_text") or "").strip()[:1200]
+    pc["live"] = bool(pc.get("live", True))
+    pc["share"] = bool(pc.get("share", True))
+    pc["ssh"] = bool(pc.get("ssh", False))      # SSH-Terminal ueber den Muxwright-PC (nur LAN-Modus, PIN)
 
 
 def _budget(cfg, W):
@@ -884,6 +994,7 @@ def _budget(cfg, W):
     # PAT/PMT je Bild + NIT/SDT (ffmpeg, per tsp ersetzt): bei großen Raten pauschal 250 kbit/s, bei DATV-Raten ~ 8 %
     si = (250000 if R >= 4e6 else max(25000, 0.08 * R)) + cfg["ts"]["eit_bitrate"] + cfg["ts"]["tdt_bitrate"] +         (cfg["teletext"].get("_bps", 0) if cfg["teletext"].get("enable") else 0)
     si += HBBTV_BPS * sum(1 for s in cfg["services"] if s["hbbtv"].get("enable"))
+    si += sum(s["hbbtv"].get("_oc_bps", 0) for s in cfg["services"] if s["hbbtv"].get("enable"))
     audio = sum(s["audio"]["bitrate_kbps"] * 1000 * 1.08 for s in cfg["services"])
     avail = R * 0.96 - si - audio
     autos = [s for s in cfg["services"] if s["type"] == "tv" and str(s["video"]["bitrate_kbps"]).lower() == "auto"]
@@ -950,5 +1061,5 @@ def summary(cfg):
                                                        s["video"].get("bitrate_kbps")) if s["type"] == "tv" else None,
                           "audio": (s["audio"]["codec"], s["audio"]["bitrate_kbps"]), "source": s["source"]["kind"],
                           "pmt_pid": s.get("_pmt_pid_out", s["_pmt_pid"]), "video_pid": s["_vpid"], "audio_pid": s["_apid"],
-                          "ait_pid": s["hbbtv"].get("_pid")}
+                          "ait_pid": s["hbbtv"].get("_pid"), "carousel_pid": s["hbbtv"].get("_oc_pid")}
                          for s in cfg["services"]]}
