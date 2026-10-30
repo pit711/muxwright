@@ -1016,6 +1016,23 @@ def onboarding_flow(browser, base: str, console: Console):
     flash.click()
     expect(page.locator(T("fw-history"))).to_contain_text("flash", timeout=10000)
 
+    step("Firmware: Gerät Fishball wählen, SD-Karte schreiben, zurück zum Pluto")
+    expect(page.locator(T("fw-board-pluto"))).to_be_checked()
+    page.check(T("fw-board-fishball7010"))
+    expect(page.locator(T("fw-sd-img"))).to_contain_text("tezuka-v0.3.24+muxwright", timeout=5000)
+    expect(page.locator("[data-testid^='fw-ram_test-']")).to_have_count(0)        # kein RAM-Test/Flash beim Fishball
+    assert api(base, "/api/firmware")["board"] == "fishball7010"
+    sdw = page.locator(T("fw-sd-write"))
+    expect(page.locator(T("fw-sd-drive"))).to_have_value("E:")                    # einzige Karte vorausgewählt
+    expect(sdw).to_be_disabled()                                                 # Bestätigung fehlt
+    page.check(T("fw-sd-confirm"))
+    expect(sdw).to_be_enabled()
+    sdw.click()
+    expect(page.locator(T("fw-job-result"))).to_contain_text("✓", timeout=10000)
+    expect(page.locator(T("fw-history"))).to_contain_text("sd_write")
+    page.check(T("fw-board-pluto"))
+    expect(page.locator("[data-testid^='fw-ram_test-']")).to_have_count(1, timeout=5000)
+
     step("Einrichtung: erneut öffnen, Amateurfunk mit Rufzeichen")
     cfg_before = api(base, "/api/state")["config"]
     page.click(T("onb-open"))

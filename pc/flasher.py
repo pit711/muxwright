@@ -8,13 +8,90 @@ Ablauf wie pluto_fw/boot_ram.cmd und README „Flashen, Weg B“:
   backup:   SSH „cat /dev/mtd3“ → FIT (Länge aus dem FDT-Kopf) → runtime/firmware/backup_<datum>_<fw>.frm (+ md5).
 Ist der Pluto per SSH nicht erreichbar, wartet der Flasher bis zu 3 min auf ein DFU-Gerät (Taste beim Einstecken halten).
 Images: nur die mitgelieferte, am Gerät geprüfte Firmware (pluto_fw/firmware) und die eigenen Sicherungen (Rückweg).
+
+Geräteauswahl (board, vom Nutzer gewählt, in flasher.json gespeichert):
+  pluto         ADALM-Pluto: Ablauf oben (DFU, RAM-Test, Flash).
+  fishball7010  Fishball/PlutoSky Zynq 7010 (AD9363): Muxwright auf Tezuka-Basis, startet nur von SD-Karte.
+                sd_write kopiert sdimg/ auf einen Wechseldatenträger (FAT32); vorhandene gleichnamige Dateien werden
+                vorher nach runtime/firmware/sd_backup_<datum>/ gesichert, danach wird jede Datei per SHA-256 geprüft.
+                Der QSPI-Flash des Boards wird nie angefasst.
 """
-import datetime as dt, hashlib, json, os, re, struct, subprocess, threading, time, urllib.request, zlib
+import ctypes, datetime as dt, hashlib, json, os, re, shutil, struct, subprocess, threading, time, urllib.request, zlib
 
 NOWIN = 0x08000000 if os.name == "nt" else 0
 MAGIC = b"ITB PlutoSDR (ADALM-PLUTO)"
 MTD3_MAX = 0x1E00000          # 30 MiB
 DFU_IDS = "0456:b673,0456:b674"
+BOARDS = {
+    "pluto": {"method": "dfu"},
+    "fishball7010": {"method": "sd", "dirs": (("pluto_fw", "firmware", "fishball7010"), ("pluto_fw", "out", "tezuka", "fishball"))},
+}
+SD_REQUIRED = ("BOOT.bin", "uImage", "uramdisk.image.xz", "devicetree.dtb", "uEnv.txt")
+_SHA_CACHE = {}               # (Pfad, Größe, mtime_ns) -> SHA-256 der mitgelieferten Image-Dateien (nicht der Karte)
+
+
+def sd_image(root, board):
+    """Mitgeliefertes SD-Image eines Boards → dict (ok, errors, version, files[(rel, sha256, size)], dir) oder None."""
+    for parts in BOARDS[board].get("dirs", ()):
+        d = os.path.join(root, *parts)
+        if not os.path.isdir(os.path.join(d, "sdimg")):
+            continue
+        errs, files = [], []
+        sums = {}
+        try:
+            for ln in open(os.path.join(d, "SHA256SUMS"), encoding="utf-8"):
+                m = re.match(r"([0-9a-f]{64})\s+\*?\.?/?(sdimg/\S+)", ln.strip())
+                if m:
+                    sums[m.group(2)] = m.group(1)
+        except OSError:
+            errs.append("SHA256SUMS missing")
+        for n in SD_REQUIRED:
+            if f"sdimg/{n}" not in sums:
+                errs.append(f"{n} missing")
+        for rel, want in sorted(sums.items()):
+            p = os.path.join(d, *rel.split("/"))
+            if not os.path.isfile(p):
+                errs.append(f"{rel} missing")
+                continue
+            st = os.stat(p)
+            key = (p, st.st_size, st.st_mtime_ns)
+            if key not in _SHA_CACHE:
+                _SHA_CACHE[key] = file_sha256(p)
+            if _SHA_CACHE[key] != want:
+                errs.append(f"{rel}: SHA-256 mismatch")
+            files.append((rel[len("sdimg/"):], want, os.path.getsize(p)))
+        return {"dir": d, "ok": not errs, "errors": errs, "version": sidecar_version(os.path.join(d, "x")),
+                "files": files, "size": sum(f[2] for f in files)}
+    return None
+
+
+def file_sha256(p):
+    h = hashlib.sha256()
+    with open(p, "rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+
+def removable_drives():
+    """Windows: Wechseldatenträger → [{drive: 'E:', label, fs, size, free}]; andere Systeme: []."""
+    if os.name != "nt":
+        return []
+    k = ctypes.windll.kernel32
+    out, mask = [], k.GetLogicalDrives()
+    for i in range(26):
+        if not mask & (1 << i):
+            continue
+        root = f"{chr(65 + i)}:\\"
+        if k.GetDriveTypeW(root) != 2:                  # DRIVE_REMOVABLE
+            continue
+        label, fs = ctypes.create_unicode_buffer(261), ctypes.create_unicode_buffer(261)
+        if not k.GetVolumeInformationW(root, label, 261, None, None, None, fs, 261):
+            continue                                    # kein Medium eingelegt
+        free, total = ctypes.c_ulonglong(), ctypes.c_ulonglong()
+        k.GetDiskFreeSpaceExW(root, None, ctypes.byref(total), ctypes.byref(free))
+        out.append({"drive": root[:2], "root": root, "label": label.value, "fs": fs.value, "size": total.value, "free": free.value})
+    return out
 
 
 def make_dfu(itb):
@@ -30,13 +107,13 @@ def check_itb(itb):
     """-> Liste der Fehler (leer = ok)."""
     err = []
     if itb[:4] != b"\xd0\x0d\xfe\xed":
-        err.append("kein FIT-Image (FDT-Magic fehlt)")
+        err.append("not a FIT image (FDT magic missing)")
     elif struct.unpack(">I", itb[4:8])[0] != len(itb):
-        err.append("FIT-Länge stimmt nicht")
+        err.append("FIT length mismatch")
     if MAGIC not in itb[:8192]:
-        err.append("keine Pluto-Firmware („ITB PlutoSDR (ADALM-PLUTO)“ fehlt)")
+        err.append("not a Pluto firmware (\"ITB PlutoSDR (ADALM-PLUTO)\" missing)")
     if len(itb) > MTD3_MAX:
-        err.append(f"zu groß für den Flash ({len(itb) // 1048576} MiB > 30 MiB)")
+        err.append(f"too large for the flash ({len(itb) // 1048576} MiB > 30 MiB)")
     return err
 
 
@@ -46,15 +123,15 @@ def read_image(path):
     if path.lower().endswith(".frm"):
         itb, tail = data[:-33], data[-33:]
         if not re.fullmatch(rb"[0-9a-f]{32}\n", tail) or hashlib.md5(itb).hexdigest().encode() != tail[:32]:
-            return itb, ["md5-Prüfsumme der .frm-Datei stimmt nicht (Datei beschädigt?)"]
+            return itb, ["md5 checksum of the .frm file does not match (file damaged?)"]
     elif path.lower().endswith(".dfu"):
         itb, suf = data[:-16], data[-16:]
         if suf[8:11] != b"UFD" or make_dfu(itb) != data:
-            return itb, ["DFU-Suffix/CRC der .dfu-Datei stimmt nicht"]
+            return itb, ["DFU suffix/CRC of the .dfu file does not match"]
         if suf[2:6] != struct.pack("<HH", 0xB673, 0x0456):
-            return itb, ["DFU-Datei ist nicht für den Pluto (USB-ID)"]
+            return itb, ["DFU file is not for the Pluto (USB ID)"]
     else:
-        return b"", ["nur .frm oder .dfu"]
+        return b"", ["only .frm or .dfu"]
     return itb, check_itb(itb)
 
 
@@ -84,6 +161,7 @@ class Flasher:
         self.agent_url = agent_url
         self.fw_now = fw_now or (lambda: None)          # aktuell laufende Firmware (aus iio-Kontext)
         self.wait_scale = wait_scale
+        self.drives = removable_drives                  # austauschbar für Tests
         self.lock = threading.Lock()
         self.job = {"running": False, "action": None, "image": None, "phase": None, "lines": [], "result": None, "error": None,
                     "started": None, "finished": None}
@@ -148,32 +226,120 @@ class Flasher:
         with self.lock:
             job = dict(self.job, lines=self.job["lines"][-40:])
         s = self._state()
+        board = s.get("board")
+        sd = {}
+        for b, spec in BOARDS.items():
+            if spec["method"] == "sd":
+                im = sd_image(self.root, b)
+                sd[b] = im and {k: v for k, v in im.items() if k != "dir"}
         return {"images": self.images(), "job": job, "running_fw": self.fw_now(), "history": s.get("history", [])[-10:],
-                "user_dir": self.fwdir}
+                "user_dir": self.fwdir, "board": board, "boards": {b: v["method"] for b, v in BOARDS.items()},
+                "sd_images": sd, "sd_drives": self.drives()}
+
+    def set_board(self, board):
+        if board not in BOARDS:
+            return 400, {"ok": False, "errors": ["unknown board"]}
+        s = self._state()
+        s["board"] = board
+        self._save_state(s)
+        return 200, {"ok": True, "board": board}
 
     # ---------------------------------------------------------------- Aufträge
-    def start(self, action, image_id=None, confirm=False):
+    def start(self, action, image_id=None, confirm=False, drive=None, board=None):
+        if action == "set_board":
+            return self.set_board(board)
+        if action == "sd_write":
+            return self._start_sd(board or self._state().get("board"), drive, confirm)
         if action not in ("ram_test", "flash", "backup"):
-            return 400, {"ok": False, "errors": ["unbekannte Aktion"]}
+            return 400, {"ok": False, "errors": ["unknown action"]}
         img = None
         if action != "backup":
             img = next((i for i in self.images() if i["id"] == image_id), None)
             if img is None:
-                return 404, {"ok": False, "errors": ["Image nicht gefunden"]}
+                return 404, {"ok": False, "errors": ["image not found"]}
             if not img["ok"]:
                 return 400, {"ok": False, "errors": img["errors"]}
         if action == "flash":
             if not img["ram_tested"] and img["kind"] != "backup":   # Sicherung = lief schon auf diesem Gerät
-                return 409, {"ok": False, "errors": ["Erst den RAM-Test mit genau diesem Image bestehen, dann flashen"]}
+                return 409, {"ok": False, "errors": ["Pass the RAM test with exactly this image first, then flash"]}
             if confirm is not True:
-                return 400, {"ok": False, "errors": ["Flashen muss ausdrücklich bestätigt werden (confirm: true)"]}
+                return 400, {"ok": False, "errors": ["Flashing must be confirmed explicitly (confirm: true)"]}
         with self.lock:
             if self.job["running"]:
-                return 409, {"ok": False, "errors": ["Es läuft bereits ein Firmware-Auftrag"]}
+                return 409, {"ok": False, "errors": ["A firmware job is already running"]}
             self.job = {"running": True, "action": action, "image": img and img["id"], "phase": "start", "lines": [], "result": None,
                         "error": None, "started": time.time(), "finished": None}
         threading.Thread(target=self._run, args=(action, img), daemon=True, name=f"fw-{action}").start()
         return 200, {"ok": True}
+
+    def _start_sd(self, board, drive, confirm):
+        if BOARDS.get(board, {}).get("method") != "sd":
+            return 400, {"ok": False, "errors": ["this board has no SD card image"]}
+        im = sd_image(self.root, board)
+        if im is None:
+            return 404, {"ok": False, "errors": ["SD card image not found"]}
+        if not im["ok"]:
+            return 400, {"ok": False, "errors": im["errors"]}
+        d = next((x for x in self.drives() if x["drive"].upper() == str(drive or "").upper()), None)
+        if d is None:
+            return 400, {"ok": False, "errors": ["choose a removable drive (SD card)"]}
+        if d["fs"].upper() not in ("FAT32", "FAT"):
+            return 400, {"ok": False, "errors": [f"{d['drive']} is {d['fs'] or 'unformatted'} – format the card as FAT32 first"]}
+        if confirm is not True:
+            return 400, {"ok": False, "errors": ["Writing the SD card must be confirmed explicitly (confirm: true)"]}
+        with self.lock:
+            if self.job["running"]:
+                return 409, {"ok": False, "errors": ["A firmware job is already running"]}
+            self.job = {"running": True, "action": "sd_write", "image": board, "phase": "start", "lines": [], "result": None,
+                        "error": None, "started": time.time(), "finished": None}
+        threading.Thread(target=self._run_sd, args=(board, im, d), daemon=True, name="fw-sd").start()
+        return 200, {"ok": True}
+
+    def _run_sd(self, board, im, d):
+        ok, err, extra = False, None, {}
+        try:
+            extra["drive"] = d["drive"]
+            dst = d.get("root") or d["drive"] + "\\"
+            need = im["size"] - sum(os.path.getsize(os.path.join(dst, *rel.split("/")))
+                                    for rel, _, _ in im["files"] if os.path.isfile(os.path.join(dst, *rel.split("/"))))
+            if need > d["free"] - 1048576:
+                raise RuntimeError(f"not enough space on {d['drive']} ({need // 1048576} MiB needed)")
+            old = [rel for rel, _, _ in im["files"] if os.path.isfile(os.path.join(dst, *rel.split("/")))]
+            if old:
+                bdir = os.path.join(self.fwdir, f"sd_backup_{dt.datetime.now():%Y%m%d-%H%M%S}_{d['drive'][0]}")
+                self._line(f"Backing up {len(old)} existing file(s) from {d['drive']} to {bdir}", "backup")
+                for rel in old:
+                    t = os.path.join(bdir, *rel.split("/"))
+                    os.makedirs(os.path.dirname(t), exist_ok=True)
+                    shutil.copy2(os.path.join(dst, *rel.split("/")), t)
+                extra["sd_backup"] = os.path.basename(bdir)
+            self._line(f"Writing {im['version'] or board} to {d['drive']} ({d['label'] or 'no label'}, {d['fs']}) …", "copy")
+            for rel, _, size in im["files"]:
+                src = os.path.join(im["dir"], "sdimg", *rel.split("/"))
+                t = os.path.join(dst, *rel.split("/"))
+                os.makedirs(os.path.dirname(t), exist_ok=True)
+                with open(src, "rb") as fi, open(t, "wb") as fo:
+                    shutil.copyfileobj(fi, fo, 1 << 20)
+                    fo.flush()
+                    os.fsync(fo.fileno())
+                self._line(f"  {rel} ({size // 1024} KiB)")
+            self._line("Verifying (SHA-256) …", "verify")
+            bad = [rel for rel, want, _ in im["files"] if file_sha256(os.path.join(dst, *rel.split("/"))) != want]
+            if bad:
+                raise RuntimeError("verification failed: " + ", ".join(bad))
+            self._line(f"{len(im['files'])} files verified. Eject the card safely, insert it into the board and power it on.")
+            extra["fw"] = im["version"]
+            ok = True
+        except Exception as e:
+            err = f"{e}"
+        s = self._state()
+        s.setdefault("history", []).append({"at": dt.datetime.now().isoformat(timespec="seconds"), "action": "sd_write",
+                                            "image": board, "ok": ok, "error": err, **extra})
+        self._save_state(s)
+        self._line(("@@OK " if ok else "@@FAIL ") + (err or "sd_write"), "done")
+        with self.lock:
+            self.job.update(running=False, result="ok" if ok else "fail", error=err, finished=time.time(), **extra)
+        self.log("info" if ok else "error", f"Firmware sd_write {board}: {'ok' if ok else err}")
 
     def _line(self, s, phase=None):
         with self.lock:
@@ -187,7 +353,7 @@ class Flasher:
         held = False
         try:
             if self.app is not None:
-                self._line("Senden gestoppt, Pluto für den Flasher freigegeben", "release")
+                self._line("Transmission stopped, Pluto released for the flasher", "release")
                 self.app.hold(True)
                 held = True
             if action == "backup":
@@ -195,11 +361,11 @@ class Flasher:
                 ok = True
             else:
                 if action == "flash" and not self._has_backup():
-                    self._line("Noch keine Sicherung der laufenden Firmware – lege sie zuerst an", "backup")
+                    self._line("No backup of the running firmware yet – creating it first", "backup")
                     try:
                         extra["backup"] = self._backup()
                     except Exception as e:
-                        raise RuntimeError(f"Sicherung fehlgeschlagen, Flashen abgebrochen: {e}")
+                        raise RuntimeError(f"Backup failed, flashing aborted: {e}")
                 fw = self._dfu(img, "ram" if action == "ram_test" else "sf")
                 extra["fw"] = fw
                 if action == "ram_test":
@@ -236,23 +402,23 @@ class Flasher:
         return self.ssh(cmd, timeout)
 
     def _backup(self):
-        self._line("lese mtd3 (Firmware-Partition) per SSH …", "backup")
+        self._line("reading mtd3 (firmware partition) via SSH …", "backup")
         rc, data, e = self._ssh("cat /dev/mtd3", timeout=180)
         if rc != 0 or len(data) < 1024:
-            raise RuntimeError(f"mtd3 lesen fehlgeschlagen ({rc}): {e}")
+            raise RuntimeError(f"reading mtd3 failed ({rc}): {e}")
         if data[:4] != b"\xd0\x0d\xfe\xed":
-            raise RuntimeError("mtd3 enthält kein FIT-Image")
+            raise RuntimeError("mtd3 does not contain a FIT image")
         n = struct.unpack(">I", data[4:8])[0]
         itb = bytes(data[:n])
         errs = check_itb(itb)
         if errs:
-            raise RuntimeError("Sicherung ungültig: " + "; ".join(errs))
-        fw = re.sub(r"[^\w.\-]", "_", self.fw_now() or "unbekannt")
+            raise RuntimeError("backup invalid: " + "; ".join(errs))
+        fw = re.sub(r"[^\w.\-]", "_", self.fw_now() or "unknown")
         os.makedirs(self.fwdir, exist_ok=True)
         dst = os.path.join(self.fwdir, f"backup_{dt.datetime.now():%Y%m%d-%H%M}_{fw}.frm")
         with open(dst, "wb") as f:
             f.write(make_frm(itb))
-        self._line(f"Sicherung: {os.path.basename(dst)} ({n // 1024} KiB, md5 {hashlib.md5(itb).hexdigest()[:12]}…)")
+        self._line(f"Backup: {os.path.basename(dst)} ({n // 1024} KiB, md5 {hashlib.md5(itb).hexdigest()[:12]}…)")
         return os.path.basename(dst)
 
     def _dfu_run(self, args, timeout):
@@ -277,35 +443,35 @@ class Flasher:
         tmp = os.path.join(self.fwdir, "_upload.dfu")
         with open(tmp, "wb") as f:
             f.write(make_dfu(itb))
-        self._line(f"Pluto in den DFU-Modus ({'RAM' if mode == 'ram' else 'Flash'}): device_reboot {mode}", "dfu_mode")
+        self._line(f"Pluto into DFU mode ({'RAM' if mode == 'ram' else 'Flash'}): device_reboot {mode}", "dfu_mode")
         try:
             self._ssh(f"sync; /usr/sbin/device_reboot {mode}", timeout=10)
         except Exception as e:
-            self._line(f"SSH nicht möglich ({e}) – Pluto bitte mit gedrückter Taste einstecken (DFU-Modus)")
+            self._line(f"SSH not possible ({e}) – please plug in the Pluto with the button held (DFU mode)")
         if not self._wait_dfu(180):
-            raise RuntimeError("kein DFU-Gerät gefunden (0456:b674). Pluto mit gedrückter Taste einstecken und erneut versuchen.")
-        self._line(f"lade {img['name']} ({len(itb) // 1024} KiB) …", "download")
+            raise RuntimeError("no DFU device found (0456:b674). Plug in the Pluto with the button held and try again.")
+        self._line(f"uploading {img['name']} ({len(itb) // 1024} KiB) …", "download")
         rc, out = self._dfu_run(["-a", "firmware.dfu", "-D", tmp], 600)
         for s in out.splitlines()[-6:]:
             self._line(s)
         if rc != 0:
-            raise RuntimeError(f"dfu-util Download fehlgeschlagen ({rc})")
-        self._line("Detach – der Pluto startet neu", "boot")
+            raise RuntimeError(f"dfu-util download failed ({rc})")
+        self._line("Detach – the Pluto reboots", "boot")
         rc, out = self._dfu_run(["-a", "firmware.dfu", "-e"], 60)
         if rc != 0:
-            raise RuntimeError("Detach fehlgeschlagen – der Pluto steht noch im DFU-Modus; Strom trennen stellt den alten Zustand her"
-                               if mode == "ram" else "Detach fehlgeschlagen – Pluto vom Strom trennen und neu einstecken")
+            raise RuntimeError("Detach failed – the Pluto is still in DFU mode; disconnecting power restores the previous state"
+                               if mode == "ram" else "Detach failed – disconnect the Pluto from power and plug it in again")
         try:
             os.remove(tmp)
         except OSError:
             pass
         fw = self._wait_boot(240 if mode == "sf" else 120)
         want = img.get("version")
-        self._line(f"Pluto meldet sich mit Firmware {fw or '?'}", "verify")
+        self._line(f"Pluto reports firmware {fw or '?'}", "verify")
         if want and fw and want != fw:
-            raise RuntimeError(f"Pluto läuft mit {fw}, erwartet {want}")
+            raise RuntimeError(f"Pluto runs {fw}, expected {want}")
         if not fw:
-            raise RuntimeError("Pluto hat sich nach dem Neustart nicht gemeldet")
+            raise RuntimeError("Pluto did not respond after the reboot (no USB network at 192.168.2.1)")
         return fw
 
     def _wait_boot(self, secs):

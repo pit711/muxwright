@@ -2168,7 +2168,28 @@ export const FW = {
   "stop_note": "Bir iş sırasında yayın kilitlidir; Pluto susturulur ve ardından yeniden bağlanır.",
   "recovery": "Geri dönüş: RAM testinden sonra USB'yi çıkarmanız yeterlidir. Flaşlamadan sonra yedeği seçip yeniden flaşlayın veya runtime\\firmware içindeki .frm dosyasını “PlutoSDR” sürücüsüne kopyalayıp çıkarın.",
   "dfu_hint": "DFU cihazı görünmezse: Pluto'yu düğmeyi basılı tutarak takın.",
-  "history": "Geçmiş"
+  "history": "Geçmiş",
+  "board": "Cihaz",
+  "board_pluto": "ADALM-Pluto (Rev. B/C)",
+  "board_fishball": "Fishball / PlutoSky (Zynq 7010, SD kart)",
+  "sd_intro": "Bu kart için Muxwright, microSD karttan açılan Tezuka (F5OEO) tabanlı bir yazılım sunar. Kartın flash belleği asla değiştirilmez; SD kart olmadan önceki yazılımla açılır.",
+  "sd_warn": "Test sürümü, gerçek donanımda henüz doğrulanmadı. RAM testi ve flash yazma yalnızca orijinal ADALM-Pluto içindir.",
+  "sd_files": "dosya",
+  "sd_ok": "doğrulandı (SHA-256)",
+  "sd_missing": "Pakette bu kart için SD kart imajı yok.",
+  "sd_drive": "SD kart",
+  "sd_none": "çıkarılabilir sürücü bulunamadı",
+  "sd_rescan": "Yeniden ara",
+  "sd_fat": "Kart {fs} olarak biçimlendirilmiş; cihaz FAT32 gerektirir. Önce FAT32 olarak biçimlendirin.",
+  "sd_confirm": "Anladım: açılış dosyaları seçilen karta yazılır. Aynı adlı dosyalar önce runtime\\firmware klasörüne yedeklenir; diğer dosyalar kartta kalır.",
+  "b_sd": "SD karta yaz",
+  "sd_steps": "Ardından: kartı güvenle çıkarın, cihaza takın, USB'yi bağlayın ve açın. Yaklaşık 30 sn sonra Muxwright cihazı 192.168.2.1 adresinde bulur. Geri dönüş: kartı çıkarın (veya eskisini takın).",
+  "sd_phases": {
+    "backup": "Yedek",
+    "copy": "Kopyalama",
+    "verify": "Doğrulama",
+    "done": "Son"
+  }
 };
 export const CREDITS = {
   "h": "Teşekkürler",

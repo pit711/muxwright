@@ -54,6 +54,13 @@ This repository contains the complete source. There are no binary releases here 
 | **Live preview** | Every transmitted TV programme as smooth video (about 12 frames/s) decoded from the finished transport stream, next to the picture received back through the Pluto's RX path – on the Regie tile and the programme page, enlarge with a click |
 | **No codecs shipped** | FFmpeg, x264/x265, ODR-mmbTools with FDK-AAC, TSDuck and welle-cli are installed by the user from the official sources (see [Licences and codecs](#licences-and-codecs)) |
 
+### New in Beta 0.7.1
+
+| Feature | Details | Verification so far |
+|---|---|---|
+| **Fishball / PlutoSky 7010 support** | The Firmware page now asks which device you use: the original ADALM-Pluto (RAM test, backup, flash as before) or a Fishball/PlutoSky board (Zynq 7010, AD9363). For the Fishball, Muxwright ships an SD card image based on the [Tezuka firmware](https://github.com/F5OEO/tezuka_fw) by F5OEO with the Muxwright agent and on-device modulators added, and writes it to a FAT32 card: files already on the card are backed up first, every written file is verified (SHA-256), the board's flash is never touched | modulator self-test passed under ARM emulation; **not yet tested on real Fishball hardware** – feedback welcome |
+| **English firmware log** | All messages of the firmware flasher are now in English | offline flasher test |
+
 ### New in Beta 0.7
 
 | Feature | Details | Verification so far |
@@ -156,7 +163,7 @@ PAL test pattern as decoded by the Pluto's own RX input:
 
 | | Minimum | Recommended |
 |---|---|---|
-| **SDR** | ADALM-Pluto **Rev. B** with the AD9364 unlock (70 MHz–6 GHz). Rev. C and AD9363 clones ("PlutoSDR development board", Pluto+) are untested; DAB+/FM over USB usually work, the modulator firmware has not been verified on them | original ADALM-Pluto Rev. B |
+| **SDR** | ADALM-Pluto **Rev. B** with the AD9364 unlock (70 MHz–6 GHz). Fishball/PlutoSky 7010 (AD9363): SD card firmware built in (Beta 0.7.1, not yet tested on hardware). Rev. C and other AD9363 clones ("PlutoSDR development board", Pluto+) are untested; DAB+/FM over USB usually work, the modulator firmware has not been verified on them | original ADALM-Pluto Rev. B |
 | **PC** | Windows 10 (2004+) / 11, 64-bit, WSL2 (virtualisation enabled in the BIOS), 8 GB RAM. Any 2-core CPU for DAB+/FM/SD | 6 cores / 12 threads for HD H.264 (x264), 16 cores or an NVIDIA GPU with NVENC (Turing or newer) for UHD/HDR10 |
 | **Cabling** | SMA → F (satellite IF, plus a **DC block** – receivers feed 13/18 V) or SMA → IEC (DVB-T/C, FM, PAL), 20–50 dB of attenuators | RF shielding box for antenna tests |
 
@@ -197,7 +204,8 @@ The full list of adapters, attenuators and QO-100 gear is on the [hardware page]
    `dablab`. A fresh machine takes about five minutes.
 4. For DVB-T/C/S/S2 and PAL the Pluto needs the Muxwright firmware: open **Firmware**, run the **RAM test** (flash
    untouched, unplugging restores the old firmware), then **Flash** – the running firmware is backed up first and
-   can be flashed back the same way.
+   can be flashed back the same way. With a **Fishball/PlutoSky 7010** choose that device on the Firmware page and
+   write the SD card image to a FAT32 microSD card instead; without the card the board starts its previous firmware.
 
 If WSL is missing entirely, run `wsl --install --no-distribution` once as administrator and reboot; the setup
 handles the rest. Useful start options: `Muxwright.exe --min-atten 40` (never louder than 40 dB attenuation),

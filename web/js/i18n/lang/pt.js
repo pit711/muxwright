@@ -2168,7 +2168,28 @@ export const FW = {
  "stop_note": "A transmissão fica bloqueada durante um job; o Pluto é silenciado e reconectado depois.",
  "recovery": "Caminho de volta: após um teste de RAM, basta desconectar o USB. Após gravar, selecione o backup e grave-o de novo, ou copie o arquivo .frm de runtime\\firmware para a unidade \"PlutoSDR\" e ejete-a.",
  "dfu_hint": "Se nenhum dispositivo DFU aparecer: conecte o Pluto segurando o botão.",
- "history": "Histórico"
+ "history": "Histórico",
+ "board": "Dispositivo",
+ "board_pluto": "ADALM-Pluto (Rev. B/C)",
+ "board_fishball": "Fishball / PlutoSky (Zynq 7010, cartão SD)",
+ "sd_intro": "Para esta placa, o Muxwright inclui um firmware baseado no Tezuka (F5OEO) que arranca a partir de um cartão microSD. A flash da placa nunca é alterada; sem o cartão, ela arranca com o firmware anterior.",
+ "sd_warn": "Versão de teste, ainda não verificada em hardware real. O teste de RAM e a gravação na flash são apenas para o ADALM-Pluto original.",
+ "sd_files": "arquivos",
+ "sd_ok": "verificado (SHA-256)",
+ "sd_missing": "Não há imagem de cartão SD para esta placa no pacote.",
+ "sd_drive": "Cartão SD",
+ "sd_none": "nenhuma unidade removível encontrada",
+ "sd_rescan": "Procurar novamente",
+ "sd_fat": "O cartão está formatado como {fs}; a placa precisa de FAT32. Formate-o primeiro como FAT32.",
+ "sd_confirm": "Entendi: os arquivos de inicialização são gravados no cartão escolhido. Arquivos com o mesmo nome são antes copiados para runtime\\firmware; os demais arquivos permanecem no cartão.",
+ "b_sd": "Gravar no cartão SD",
+ "sd_steps": "Depois: ejete o cartão com segurança, insira-o na placa, conecte o USB e ligue. Após cerca de 30 s o Muxwright encontra a placa em 192.168.2.1. Para voltar: retire o cartão (ou coloque o antigo).",
+ "sd_phases": {
+  "backup": "Backup",
+  "copy": "Cópia",
+  "verify": "Verificação",
+  "done": "Fim"
+ }
 };
 export const CREDITS = {
  "h": "Agradecimentos",

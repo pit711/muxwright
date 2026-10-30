@@ -414,7 +414,7 @@ SETUP_META = [("wsl_distro", False, []), ("base", False, ["wsl_distro"]), ("ffmp
 
 
 # simulierter Firmware-Flasher (wie pc/flasher.py)
-FWM = {"tested": False, "history": [], "job": {"running": False, "action": None, "phase": None, "lines": [], "result": None, "error": None}}
+FWM = {"tested": False, "board": None, "history": [], "job": {"running": False, "action": None, "phase": None, "lines": [], "result": None, "error": None}}
 FW_IMG = {"id": "76a35113aa000000", "kind": "shipped", "name": "pluto_fw\\firmware\\pluto.frm", "version": "v0.31-dablab.20261023-b3",
           "size": 10128723, "sha256": "76a35113" + "0" * 56, "ok": True, "errors": []}
 
@@ -422,12 +422,15 @@ FW_IMG = {"id": "76a35113aa000000", "kind": "shipped", "name": "pluto_fw\\firmwa
 def fw_status():
     img = dict(FW_IMG, ram_tested={"at": "2026-10-23T21:00:00", "fw": FW_IMG["version"]} if FWM["tested"] else None)
     return {"images": [img], "job": dict(FWM["job"]), "running_fw": "v0.31-dablab.20261023-b3", "history": FWM["history"][-10:],
-            "user_dir": "runtime\\firmware"}
+            "user_dir": "runtime\\firmware", "board": FWM["board"], "boards": {"pluto": "dfu", "fishball7010": "sd"},
+            "sd_images": {"fishball7010": {"ok": True, "errors": [], "version": "tezuka-v0.3.24+muxwright.20261030",
+                                           "files": [["BOOT.bin", "0" * 64, 786352]] * 10, "size": 29052599}},
+            "sd_drives": [{"drive": "E:", "root": "E:\\", "label": "SDCARD", "fs": "FAT32", "size": 15931539456, "free": 15000000000}]}
 
 
 def fw_job(action):
     FWM["job"] = {"running": True, "action": action, "phase": "release", "lines": ["Pluto freigegeben"], "result": None, "error": None}
-    for ph in ("dfu_mode", "download", "boot", "verify"):
+    for ph in (("backup", "copy", "verify") if action == "sd_write" else ("dfu_mode", "download", "boot", "verify")):
         time.sleep(0.15)
         FWM["job"]["phase"] = ph
         FWM["job"]["lines"].append(ph)
@@ -1135,7 +1138,14 @@ class H(BaseHTTPRequestHandler):
         if p == "/api/firmware":
             d = self.jbody()
             act = d.get("action")
-            if act not in ("ram_test", "flash", "backup"):
+            if act == "set_board":
+                if d.get("board") not in ("pluto", "fishball7010"):
+                    return self.send_json({"ok": False, "errors": ["unknown board"]}, 400)
+                FWM["board"] = d["board"]
+                return self.send_json({"ok": True, "board": d["board"]})
+            if act == "sd_write" and (d.get("drive") != "E:" or d.get("confirm") is not True):
+                return self.send_json({"ok": False, "errors": ["choose a drive and confirm"]}, 400)
+            if act not in ("ram_test", "flash", "backup", "sd_write"):
                 return self.send_json({"ok": False, "errors": ["unbekannte Aktion"]}, 400)
             if act == "flash" and not FWM["tested"]:
                 return self.send_json({"ok": False, "errors": ["Erst den RAM-Test bestehen"]}, 409)

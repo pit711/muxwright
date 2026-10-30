@@ -2168,7 +2168,28 @@ export const FW = {
  "stop_note": "Během úlohy je vysílání zablokováno; Pluto se ztlumí a poté znovu připojí.",
  "recovery": "Cesta zpět: po testu RAM stačí odpojit USB. Po flashování vyberte zálohu a flashujte ji znovu, nebo zkopírujte soubor .frm z runtime\\firmware na jednotku \"PlutoSDR\" a vysuňte ji.",
  "dfu_hint": "Pokud se neobjeví žádné zařízení DFU: připojte Pluto se stisknutým tlačítkem.",
- "history": "Historie"
+ "history": "Historie",
+ "board": "Zařízení",
+ "board_pluto": "ADALM-Pluto (Rev. B/C)",
+ "board_fishball": "Fishball / PlutoSky (Zynq 7010, SD karta)",
+ "sd_intro": "Pro tuto desku dodává Muxwright firmware založený na Tezuka (F5OEO), který se spouští z karty microSD. Flash desky se nikdy nemění; bez karty deska nastartuje s dosavadním firmwarem.",
+ "sd_warn": "Testovací verze, zatím neověřená na skutečném hardwaru. Test v RAM a flashování jsou jen pro původní ADALM-Pluto.",
+ "sd_files": "souborů",
+ "sd_ok": "ověřeno (SHA-256)",
+ "sd_missing": "V balíčku není obraz SD karty pro tuto desku.",
+ "sd_drive": "SD karta",
+ "sd_none": "nenalezena žádná vyměnitelná jednotka",
+ "sd_rescan": "Hledat znovu",
+ "sd_fat": "Karta je naformátovaná jako {fs}; deska potřebuje FAT32. Nejprve ji naformátujte na FAT32.",
+ "sd_confirm": "Rozumím: spouštěcí soubory se zapíší na vybranou kartu. Soubory se stejným názvem se předtím zálohují do runtime\\firmware; ostatní soubory na kartě zůstanou.",
+ "b_sd": "Zapsat na SD kartu",
+ "sd_steps": "Potom: kartu bezpečně vysuňte, vložte do desky, připojte USB a zapněte. Asi po 30 s najde Muxwright desku na 192.168.2.1. Cesta zpět: kartu vyjměte (nebo vložte starou).",
+ "sd_phases": {
+  "backup": "Záloha",
+  "copy": "Kopírování",
+  "verify": "Kontrola",
+  "done": "Konec"
+ }
 };
 export const CREDITS = {
  "h": "Poděkování",

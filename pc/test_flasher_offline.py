@@ -123,8 +123,46 @@ def main():
         img = f.images()[0]
         code, r = f.start("ram_test", img["id"])
         j = wait()
-        assert j["result"] == "fail" and "erwartet v9.99" in (j["error"] or ""), j
-        print("OK – Flasher offline geprüft:", len(open(log).read().splitlines()), "dfu-util-Aufrufe,", len(backups), "Sicherungen gelistet")
+        assert j["result"] == "fail" and "expected v9.99" in (j["error"] or ""), j
+
+        # Fishball/PlutoSky: SD-Karten-Image (kleines Testimage) auf einen gefälschten Wechseldatenträger
+        sdsrc = os.path.join(root, "pluto_fw", "firmware", "fishball7010")
+        os.makedirs(os.path.join(sdsrc, "sdimg", "overclock"))
+        for n in flasher.SD_REQUIRED + ("overclock/BOOT_fsbl_CPU950_DDR600",):
+            open(os.path.join(sdsrc, "sdimg", *n.split("/")), "wb").write(os.urandom(4096) + n.encode())
+        open(os.path.join(sdsrc, "VERSION"), "w").write("tezuka-test+muxwright\n")
+        with open(os.path.join(sdsrc, "SHA256SUMS"), "w") as fs:
+            for n in flasher.SD_REQUIRED + ("overclock/BOOT_fsbl_CPU950_DDR600",):
+                fs.write(f"{flasher.file_sha256(os.path.join(sdsrc, 'sdimg', *n.split('/')))}  ./sdimg/{n}\n")
+        card = os.path.join(tmp, "card")
+        os.makedirs(card)
+        open(os.path.join(card, "BOOT.bin"), "wb").write(b"alte Werksfirmware")
+        open(os.path.join(card, "fremd.txt"), "w").write("bleibt")
+        drives = [{"drive": "Q:", "root": card, "label": "SD", "fs": "FAT32", "size": 8 << 30, "free": 4 << 30}]
+        f.drives = lambda: drives
+        s = f.status()
+        assert s["sd_images"]["fishball7010"]["ok"] and s["sd_images"]["fishball7010"]["version"] == "tezuka-test+muxwright", s["sd_images"]
+        assert f.start("set_board", board="fishball7010")[0] == 200 and f.status()["board"] == "fishball7010"
+        assert f.start("set_board", board="gibtsnicht")[0] == 400
+        assert f.start("sd_write", drive="Q:")[0] == 400, "ohne Bestätigung"
+        assert f.start("sd_write", drive="Z:", confirm=True)[0] == 400, "unbekanntes Laufwerk"
+        drives[0]["fs"] = "exFAT"
+        code, r = f.start("sd_write", drive="Q:", confirm=True)
+        assert code == 400 and "FAT32" in r["errors"][0], r
+        drives[0]["fs"] = "FAT32"
+        code, r = f.start("sd_write", drive="Q:", confirm=True)
+        assert code == 200, r
+        j = wait()
+        assert j["result"] == "ok", j
+        for n in flasher.SD_REQUIRED:
+            assert open(os.path.join(card, n), "rb").read() == open(os.path.join(sdsrc, "sdimg", n), "rb").read(), n
+        assert open(os.path.join(card, "fremd.txt")).read() == "bleibt"
+        bk = [n for n in os.listdir(os.path.join(runtime, "firmware")) if n.startswith("sd_backup_")]
+        assert len(bk) == 1 and open(os.path.join(runtime, "firmware", bk[0], "BOOT.bin"), "rb").read() == b"alte Werksfirmware", bk
+        # beschädigtes mitgeliefertes Image wird abgelehnt
+        open(os.path.join(sdsrc, "sdimg", "uImage"), "ab").write(b"x")
+        assert f.start("sd_write", drive="Q:", confirm=True)[0] == 400
+        print("OK – Flasher offline geprüft:", len(open(log).read().splitlines()), "dfu-util-Aufrufe,", len(backups), "Sicherungen gelistet, SD-Karte geschrieben")
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

@@ -3045,7 +3045,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(*onboarding_save(body))
             if p == "/api/firmware":
                 b = body or {}
-                return self._send(*FLASHER.start(str(b.get("action") or ""), b.get("image"), confirm=b.get("confirm") is True))
+                return self._send(*FLASHER.start(str(b.get("action") or ""), b.get("image"), confirm=b.get("confirm") is True,
+                                                 drive=b.get("drive"), board=b.get("board")))
             if p == "/api/setup/install_all":
                 if (body or {}).get("accepted") is not True:
                     return self._send(400, {"ok": False, "errors": ["Lizenzen müssen bestätigt werden (accepted: true)"]})

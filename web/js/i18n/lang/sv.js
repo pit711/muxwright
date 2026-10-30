@@ -2168,7 +2168,28 @@ export const FW = {
  "stop_note": "Sändning är spärrad under ett jobb; Pluto tystas och ansluts igen efteråt.",
  "recovery": "Väg tillbaka: efter ett RAM-test räcker det att koppla ur USB. Efter flashning, välj säkerhetskopian och flasha den igen, eller kopiera .frm-filen från runtime\\firmware till enheten \"PlutoSDR\" och mata ut den.",
  "dfu_hint": "Om ingen DFU-enhet visas: anslut Pluto medan du håller in knappen.",
- "history": "Historik"
+ "history": "Historik",
+ "board": "Enhet",
+ "board_pluto": "ADALM-Pluto (Rev. B/C)",
+ "board_fishball": "Fishball / PlutoSky (Zynq 7010, SD-kort)",
+ "sd_intro": "För detta kort levererar Muxwright en firmware baserad på Tezuka (F5OEO) som startar från ett microSD-kort. Kortets flash ändras aldrig; utan SD-kortet startar det med sin tidigare firmware.",
+ "sd_warn": "Testversion, ännu inte kontrollerad på riktig hårdvara. RAM-test och flashning gäller bara original-ADALM-Pluto.",
+ "sd_files": "filer",
+ "sd_ok": "kontrollerad (SHA-256)",
+ "sd_missing": "Ingen SD-kortavbild för detta kort i paketet.",
+ "sd_drive": "SD-kort",
+ "sd_none": "ingen flyttbar enhet hittades",
+ "sd_rescan": "Sök igen",
+ "sd_fat": "Kortet är formaterat som {fs}; enheten behöver FAT32. Formatera det först som FAT32.",
+ "sd_confirm": "Jag förstår: startfilerna skrivs till det valda kortet. Filer med samma namn säkerhetskopieras först till runtime\\firmware; andra filer ligger kvar på kortet.",
+ "b_sd": "Skriv till SD-kort",
+ "sd_steps": "Sedan: mata ut kortet säkert, sätt in det i enheten, anslut USB och slå på. Efter ca 30 s hittar Muxwright enheten på 192.168.2.1. Tillbaka: ta ut kortet (eller sätt in det gamla).",
+ "sd_phases": {
+  "backup": "Säkerhetskopia",
+  "copy": "Kopiera",
+  "verify": "Kontroll",
+  "done": "Slut"
+ }
 };
 export const CREDITS = {
  "h": "Tack",
